@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/shared/components/ui/dialog';
 import { Card, CardContent, CardHeader, CardTitle } from '@/shared/components/ui/card';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from '@/shared/components/ui/form';
 import { Input } from '@/shared/components/ui/input';
@@ -58,6 +59,7 @@ export function ProviderForm({ onSuccess, onCancel, initialData }: ProviderFormP
         bancaria?: File;
     }>({});
     const [existingDocuments, setExistingDocuments] = useState<ProviderDocument[]>([]);
+    const [previewDoc, setPreviewDoc] = useState<{ url: string; type: string } | null>(null);
 
     useEffect(() => {
         if (initialData) {
@@ -151,24 +153,22 @@ export function ProviderForm({ onSuccess, onCancel, initialData }: ProviderFormP
         <Card className="max-w-4xl mx-auto shadow-xl border-slate-200">
             <CardHeader className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white p-6">
                 <div className="flex items-center gap-3">
-                    <div className="p-2 bg-white/20 rounded-lg">
-                        <Building2 className="w-6 h-6" />
-                    </div>
+                    <User className="w-8 h-8" />
                     <div>
                         <CardTitle className="text-2xl font-bold">
                             {initialData ? 'Editar Proveedor/Cliente' : 'Nuevo Proveedor/Cliente'}
                         </CardTitle>
-                        <p className="text-sm text-blue-100 mt-1">
-                            {initialData ? 'Actualiza los datos del proveedor o cliente' : 'Registra un nuevo proveedor o cliente en el sistema'}
+                        <p className="text-blue-100 opacity-90">
+                            {initialData ? 'Actualiza la información del registro' : 'Completa el formulario para registrar un nuevo proveedor o cliente'}
                         </p>
                     </div>
                 </div>
             </CardHeader>
-// ... rest of the component
+            
             <CardContent className="p-8">
                 <Form {...form}>
                     <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
-                        {/* Información del Proveedor/Cliente */}
+{/* Información del Proveedor/Cliente */}
                         <section className="space-y-4">
                             <div className="flex items-center gap-2 mb-4">
                                 <Building2 className="w-5 h-5 text-blue-600" />
@@ -437,7 +437,6 @@ export function ProviderForm({ onSuccess, onCancel, initialData }: ProviderFormP
                             </div>
                         </section>
 
-
                         {/* Documentos */}
                         <section className="space-y-4">
                             <div className="flex items-center gap-2 mb-4">
@@ -445,7 +444,7 @@ export function ProviderForm({ onSuccess, onCancel, initialData }: ProviderFormP
                                 <h3 className="text-lg font-bold text-slate-800">Documentos Requeridos</h3>
                             </div>
                             <div className="grid grid-cols-1 gap-4 bg-slate-50 p-6 rounded-lg border border-slate-200">
-                                {/* RUT - Obligatorio para todos (implícito) */}
+                                {/* RUT */}
                                 <div className="flex items-center justify-between p-3 bg-white rounded border border-slate-200">
                                     <div className="flex items-center gap-3">
                                         <FileText className="w-5 h-5 text-blue-600" />
@@ -461,12 +460,15 @@ export function ProviderForm({ onSuccess, onCancel, initialData }: ProviderFormP
                                                 variant="ghost" 
                                                 size="sm" 
                                                 className="text-blue-600 hover:text-blue-700"
-                                                onClick={() => window.open(existingDocuments.find(d => d.tipo_documento === 'RUT')?.archivo_url, '_blank')}
+                                                onClick={() => setPreviewDoc({
+                                                    url: existingDocuments.find(d => d.tipo_documento === 'RUT')?.archivo_url!,
+                                                    type: 'RUT'
+                                                })}
                                             >
                                                 <Eye className="w-4 h-4 mr-1" /> Ver
                                             </Button>
                                         )}
-                                        {documentFiles.rut && <span className="text-xs text-green-600 font-medium">Nuevo archivo seleccionado</span>}
+                                        {documentFiles.rut && <span className="text-xs text-green-600 font-medium">Nuevo</span>}
                                         <input
                                             type="file"
                                             accept=".pdf"
@@ -485,7 +487,7 @@ export function ProviderForm({ onSuccess, onCancel, initialData }: ProviderFormP
                                     </div>
                                 </div>
 
-                                {/* Cámara de Comercio - Solo Jurídicas */}
+                                {/* Cámara de Comercio */}
                                 {personType === 'juridica' && (
                                     <div className="flex items-center justify-between p-3 bg-white rounded border border-slate-200">
                                         <div className="flex items-center gap-3">
@@ -502,12 +504,15 @@ export function ProviderForm({ onSuccess, onCancel, initialData }: ProviderFormP
                                                     variant="ghost" 
                                                     size="sm" 
                                                     className="text-blue-600 hover:text-blue-700"
-                                                    onClick={() => window.open(existingDocuments.find(d => d.tipo_documento === 'Camara_Comercio')?.archivo_url, '_blank')}
+                                                    onClick={() => setPreviewDoc({
+                                                        url: existingDocuments.find(d => d.tipo_documento === 'Camara_Comercio')?.archivo_url!,
+                                                        type: 'Cámara de Comercio'
+                                                    })}
                                                 >
                                                     <Eye className="w-4 h-4 mr-1" /> Ver
                                                 </Button>
                                             )}
-                                            {documentFiles.camara && <span className="text-xs text-green-600 font-medium">Nuevo archivo seleccionado</span>}
+                                            {documentFiles.camara && <span className="text-xs text-green-600 font-medium">Nuevo</span>}
                                             <input
                                                 type="file"
                                                 accept=".pdf"
@@ -527,7 +532,7 @@ export function ProviderForm({ onSuccess, onCancel, initialData }: ProviderFormP
                                     </div>
                                 )}
 
-                                {/* Cédula Representante Legal - Obligatorio Todos */}
+                                {/* Cédula Representante Legal */}
                                 <div className="flex items-center justify-between p-3 bg-white rounded border border-slate-200">
                                     <div className="flex items-center gap-3">
                                         <User className="w-5 h-5 text-emerald-600" />
@@ -543,12 +548,15 @@ export function ProviderForm({ onSuccess, onCancel, initialData }: ProviderFormP
                                                 variant="ghost" 
                                                 size="sm" 
                                                 className="text-blue-600 hover:text-blue-700"
-                                                onClick={() => window.open(existingDocuments.find(d => d.tipo_documento === 'Cedula_Rep_Legal')?.archivo_url, '_blank')}
+                                                onClick={() => setPreviewDoc({
+                                                    url: existingDocuments.find(d => d.tipo_documento === 'Cedula_Rep_Legal')?.archivo_url!,
+                                                    type: 'Cédula Rep. Legal'
+                                                })}
                                             >
                                                 <Eye className="w-4 h-4 mr-1" /> Ver
                                             </Button>
                                         )}
-                                        {documentFiles.cedula_rep && <span className="text-xs text-green-600 font-medium">Nuevo archivo seleccionado</span>}
+                                        {documentFiles.cedula_rep && <span className="text-xs text-green-600 font-medium">Nuevo</span>}
                                         <input
                                             type="file"
                                             accept=".pdf,.png,.jpg,.jpeg"
@@ -567,7 +575,7 @@ export function ProviderForm({ onSuccess, onCancel, initialData }: ProviderFormP
                                     </div>
                                 </div>
 
-                                {/* Certificación Bancaria - Opcional */}
+                                {/* Certificación Bancaria */}
                                 <div className="flex items-center justify-between p-3 bg-white rounded border border-slate-200">
                                     <div className="flex items-center gap-3">
                                         <FileText className="w-5 h-5 text-purple-600" />
@@ -583,12 +591,15 @@ export function ProviderForm({ onSuccess, onCancel, initialData }: ProviderFormP
                                                 variant="ghost" 
                                                 size="sm" 
                                                 className="text-blue-600 hover:text-blue-700"
-                                                onClick={() => window.open(existingDocuments.find(d => d.tipo_documento === 'Cert_Bancaria')?.archivo_url, '_blank')}
+                                                onClick={() => setPreviewDoc({
+                                                    url: existingDocuments.find(d => d.tipo_documento === 'Cert_Bancaria')?.archivo_url!,
+                                                    type: 'Certificación Bancaria'
+                                                })}
                                             >
                                                 <Eye className="w-4 h-4 mr-1" /> Ver
                                             </Button>
                                         )}
-                                        {documentFiles.bancaria && <span className="text-xs text-green-600 font-medium">Nuevo archivo seleccionado</span>}
+                                        {documentFiles.bancaria && <span className="text-xs text-green-600 font-medium">Nuevo</span>}
                                         <input
                                             type="file"
                                             accept=".pdf"
@@ -740,6 +751,34 @@ export function ProviderForm({ onSuccess, onCancel, initialData }: ProviderFormP
                     </form>
                 </Form>
             </CardContent>
+
+            <Dialog open={!!previewDoc} onOpenChange={() => setPreviewDoc(null)}>
+                <DialogContent className="max-w-[95vw] w-full h-[95vh] flex flex-col p-4">
+                    <DialogHeader>
+                        <DialogTitle>{previewDoc?.type}</DialogTitle>
+                    </DialogHeader>
+                    <div className="flex-1 w-full h-full bg-slate-100 rounded-lg overflow-hidden">
+                        {previewDoc?.url && (
+                            previewDoc.url.toLowerCase().endsWith('.pdf') ? (
+                                <iframe 
+                                    src={previewDoc.url} 
+                                    className="w-full h-full" 
+                                    title="Document Preview"
+                                />
+                            ) : (
+                                <div className="w-full h-full flex items-center justify-center">
+                                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                                    <img 
+                                        src={previewDoc.url} 
+                                        alt="Document Preview" 
+                                        className="max-w-full max-h-full object-contain"
+                                    />
+                                </div>
+                            )
+                        )}
+                    </div>
+                </DialogContent>
+            </Dialog>
         </Card>
     );
 }
