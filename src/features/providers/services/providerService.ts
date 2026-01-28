@@ -114,5 +114,15 @@ export const providerService = {
 
         if (error) throw error;
         return data as ProviderDocument;
+    },
+
+    async getProviderDocuments(providerId: string) {
+        const { data, error } = await supabase
+            .from('provider_documents')
+            .select('*')
+            .eq('provider_id', providerId);
+
+        if (error) throw error;
+        return data as ProviderDocument[];
     }
 };

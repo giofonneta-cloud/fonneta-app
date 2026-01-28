@@ -15,6 +15,8 @@ import { providerService } from '../services/providerService';
 import { COLOMBIA_DEPARTMENTS, COLOMBIA_CITIES_BY_DEPT } from '@/shared/lib/colombia-data';
 import { Textarea } from '@/shared/components/ui/textarea';
 import { cn } from '@/shared/lib/utils';
+import { useEffect } from 'react';
+import { ExternalLink, Eye } from 'lucide-react';
 
 const providerFormSchema = z.object({
     business_name: z.string().min(3, "Mínimo 3 caracteres"),
@@ -37,7 +39,7 @@ const providerFormSchema = z.object({
 
 type ProviderFormValues = z.infer<typeof providerFormSchema>;
 
-import { Provider, CreateProviderInput } from '../types/provider.types';
+import { Provider, CreateProviderInput, ProviderDocument, DocumentType } from '../types/provider.types';
 
 // ... (previous imports)
 
@@ -55,6 +57,23 @@ export function ProviderForm({ onSuccess, onCancel, initialData }: ProviderFormP
         cedula_rep?: File;
         bancaria?: File;
     }>({});
+    const [existingDocuments, setExistingDocuments] = useState<ProviderDocument[]>([]);
+
+    useEffect(() => {
+        if (initialData) {
+            loadDocuments();
+        }
+    }, [initialData]);
+
+    const loadDocuments = async () => {
+        if (!initialData) return;
+        try {
+            const docs = await providerService.getProviderDocuments(initialData.id);
+            setExistingDocuments(docs);
+        } catch (error) {
+            console.error("Error loading documents:", error);
+        }
+    };
 
 
     const form = useForm<ProviderFormValues>({
@@ -94,13 +113,29 @@ export function ProviderForm({ onSuccess, onCancel, initialData }: ProviderFormP
     const onSubmit = async (values: ProviderFormValues) => {
         setIsSubmitting(true);
         try {
+            let providerId = initialData?.id;
+            
             if (initialData) {
                 await providerService.updateProvider(initialData.id, values);
             } else {
-                await providerService.createProvider(values);
+                const newProvider = await providerService.createProvider(values);
+                providerId = newProvider.id;
             }
-            // TODO: Upload documents to storage (enhanced logic needed for updates)
-            form.reset();
+
+            // Subir documentos si hay nuevos archivos seleccionados
+            if (providerId) {
+                const uploadPromises = [];
+                if (documentFiles.rut) uploadPromises.push(providerService.uploadDocument(providerId, 'RUT', documentFiles.rut));
+                if (documentFiles.camara) uploadPromises.push(providerService.uploadDocument(providerId, 'Camara_Comercio', documentFiles.camara));
+                if (documentFiles.cedula_rep) uploadPromises.push(providerService.uploadDocument(providerId, 'Cedula_Rep_Legal', documentFiles.cedula_rep));
+                if (documentFiles.bancaria) uploadPromises.push(providerService.uploadDocument(providerId, 'Cert_Bancaria', documentFiles.bancaria));
+                
+                if (uploadPromises.length > 0) {
+                    await Promise.all(uploadPromises);
+                    await loadDocuments(); // Recargar para mostrar los nuevos enlaces
+                }
+            }
+
             form.reset();
             setDocumentFiles({});
             onSuccess?.();
@@ -419,7 +454,18 @@ export function ProviderForm({ onSuccess, onCancel, initialData }: ProviderFormP
                                         </div>
                                     </div>
                                     <div className="flex items-center gap-2">
-                                        {documentFiles.rut && <span className="text-xs text-green-600 font-medium">Cargado</span>}
+                                        {existingDocuments.find(d => d.tipo_documento === 'RUT') && (
+                                            <Button 
+                                                type="button" 
+                                                variant="ghost" 
+                                                size="sm" 
+                                                className="text-blue-600 hover:text-blue-700"
+                                                onClick={() => window.open(existingDocuments.find(d => d.tipo_documento === 'RUT')?.archivo_url, '_blank')}
+                                            >
+                                                <Eye className="w-4 h-4 mr-1" /> Ver
+                                            </Button>
+                                        )}
+                                        {documentFiles.rut && <span className="text-xs text-green-600 font-medium">Nuevo archivo seleccionado</span>}
                                         <input
                                             type="file"
                                             accept=".pdf"
@@ -427,11 +473,14 @@ export function ProviderForm({ onSuccess, onCancel, initialData }: ProviderFormP
                                             className="hidden"
                                             id="upload-rut"
                                         />
-                                        <label htmlFor="upload-rut">
-                                            <Button type="button" variant="outline" size="sm" className="cursor-pointer">
-                                                {documentFiles.rut ? 'Cambiar' : 'Subir'}
-                                            </Button>
-                                        </label>
+                                        <Button 
+                                            type="button" 
+                                            variant="outline" 
+                                            size="sm" 
+                                            onClick={() => document.getElementById('upload-rut')?.click()}
+                                        >
+                                            {documentFiles.rut ? 'Cambiar' : 'Subir'}
+                                        </Button>
                                     </div>
                                 </div>
 
@@ -446,7 +495,18 @@ export function ProviderForm({ onSuccess, onCancel, initialData }: ProviderFormP
                                             </div>
                                         </div>
                                         <div className="flex items-center gap-2">
-                                            {documentFiles.camara && <span className="text-xs text-green-600 font-medium">Cargado</span>}
+                                            {existingDocuments.find(d => d.tipo_documento === 'Camara_Comercio') && (
+                                                <Button 
+                                                    type="button" 
+                                                    variant="ghost" 
+                                                    size="sm" 
+                                                    className="text-blue-600 hover:text-blue-700"
+                                                    onClick={() => window.open(existingDocuments.find(d => d.tipo_documento === 'Camara_Comercio')?.archivo_url, '_blank')}
+                                                >
+                                                    <Eye className="w-4 h-4 mr-1" /> Ver
+                                                </Button>
+                                            )}
+                                            {documentFiles.camara && <span className="text-xs text-green-600 font-medium">Nuevo archivo seleccionado</span>}
                                             <input
                                                 type="file"
                                                 accept=".pdf"
@@ -454,11 +514,14 @@ export function ProviderForm({ onSuccess, onCancel, initialData }: ProviderFormP
                                                 className="hidden"
                                                 id="upload-camara"
                                             />
-                                            <label htmlFor="upload-camara">
-                                                <Button type="button" variant="outline" size="sm" className="cursor-pointer">
-                                                    {documentFiles.camara ? 'Cambiar' : 'Subir'}
-                                                </Button>
-                                            </label>
+                                            <Button 
+                                                type="button" 
+                                                variant="outline" 
+                                                size="sm" 
+                                                onClick={() => document.getElementById('upload-camara')?.click()}
+                                            >
+                                                {documentFiles.camara ? 'Cambiar' : 'Subir'}
+                                            </Button>
                                         </div>
                                     </div>
                                 )}
@@ -473,7 +536,18 @@ export function ProviderForm({ onSuccess, onCancel, initialData }: ProviderFormP
                                         </div>
                                     </div>
                                     <div className="flex items-center gap-2">
-                                        {documentFiles.cedula_rep && <span className="text-xs text-green-600 font-medium">Cargado</span>}
+                                        {existingDocuments.find(d => d.tipo_documento === 'Cedula_Rep_Legal') && (
+                                            <Button 
+                                                type="button" 
+                                                variant="ghost" 
+                                                size="sm" 
+                                                className="text-blue-600 hover:text-blue-700"
+                                                onClick={() => window.open(existingDocuments.find(d => d.tipo_documento === 'Cedula_Rep_Legal')?.archivo_url, '_blank')}
+                                            >
+                                                <Eye className="w-4 h-4 mr-1" /> Ver
+                                            </Button>
+                                        )}
+                                        {documentFiles.cedula_rep && <span className="text-xs text-green-600 font-medium">Nuevo archivo seleccionado</span>}
                                         <input
                                             type="file"
                                             accept=".pdf,.png,.jpg,.jpeg"
@@ -481,11 +555,14 @@ export function ProviderForm({ onSuccess, onCancel, initialData }: ProviderFormP
                                             className="hidden"
                                             id="upload-cedula"
                                         />
-                                        <label htmlFor="upload-cedula">
-                                            <Button type="button" variant="outline" size="sm" className="cursor-pointer">
-                                                {documentFiles.cedula_rep ? 'Cambiar' : 'Subir'}
-                                            </Button>
-                                        </label>
+                                        <Button 
+                                            type="button" 
+                                            variant="outline" 
+                                            size="sm" 
+                                            onClick={() => document.getElementById('upload-cedula')?.click()}
+                                        >
+                                            {documentFiles.cedula_rep ? 'Cambiar' : 'Subir'}
+                                        </Button>
                                     </div>
                                 </div>
 
@@ -499,7 +576,18 @@ export function ProviderForm({ onSuccess, onCancel, initialData }: ProviderFormP
                                         </div>
                                     </div>
                                     <div className="flex items-center gap-2">
-                                        {documentFiles.bancaria && <span className="text-xs text-green-600 font-medium">Cargado</span>}
+                                        {existingDocuments.find(d => d.tipo_documento === 'Cert_Bancaria') && (
+                                            <Button 
+                                                type="button" 
+                                                variant="ghost" 
+                                                size="sm" 
+                                                className="text-blue-600 hover:text-blue-700"
+                                                onClick={() => window.open(existingDocuments.find(d => d.tipo_documento === 'Cert_Bancaria')?.archivo_url, '_blank')}
+                                            >
+                                                <Eye className="w-4 h-4 mr-1" /> Ver
+                                            </Button>
+                                        )}
+                                        {documentFiles.bancaria && <span className="text-xs text-green-600 font-medium">Nuevo archivo seleccionado</span>}
                                         <input
                                             type="file"
                                             accept=".pdf"
@@ -507,11 +595,14 @@ export function ProviderForm({ onSuccess, onCancel, initialData }: ProviderFormP
                                             className="hidden"
                                             id="upload-bancaria"
                                         />
-                                        <label htmlFor="upload-bancaria">
-                                            <Button type="button" variant="outline" size="sm" className="cursor-pointer">
-                                                {documentFiles.bancaria ? 'Cambiar' : 'Subir'}
-                                            </Button>
-                                        </label>
+                                        <Button 
+                                            type="button" 
+                                            variant="outline" 
+                                            size="sm" 
+                                            onClick={() => document.getElementById('upload-bancaria')?.click()}
+                                        >
+                                            {documentFiles.bancaria ? 'Cambiar' : 'Subir'}
+                                        </Button>
                                     </div>
                                 </div>
                             </div>
