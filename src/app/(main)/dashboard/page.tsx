@@ -7,13 +7,57 @@ import {
   AlertCircle
 } from 'lucide-react';
 import Link from 'next/link';
+import { createClient } from '@/lib/supabase/server';
+import { formatDistanceToNow } from 'date-fns';
+import { es } from 'date-fns/locale';
 
-export default function DashboardPage() {
+export const dynamic = 'force-dynamic';
+
+export default async function DashboardPage() {
+  const supabase = await createClient();
+
+  // 1. Fetch Stats
+  const { count: projectsCount } = await supabase
+    .from('projects')
+    .select('*', { count: 'exact', head: true });
+
+  const { count: providersCount } = await supabase
+    .from('providers')
+    .select('*', { count: 'exact', head: true });
+
+  // 2. Fetch Recent Activity (Projects & Providers)
+  const { data: recentProjects } = await supabase
+    .from('projects')
+    .select('name, created_at')
+    .order('created_at', { ascending: false })
+    .limit(3);
+
+  const { data: recentProviders } = await supabase
+    .from('providers')
+    .select('business_name, created_at')
+    .order('created_at', { ascending: false })
+    .limit(3);
+
+  // Combine and sort activity
+  const activities = [
+    ...(recentProjects?.map(p => ({
+      text: `Nuevo proyecto '${p.name}' creado`,
+      time: p.created_at,
+      type: 'project'
+    })) || []),
+    ...(recentProviders?.map(p => ({
+      text: `Nuevo proveedor '${p.business_name}' registrado`,
+      time: p.created_at,
+      type: 'provider'
+    })) || [])
+  ].sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime())
+   .slice(0, 5);
+
   const stats = [
-    { label: 'Proyectos Activos', value: '12', icon: FolderKanban, color: 'text-blue-600 bg-blue-50' },
-    { label: 'Proveedores Registrados', value: '45', icon: Users, color: 'text-purple-600 bg-purple-50' },
-    { label: 'Margen Promedio', value: '34%', icon: TrendingUp, color: 'text-green-600 bg-green-50' },
-    { label: 'Alertas Pendientes', value: '3', icon: AlertCircle, color: 'text-orange-600 bg-orange-50' },
+    { label: 'Proyectos Activos', value: projectsCount || 0, icon: FolderKanban, color: 'text-blue-600 bg-blue-50' },
+    { label: 'Proveedores Registrados', value: providersCount || 0, icon: Users, color: 'text-purple-600 bg-purple-50' },
+    { label: 'Margen Promedio', value: '34%' /* Placeholder */, icon: TrendingUp, color: 'text-green-600 bg-green-50' },
+    { label: 'Alertas Pendientes', value: '3' /* Placeholder */, icon: AlertCircle, color: 'text-orange-600 bg-orange-50' },
   ];
 
   return (
@@ -41,9 +85,17 @@ export default function DashboardPage() {
         <div className="bg-white p-8 rounded-3xl border border-gray-100 shadow-sm">
           <h3 className="text-xl font-black text-gray-900 mb-6">Actividad Reciente</h3>
           <div className="space-y-4">
-            <ActivityItem text="Nuevo proveedor 'Imprenta Los Andes' completó onboarding" time="Hace 2 horas" />
-            <ActivityItem text="Proyecto 'Navidad 2026' pasó a fase de Producción" time="Hace 5 horas" />
-            <ActivityItem text="Gasto registrado por $10.000.000 COP en proyecto 'Revista'" time="Ayer" />
+            {activities.length > 0 ? (
+              activities.map((activity, index) => (
+                <ActivityItem 
+                  key={index} 
+                  text={activity.text} 
+                  time={formatDistanceToNow(new Date(activity.time), { addSuffix: true, locale: es })} 
+                />
+              ))
+            ) : (
+                <p className="text-gray-500 text-sm">No hay actividad reciente.</p>
+            )}
           </div>
         </div>
 

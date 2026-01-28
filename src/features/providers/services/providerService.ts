@@ -33,7 +33,6 @@ export const providerService = {
         const { data, error } = await supabase
             .from('providers')
             .select('*')
-            .eq('is_provider', true)
             .order('business_name');
 
         if (error) throw error;
