@@ -42,12 +42,16 @@ export function ProviderOnboarding() {
 
     const nextStep = () => {
         if (step === 'basics') {
-            if (!formData.business_name || !formData.document_number) {
-                setError('Por favor completa los campos obligatorios de identificación.');
+            if (!formData.business_name || !formData.document_number || !formData.address || !formData.country || (!formData.department && formData.country === 'Colombia') || (!formData.city && formData.country === 'Colombia')) {
+                setError('Por favor completa todos los campos obligatorios de identificación y ubicación.');
                 return;
             }
             setStep('contact');
         } else if (step === 'contact') {
+            if (!formData.contact_name || !formData.contact_email || !formData.contact_phone || !formData.billing_email) {
+                setError('Por favor completa todos los campos de información de contacto y facturación.');
+                return;
+            }
             setStep('legal');
         }
         setError(null);
@@ -121,7 +125,7 @@ export function ProviderOnboarding() {
                                     />
                                 </div>
                                 <div className="space-y-2">
-                                    <label className="text-sm font-bold text-gray-700">Tipo de Persona</label>
+                                    <label className="text-sm font-bold text-gray-700">Tipo de Persona *</label>
                                     <select
                                         className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all font-medium"
                                         value={formData.person_type}
@@ -132,7 +136,7 @@ export function ProviderOnboarding() {
                                     </select>
                                 </div>
                                 <div className="space-y-2">
-                                    <label className="text-sm font-bold text-gray-700">Tipo de Documento</label>
+                                    <label className="text-sm font-bold text-gray-700">Tipo de Documento *</label>
                                     <select
                                         className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all font-medium"
                                         value={formData.document_type}
@@ -159,7 +163,7 @@ export function ProviderOnboarding() {
                                     <div className="bg-purple-50/50 p-6 rounded-2xl border border-purple-100 space-y-4">
                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                             <div className="space-y-1">
-                                                <label className="text-[10px] font-black uppercase text-purple-400">País</label>
+                                                <label className="text-[10px] font-black uppercase text-purple-400">País *</label>
                                                 <select
                                                     className="w-full px-4 py-2 bg-white border border-purple-100 rounded-lg focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 outline-none transition-all text-sm font-medium"
                                                     value={formData.country}
@@ -173,7 +177,7 @@ export function ProviderOnboarding() {
                                                 </select>
                                             </div>
                                             <div className="space-y-1">
-                                                <label className="text-[10px] font-black uppercase text-purple-400">Dirección</label>
+                                                <label className="text-[10px] font-black uppercase text-purple-400">Dirección *</label>
                                                 <input
                                                     type="text"
                                                     className="w-full px-4 py-2 bg-white border border-purple-100 rounded-lg focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 outline-none transition-all text-sm font-medium"
@@ -183,7 +187,7 @@ export function ProviderOnboarding() {
                                                 />
                                             </div>
                                             <div className="space-y-1">
-                                                <label className="text-[10px] font-black uppercase text-purple-400">Departamento</label>
+                                                <label className="text-[10px] font-black uppercase text-purple-400">Departamento *</label>
                                                 {formData.country === 'Colombia' ? (
                                                     <select
                                                         className="w-full px-4 py-2 bg-white border border-purple-100 rounded-lg focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 outline-none transition-all text-sm font-medium"
@@ -206,7 +210,7 @@ export function ProviderOnboarding() {
                                                 )}
                                             </div>
                                             <div className="space-y-1">
-                                                <label className="text-[10px] font-black uppercase text-purple-400">Ciudad / Municipio</label>
+                                                <label className="text-[10px] font-black uppercase text-purple-400">Ciudad / Municipio *</label>
                                                 {formData.country === 'Colombia' && formData.department ? (
                                                     <select
                                                         className="w-full px-4 py-2 bg-white border border-purple-100 rounded-lg focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 outline-none transition-all text-sm font-medium"
@@ -248,7 +252,7 @@ export function ProviderOnboarding() {
                         <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-500">
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 <div className="space-y-2 md:col-span-2">
-                                    <label className="text-sm font-bold text-gray-700">Nombre de Contacto Principal</label>
+                                    <label className="text-sm font-bold text-gray-700">Nombre de Contacto Principal *</label>
                                     <input
                                         type="text"
                                         className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all font-medium"
@@ -258,7 +262,7 @@ export function ProviderOnboarding() {
                                     />
                                 </div>
                                 <div className="space-y-2">
-                                    <label className="text-sm font-bold text-gray-700">Email de Contacto</label>
+                                    <label className="text-sm font-bold text-gray-700">Email de Contacto *</label>
                                     <input
                                         type="email"
                                         className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all font-medium"
@@ -268,7 +272,7 @@ export function ProviderOnboarding() {
                                     />
                                 </div>
                                 <div className="space-y-2">
-                                    <label className="text-sm font-bold text-gray-700">Teléfono</label>
+                                    <label className="text-sm font-bold text-gray-700">Teléfono *</label>
                                     <input
                                         type="text"
                                         className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all font-medium"
@@ -278,7 +282,7 @@ export function ProviderOnboarding() {
                                     />
                                 </div>
                                 <div className="space-y-2 md:col-span-2">
-                                    <label className="text-sm font-bold text-gray-700">Email de Facturación Electrónica</label>
+                                    <label className="text-sm font-bold text-gray-700">Email de Facturación Electrónica *</label>
                                     <input
                                         type="email"
                                         className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all font-medium"

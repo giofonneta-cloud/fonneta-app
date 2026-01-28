@@ -232,6 +232,7 @@ export function ProvidersTable({ onEdit, onDelete }: ProvidersTableProps) {
                                 <TableHead className="font-bold">Ubicación</TableHead>
                                 <TableHead className="font-bold">Tipo</TableHead>
                                 <TableHead className="font-bold">Registro</TableHead>
+                                <TableHead className="font-bold">Observaciones</TableHead>
                                 <TableHead className="font-bold text-right">Acciones</TableHead>
                             </TableRow>
                         </TableHeader>
@@ -337,12 +338,16 @@ export function ProvidersTable({ onEdit, onDelete }: ProvidersTableProps) {
                                                         <SelectItem value="VALIDADO">VALIDADO</SelectItem>
                                                     </SelectContent>
                                                 </Select>
-                                                {provider.onboarding_notes && (
-                                                    <p className="mt-1 text-[10px] text-slate-500 italic truncate max-w-[140px]" title={provider.onboarding_notes}>
-                                                        Nota: {provider.onboarding_notes}
-                                                    </p>
-                                                )}
                                             </div>
+                                        </TableCell>
+                                        <TableCell>
+                                            {provider.onboarding_notes ? (
+                                                <p className="text-xs text-slate-600 font-medium line-clamp-2 max-w-[200px]" title={provider.onboarding_notes}>
+                                                    {provider.onboarding_notes}
+                                                </p>
+                                            ) : (
+                                                <span className="text-[10px] text-slate-300 italic">Sin observaciones</span>
+                                            )}
                                         </TableCell>
                                         <TableCell align="right">
                                             <DropdownMenu>
