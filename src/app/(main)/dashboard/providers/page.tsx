@@ -4,13 +4,33 @@ import React, { useState } from 'react';
 import { ProviderForm } from '@/features/providers/components/ProviderForm';
 import { ProvidersTable } from '@/features/providers/components/ProvidersList';
 import { Button } from '@/shared/components/ui/button';
-import { Plus, Building2, List } from 'lucide-react';
+import { Plus, Building2, List, UserPlus, Copy, Check } from 'lucide-react';
 import { Provider } from '@/features/providers/types/provider.types';
+import {
+    Dialog,
+    DialogContent,
+    DialogHeader,
+    DialogTitle,
+    DialogDescription,
+} from '@/shared/components/ui/dialog';
+import { Input } from '@/shared/components/ui/input';
 
 export default function ProvidersPage() {
     const [showForm, setShowForm] = useState(false);
     const [refreshKey, setRefreshKey] = useState(0);
     const [selectedProvider, setSelectedProvider] = useState<Provider | undefined>(undefined);
+    const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
+    const [copied, setCopied] = useState(false);
+
+    const inviteLink = typeof window !== 'undefined' 
+        ? `${window.location.origin}/register/provider`
+        : '';
+
+    const handleCopyLink = () => {
+        navigator.clipboard.writeText(inviteLink);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+    };
 
     const handleSuccess = () => {
         setShowForm(false);
@@ -57,13 +77,23 @@ export default function ProvidersPage() {
                         </Button>
                     )}
                     {!showForm && (
-                        <Button
-                            onClick={handleCreateNew}
-                            className="bg-blue-600 hover:bg-blue-700 text-white font-bold gap-2 shadow-lg"
-                        >
-                            <Plus className="w-4 h-4" />
-                            Nuevo Proveedor/Cliente
-                        </Button>
+                        <>
+                            <Button
+                                onClick={() => setIsInviteModalOpen(true)}
+                                variant="outline"
+                                className="border-blue-200 text-blue-600 hover:bg-blue-50 font-bold gap-2"
+                            >
+                                <UserPlus className="w-4 h-4" />
+                                Invitar Proveedor
+                            </Button>
+                            <Button
+                                onClick={handleCreateNew}
+                                className="bg-blue-600 hover:bg-blue-700 text-white font-bold gap-2 shadow-lg"
+                            >
+                                <Plus className="w-4 h-4" />
+                                Nuevo Proveedor/Cliente
+                            </Button>
+                        </>
                     )}
                 </div>
             </div>
@@ -80,6 +110,45 @@ export default function ProvidersPage() {
                     onEdit={handleEdit}
                 />
             )}
+
+            <Dialog open={isInviteModalOpen} onOpenChange={setIsInviteModalOpen}>
+                <DialogContent className="sm:max-w-md">
+                    <DialogHeader>
+                        <DialogTitle>Invitar Proveedor</DialogTitle>
+                        <DialogDescription>
+                            Comparte este enlace con tu proveedor para que pueda registrarse en la plataforma.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="flex items-center space-x-2 py-4">
+                        <div className="grid flex-1 gap-2">
+                            <Input
+                                id="link"
+                                defaultValue={inviteLink}
+                                readOnly
+                                className="bg-slate-50 border-slate-200"
+                            />
+                        </div>
+                        <Button
+                            type="submit"
+                            size="sm"
+                            className="px-3 bg-blue-600 hover:bg-blue-700 h-10"
+                            onClick={handleCopyLink}
+                        >
+                            {copied ? (
+                                <Check className="h-4 w-4" />
+                            ) : (
+                                <Copy className="h-4 w-4" />
+                            )}
+                            <span className="sr-only">Copiar</span>
+                        </Button>
+                    </div>
+                    <div className="bg-blue-50 p-4 rounded-xl border border-blue-100">
+                        <p className="text-xs text-blue-700 font-medium leading-relaxed">
+                            <strong>Nota:</strong> Los proveedores registrados mediante este link aparecerán automáticamente en tu lista para que puedas validar sus datos.
+                        </p>
+                    </div>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 }
