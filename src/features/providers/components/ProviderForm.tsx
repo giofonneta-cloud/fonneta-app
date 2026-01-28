@@ -139,8 +139,9 @@ export function ProviderForm({ onSuccess, onCancel, initialData }: ProviderFormP
             form.reset();
             setDocumentFiles({});
             onSuccess?.();
-        } catch (error) {
+        } catch (error: any) {
             console.error("Error saving provider:", error);
+            alert(`Error al guardar: ${error.message || "Error desconocido"}`);
         } finally {
             setIsSubmitting(false);
         }
