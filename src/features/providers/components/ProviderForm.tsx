@@ -10,8 +10,11 @@ import { Input } from '@/shared/components/ui/input';
 import { Button } from '@/shared/components/ui/button';
 import { Checkbox } from '@/shared/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/shared/components/ui/select';
-import { Building2, User, Mail, Phone, FileText, MapPin, Globe, Upload } from 'lucide-react';
+import { Building2, User, Mail, Phone, FileText, MapPin, Globe, Upload, Info } from 'lucide-react';
 import { providerService } from '../services/providerService';
+import { COLOMBIA_DEPARTMENTS, COLOMBIA_CITIES_BY_DEPT } from '@/shared/lib/colombia-data';
+import { Textarea } from '@/shared/components/ui/textarea';
+import { cn } from '@/shared/lib/utils';
 
 const providerFormSchema = z.object({
     business_name: z.string().min(3, "Mínimo 3 caracteres"),
@@ -28,6 +31,8 @@ const providerFormSchema = z.object({
     country: z.string().optional(),
     is_client: z.boolean().default(false),
     is_provider: z.boolean().default(true),
+    onboarding_status: z.enum(['EN REVISION', 'DEVUELTO', 'VALIDADO']).optional(),
+    onboarding_notes: z.string().optional(),
 });
 
 type ProviderFormValues = z.infer<typeof providerFormSchema>;
@@ -69,10 +74,15 @@ export function ProviderForm({ onSuccess, onCancel, initialData }: ProviderFormP
             country: initialData?.country || 'Colombia',
             is_client: initialData?.is_client ?? false,
             is_provider: initialData?.is_provider ?? true,
+            onboarding_status: initialData?.onboarding_status || 'EN REVISION',
+            onboarding_notes: initialData?.onboarding_notes || '',
         },
     });
 
     const personType = form.watch('person_type');
+    const country = form.watch('country');
+    const departmentName = form.watch('department');
+    const onboardingStatus = form.watch('onboarding_status');
 
     const handleFileSelect = (type: 'rut' | 'camara' | 'cedula_rep' | 'bancaria') => (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files?.[0]) {
@@ -306,10 +316,25 @@ export function ProviderForm({ onSuccess, onCancel, initialData }: ProviderFormP
                                     name="city"
                                     render={({ field }) => (
                                         <FormItem>
-                                            <FormLabel className="text-sm font-bold text-slate-700">Ciudad</FormLabel>
-                                            <FormControl>
-                                                <Input {...field} placeholder="Bogotá" className="bg-white" />
-                                            </FormControl>
+                                            <FormLabel className="text-sm font-bold text-slate-700">Ciudad / Municipio</FormLabel>
+                                            {country === 'Colombia' && departmentName ? (
+                                                <Select onValueChange={field.onChange} value={field.value || ''}>
+                                                    <FormControl>
+                                                        <SelectTrigger className="bg-white">
+                                                            <SelectValue placeholder="Selecciona municipio" />
+                                                        </SelectTrigger>
+                                                    </FormControl>
+                                                    <SelectContent>
+                                                        {COLOMBIA_CITIES_BY_DEPT[COLOMBIA_DEPARTMENTS.find(d => d.name === departmentName)?.id || '']?.map(city => (
+                                                            <SelectItem key={city} value={city}>{city}</SelectItem>
+                                                        ))}
+                                                    </SelectContent>
+                                                </Select>
+                                            ) : (
+                                                <FormControl>
+                                                    <Input {...field} placeholder="Bogotá" className="bg-white" disabled={country === 'Colombia' && !departmentName} />
+                                                </FormControl>
+                                            )}
                                             <FormMessage />
                                         </FormItem>
                                     )}
@@ -319,10 +344,28 @@ export function ProviderForm({ onSuccess, onCancel, initialData }: ProviderFormP
                                     name="department"
                                     render={({ field }) => (
                                         <FormItem>
-                                            <FormLabel className="text-sm font-bold text-slate-700">Departamento</FormLabel>
-                                            <FormControl>
-                                                <Input {...field} placeholder="Cundinamarca" className="bg-white" />
-                                            </FormControl>
+                                            <FormLabel className="text-sm font-bold text-slate-700">Departamento / Estado</FormLabel>
+                                            {country === 'Colombia' ? (
+                                                <Select onValueChange={(val) => {
+                                                    field.onChange(val);
+                                                    form.setValue('city', '');
+                                                }} value={field.value || ''}>
+                                                    <FormControl>
+                                                        <SelectTrigger className="bg-white">
+                                                            <SelectValue placeholder="Selecciona departamento" />
+                                                        </SelectTrigger>
+                                                    </FormControl>
+                                                    <SelectContent>
+                                                        {COLOMBIA_DEPARTMENTS.map(dept => (
+                                                            <SelectItem key={dept.id} value={dept.name}>{dept.name}</SelectItem>
+                                                        ))}
+                                                    </SelectContent>
+                                                </Select>
+                                            ) : (
+                                                <FormControl>
+                                                    <Input {...field} placeholder="Cundinamarca" className="bg-white" />
+                                                </FormControl>
+                                            )}
                                             <FormMessage />
                                         </FormItem>
                                     )}
@@ -333,16 +376,84 @@ export function ProviderForm({ onSuccess, onCancel, initialData }: ProviderFormP
                                     render={({ field }) => (
                                         <FormItem className="md:col-span-2">
                                             <FormLabel className="text-sm font-bold text-slate-700">País</FormLabel>
-                                            <FormControl>
-                                                <div className="relative">
-                                                    <Globe className="absolute left-3 top-2.5 w-4 h-4 text-slate-400" />
-                                                    <Input {...field} placeholder="Colombia" className="pl-10 bg-white" />
-                                                </div>
-                                            </FormControl>
+                                            <Select onValueChange={(val) => {
+                                                field.onChange(val);
+                                                form.setValue('department', '');
+                                                form.setValue('city', '');
+                                            }} value={field.value || 'Colombia'}>
+                                                <FormControl>
+                                                    <SelectTrigger className="bg-white">
+                                                        <SelectValue placeholder="Selecciona país" />
+                                                    </SelectTrigger>
+                                                </FormControl>
+                                                <SelectContent>
+                                                    <SelectItem value="Colombia">Colombia</SelectItem>
+                                                    <SelectItem value="México">México</SelectItem>
+                                                    <SelectItem value="España">España</SelectItem>
+                                                    <SelectItem value="USA">USA</SelectItem>
+                                                    <SelectItem value="Otro">Otro</SelectItem>
+                                                </SelectContent>
+                                            </Select>
                                             <FormMessage />
                                         </FormItem>
                                     )}
                                 />
+                            </div>
+                        </section>
+
+                        {/* Estado del Registro (Solo visible para admin/edición) */}
+                        <section className="space-y-4">
+                            <div className="flex items-center gap-2 mb-4">
+                                <Info className="w-5 h-5 text-blue-600" />
+                                <h3 className="text-lg font-bold text-slate-800">Estado del Registro</h3>
+                            </div>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-slate-50 p-6 rounded-lg border">
+                                <FormField
+                                    control={form.control}
+                                    name="onboarding_status"
+                                    render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel className="text-sm font-bold text-slate-700">Estado</FormLabel>
+                                            <Select onValueChange={field.onChange} value={field.value}>
+                                                <FormControl>
+                                                    <SelectTrigger className={cn(
+                                                        "bg-white font-bold",
+                                                        field.value === 'VALIDADO' && "text-green-700 border-green-200",
+                                                        field.value === 'DEVUELTO' && "text-orange-700 border-orange-200",
+                                                        field.value === 'EN REVISION' && "text-blue-700 border-blue-200"
+                                                    )}>
+                                                        <SelectValue />
+                                                    </SelectTrigger>
+                                                </FormControl>
+                                                <SelectContent>
+                                                    <SelectItem value="EN REVISION">EN REVISIÓN</SelectItem>
+                                                    <SelectItem value="DEVUELTO">DEVUELTO</SelectItem>
+                                                    <SelectItem value="VALIDADO">VALIDADO</SelectItem>
+                                                </SelectContent>
+                                            </Select>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
+                                {onboardingStatus === 'DEVUELTO' && (
+                                    <FormField
+                                        control={form.control}
+                                        name="onboarding_notes"
+                                        render={({ field }) => (
+                                            <FormItem className="md:col-span-2">
+                                                <FormLabel className="text-sm font-bold text-slate-700">Notas de Retroalimentación</FormLabel>
+                                                <FormControl>
+                                                    <Textarea 
+                                                        {...field} 
+                                                        placeholder="Explica qué debe corregir el proveedor..." 
+                                                        className="bg-white min-h-[100px]"
+                                                    />
+                                                </FormControl>
+                                                <FormMessage />
+                                            </FormItem>
+                                        )}
+                                    />
+                                )}
                             </div>
                         </section>
 

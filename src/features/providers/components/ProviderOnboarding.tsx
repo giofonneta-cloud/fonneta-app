@@ -3,6 +3,7 @@ import { Upload, CheckCircle, AlertCircle, FileText, Building2, CreditCard, Load
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { providerService } from '../services/providerService';
+import { COLOMBIA_DEPARTMENTS, COLOMBIA_CITIES_BY_DEPT } from '@/shared/lib/colombia-data';
 
 function cn(...inputs: ClassValue[]) {
     return twMerge(clsx(inputs));
@@ -29,6 +30,9 @@ export function ProviderOnboarding() {
         email: '',
         phone: '',
         address: '',
+        country: 'Colombia',
+        department: '',
+        city: '',
     });
 
     const nextStep = () => {
@@ -52,6 +56,9 @@ export function ProviderOnboarding() {
                 contact_email: formData.email,
                 contact_phone: formData.phone,
                 address: formData.address,
+                city: formData.city,
+                department: formData.department,
+                country: formData.country,
                 is_provider: true,
                 is_client: false,
                 person_type: formData.type as any,
@@ -133,8 +140,77 @@ export function ProviderOnboarding() {
                                         onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                                     />
                                 </div>
-                            </div>
-                            <div className="flex justify-end pt-6">
+                                <div className="space-y-2">
+                                    <label className="text-sm font-bold text-gray-700">País</label>
+                                    <select
+                                        className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all font-medium"
+                                        value={formData.country}
+                                        onChange={(e) => setFormData({ ...formData, country: e.target.value, department: '', city: '' })}
+                                    >
+                                        <option value="Colombia">Colombia</option>
+                                        <option value="México">México</option>
+                                        <option value="España">España</option>
+                                        <option value="USA">USA</option>
+                                        <option value="Otro">Otro</option>
+                                    </select>
+                                </div>
+                                <div className="space-y-2">
+                                    <label className="text-sm font-bold text-gray-700">Departamento</label>
+                                    {formData.country === 'Colombia' ? (
+                                        <select
+                                            className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all font-medium"
+                                            value={formData.department}
+                                            onChange={(e) => setFormData({ ...formData, department: e.target.value, city: '' })}
+                                        >
+                                            <option value="">Selecciona Departamento</option>
+                                            {COLOMBIA_DEPARTMENTS.map(dept => (
+                                                <option key={dept.id} value={dept.name}>{dept.name}</option>
+                                            ))}
+                                        </select>
+                                    ) : (
+                                        <input
+                                            type="text"
+                                            className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all font-medium"
+                                            placeholder="Estado / Provincia"
+                                            value={formData.department}
+                                            onChange={(e) => setFormData({ ...formData, department: e.target.value })}
+                                        />
+                                    )}
+                                </div>
+                                <div className="space-y-2">
+                                    <label className="text-sm font-bold text-gray-700">Ciudad / Municipio</label>
+                                    {formData.country === 'Colombia' && formData.department ? (
+                                        <select
+                                            className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all font-medium"
+                                            value={formData.city}
+                                            onChange={(e) => setFormData({ ...formData, city: e.target.value })}
+                                        >
+                                            <option value="">Selecciona Municipio</option>
+                                            {COLOMBIA_CITIES_BY_DEPT[COLOMBIA_DEPARTMENTS.find(d => d.name === formData.department)?.id || '']?.map(city => (
+                                                <option key={city} value={city}>{city}</option>
+                                            ))}
+                                        </select>
+                                    ) : (
+                                        <input
+                                            type="text"
+                                            className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all font-medium"
+                                            placeholder="Ciudad"
+                                            value={formData.city}
+                                            onChange={(e) => setFormData({ ...formData, city: e.target.value })}
+                                            disabled={formData.country === 'Colombia' && !formData.department}
+                                        />
+                                    )}
+                                </div>
+                                <div className="space-y-2 md:col-span-2">
+                                    <label className="text-sm font-bold text-gray-700">Dirección</label>
+                                    <input
+                                        type="text"
+                                        className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all font-medium"
+                                        placeholder="Calle 123 # 45-67"
+                                        value={formData.address}
+                                        onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                                    />
+                                </div>
                                 <button
                                     onClick={nextStep}
                                     className="bg-blue-600 hover:bg-blue-700 text-white px-10 py-4 rounded-2xl font-black text-sm transition-all shadow-lg shadow-blue-200 hover:scale-[1.02] active:scale-100"

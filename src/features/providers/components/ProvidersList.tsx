@@ -7,6 +7,7 @@ import { Badge } from '@/shared/components/ui/badge';
 import { Button } from '@/shared/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/shared/components/ui/select';
 import { Search, Filter, Building2, Mail, Phone, MapPin, FileText, MoreHorizontal, Pencil, Trash2 } from 'lucide-react';
+import { cn } from '@/shared/lib/utils';
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -14,6 +15,17 @@ import {
     DropdownMenuLabel,
     DropdownMenuTrigger,
 } from '@/shared/components/ui/dropdown-menu';
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from '@/shared/components/ui/dialog';
+import { Label } from '@/shared/components/ui/label';
+import { Textarea } from '@/shared/components/ui/textarea';
+import { OnboardingStatus } from '../types/provider.types';
 
 interface ProvidersTableProps {
     onEdit?: (provider: Provider) => void;
@@ -28,6 +40,10 @@ export function ProvidersTable({ onEdit, onDelete }: ProvidersTableProps) {
     const [typeFilter, setTypeFilter] = useState<'all' | 'provider' | 'client'>('all');
     const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
     const [isDeleting, setIsDeleting] = useState<string | null>(null);
+    const [isNotesDialogOpen, setIsNotesDialogOpen] = useState(false);
+    const [selectedProviderForNotes, setSelectedProviderForNotes] = useState<Provider | null>(null);
+    const [tempNotes, setTempNotes] = useState('');
+    const [isUpdatingStatus, setIsUpdatingStatus] = useState<string | null>(null);
 
     useEffect(() => {
         loadProviders();
@@ -82,18 +98,57 @@ export function ProvidersTable({ onEdit, onDelete }: ProvidersTableProps) {
         if (confirm('¿Estás seguro de que deseas eliminar este registro?')) {
             setIsDeleting(id);
             try {
-                // If onDelete prop is provided, let parent handle it or handle it here?
-                // The task said "Add functionality to delete", usually the list component handles it or delegates.
-                // Since I already added deleteProvider to service, I can call it here.
                 await providerService.deleteProvider(id);
                 setProviders(providers.filter(p => p.id !== id));
-                if (onDelete) onDelete(id); // Notify parent if needed
+                if (onDelete) onDelete(id);
             } catch (error) {
                 console.error('Error deleting provider:', error);
                 alert('Error al eliminar el registro');
             } finally {
                 setIsDeleting(null);
             }
+        }
+    };
+
+    const handleStatusChange = async (provider: Provider, newStatus: OnboardingStatus) => {
+        if (newStatus === 'DEVUELTO') {
+            setSelectedProviderForNotes(provider);
+            setTempNotes(provider.onboarding_notes || '');
+            setIsNotesDialogOpen(true);
+            return;
+        }
+
+        try {
+            setIsUpdatingStatus(provider.id);
+            const updated = await providerService.updateProvider(provider.id, {
+                onboarding_status: newStatus
+            });
+            setProviders(providers.map(p => p.id === provider.id ? updated : p));
+        } catch (error) {
+            console.error('Error updating status:', error);
+            alert('Error al actualizar el estado');
+        } finally {
+            setIsUpdatingStatus(null);
+        }
+    };
+
+    const handleSaveNotes = async () => {
+        if (!selectedProviderForNotes) return;
+
+        try {
+            setIsUpdatingStatus(selectedProviderForNotes.id);
+            const updated = await providerService.updateProvider(selectedProviderForNotes.id, {
+                onboarding_status: 'DEVUELTO',
+                onboarding_notes: tempNotes
+            });
+            setProviders(providers.map(p => p.id === selectedProviderForNotes.id ? updated : p));
+            setIsNotesDialogOpen(false);
+        } catch (error) {
+            console.error('Error saving notes:', error);
+            alert('Error al guardar las notas');
+        } finally {
+            setIsUpdatingStatus(null);
+            setSelectedProviderForNotes(null);
         }
     };
 
@@ -174,7 +229,7 @@ export function ProvidersTable({ onEdit, onDelete }: ProvidersTableProps) {
                                 <TableHead className="font-bold">Contacto</TableHead>
                                 <TableHead className="font-bold">Ubicación</TableHead>
                                 <TableHead className="font-bold">Tipo</TableHead>
-                                <TableHead className="font-bold">Estado</TableHead>
+                                <TableHead className="font-bold">Registro</TableHead>
                                 <TableHead className="font-bold text-right">Acciones</TableHead>
                             </TableRow>
                         </TableHeader>
@@ -260,15 +315,32 @@ export function ProvidersTable({ onEdit, onDelete }: ProvidersTableProps) {
                                             </div>
                                         </TableCell>
                                         <TableCell>
-                                            {provider.is_active ? (
-                                                <Badge className="bg-green-100 text-green-700">
-                                                    Activo
-                                                </Badge>
-                                            ) : (
-                                                <Badge className="bg-slate-100 text-slate-700">
-                                                    Inactivo
-                                                </Badge>
-                                            )}
+                                            <div className="min-w-[140px]">
+                                                <Select
+                                                    value={provider.onboarding_status}
+                                                    onValueChange={(value: OnboardingStatus) => handleStatusChange(provider, value)}
+                                                    disabled={isUpdatingStatus === provider.id}
+                                                >
+                                                    <SelectTrigger className={cn(
+                                                        "h-8 text-xs font-bold",
+                                                        provider.onboarding_status === 'VALIDADO' && "bg-green-50 text-green-700 border-green-200",
+                                                        provider.onboarding_status === 'DEVUELTO' && "bg-orange-50 text-orange-700 border-orange-200",
+                                                        provider.onboarding_status === 'EN REVISION' && "bg-blue-50 text-blue-700 border-blue-200"
+                                                    )}>
+                                                        <SelectValue />
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                        <SelectItem value="EN REVISION">EN REVISIÓN</SelectItem>
+                                                        <SelectItem value="DEVUELTO">DEVUELTO</SelectItem>
+                                                        <SelectItem value="VALIDADO">VALIDADO</SelectItem>
+                                                    </SelectContent>
+                                                </Select>
+                                                {provider.onboarding_notes && (
+                                                    <p className="mt-1 text-[10px] text-slate-500 italic truncate max-w-[140px]" title={provider.onboarding_notes}>
+                                                        Nota: {provider.onboarding_notes}
+                                                    </p>
+                                                )}
+                                            </div>
                                         </TableCell>
                                         <TableCell align="right">
                                             <DropdownMenu>
@@ -302,6 +374,39 @@ export function ProvidersTable({ onEdit, onDelete }: ProvidersTableProps) {
                     </Table>
                 </div>
             </div>
+
+            <Dialog open={isNotesDialogOpen} onOpenChange={setIsNotesDialogOpen}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Devolver Registro de Proveedor</DialogTitle>
+                        <DialogDescription>
+                            Explica al proveedor por qué su registro está siendo devuelto y qué ajustes debe realizar.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-4 py-4">
+                        <div className="space-y-2">
+                            <Label htmlFor="notes">Notas de Retroalimentación</Label>
+                            <Textarea
+                                id="notes"
+                                placeholder="Ej: Por favor adjunta el RUT actualizado a 2024..."
+                                value={tempNotes}
+                                onChange={(e) => setTempNotes(e.target.value)}
+                                className="min-h-[120px]"
+                            />
+                        </div>
+                    </div>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setIsNotesDialogOpen(false)}>Cancelar</Button>
+                        <Button
+                            onClick={handleSaveNotes}
+                            className="bg-orange-600 hover:bg-orange-700 text-white"
+                            disabled={!tempNotes.trim()}
+                        >
+                            Guardar y Notificar
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 }

@@ -2,6 +2,7 @@ export type DocumentType = 'RUT' | 'Camara_Comercio' | 'Cedula_Rep_Legal' | 'Cer
 export type DocumentStatus = 'en_revision' | 'aprobado' | 'rechazado' | 'vencido';
 export type PersonType = 'natural' | 'juridica';
 export type IdentificationDocumentType = 'nit' | 'cedula_ciudadania' | 'cedula_extranjeria' | 'pasaporte';
+export type OnboardingStatus = 'EN REVISION' | 'DEVUELTO' | 'VALIDADO';
 
 export interface Provider {
     id: string;
@@ -21,6 +22,8 @@ export interface Provider {
     city: string | null;
     department: string | null;
     country: string | null;
+    onboarding_status: OnboardingStatus;
+    onboarding_notes: string | null;
     created_at: string;
     updated_at: string;
 }
@@ -40,6 +43,8 @@ export interface CreateProviderInput {
     city?: string;
     department?: string;
     country?: string;
+    onboarding_status?: OnboardingStatus;
+    onboarding_notes?: string;
 }
 
 export interface ProviderDocument {
