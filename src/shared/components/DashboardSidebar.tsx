@@ -43,8 +43,8 @@ export function DashboardSidebar() {
         <aside className="w-64 h-screen bg-white border-r border-gray-100 flex flex-col fixed left-0 top-0">
             <div className="p-8">
                 <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-200">
-                        <span className="text-white font-black text-xl">F</span>
+                    <div className="w-10 h-10 rounded-xl flex items-center justify-center overflow-hidden">
+                        <img src="/logo.png" alt="Fonnetapp Logo" className="w-full h-full object-contain" />
                     </div>
                     <span className="font-black text-xl text-gray-900 tracking-tight">Fonnettapp</span>
                 </div>
