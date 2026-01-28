@@ -1,3 +1,5 @@
+"use client";
+
 import { useState, useEffect } from 'react';
 import { Provider } from '../types/provider.types';
 import { providerService } from '../services/providerService';

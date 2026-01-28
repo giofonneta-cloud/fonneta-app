@@ -1,5 +1,7 @@
+"use client";
+
 import { useState } from 'react';
-import { Upload, CheckCircle, AlertCircle, FileText, Building2, CreditCard, Loader2 } from 'lucide-react';
+import { Upload, CheckCircle, AlertCircle, FileText, Building2, CreditCard, Loader2, User } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { providerService } from '../services/providerService';
@@ -9,7 +11,7 @@ function cn(...inputs: ClassValue[]) {
     return twMerge(clsx(inputs));
 }
 
-type OnboardingStep = 'basics' | 'legal' | 'banking' | 'finish';
+type OnboardingStep = 'basics' | 'contact' | 'legal' | 'finish';
 
 const documentTypes = [
     { id: 'RUT', label: 'RUT (Registro Único Tributario)' },
@@ -25,10 +27,13 @@ export function ProviderOnboarding() {
     const [error, setError] = useState<string | null>(null);
     const [formData, setFormData] = useState({
         business_name: '',
-        tax_id: '',
-        type: 'juridica',
-        email: '',
-        phone: '',
+        person_type: 'juridica' as 'natural' | 'juridica',
+        document_type: 'nit' as 'nit' | 'cedula_ciudadania' | 'cedula_extranjeria' | 'pasaporte',
+        document_number: '',
+        contact_name: '',
+        contact_email: '',
+        contact_phone: '',
+        billing_email: '',
         address: '',
         country: 'Colombia',
         department: '',
@@ -36,14 +41,16 @@ export function ProviderOnboarding() {
     });
 
     const nextStep = () => {
-        if (!formData.business_name || !formData.tax_id) {
-            setError('Por favor completa los campos obligatorios.');
-            return;
+        if (step === 'basics') {
+            if (!formData.business_name || !formData.document_number) {
+                setError('Por favor completa los campos obligatorios de identificación.');
+                return;
+            }
+            setStep('contact');
+        } else if (step === 'contact') {
+            setStep('legal');
         }
         setError(null);
-        if (step === 'basics') setStep('legal');
-        else if (step === 'legal') setStep('banking');
-        else if (step === 'banking') setStep('finish');
     };
 
     const handleSubmit = async () => {
@@ -52,17 +59,20 @@ export function ProviderOnboarding() {
         try {
             await providerService.createProvider({
                 business_name: formData.business_name,
-                document_number: formData.tax_id,
-                contact_email: formData.email,
-                contact_phone: formData.phone,
+                person_type: formData.person_type,
+                document_type: formData.document_type,
+                document_number: formData.document_number,
+                contact_name: formData.contact_name,
+                contact_email: formData.contact_email,
+                contact_phone: formData.contact_phone,
+                billing_email: formData.billing_email,
                 address: formData.address,
                 city: formData.city,
                 department: formData.department,
                 country: formData.country,
                 is_provider: true,
                 is_client: false,
-                person_type: formData.type as any,
-                document_type: formData.type === 'juridica' ? 'nit' : 'cedula_ciudadania'
+                onboarding_status: 'EN REVISION'
             });
             setStep('finish');
         } catch (err: any) {
@@ -80,11 +90,11 @@ export function ProviderOnboarding() {
                 <div className="bg-gray-50/50 p-8 border-b border-gray-100 flex justify-between items-center">
                     <div className="flex gap-4">
                         <StepIndicator icon={Building2} active={step === 'basics'} completed={step !== 'basics'} label="Datos" />
-                        <StepIndicator icon={FileText} active={step === 'legal'} completed={['banking', 'finish'].includes(step)} label="Legal" />
-                        <StepIndicator icon={CreditCard} active={['banking', 'finish'].includes(step)} completed={step === 'finish'} label="Banco" />
+                        <StepIndicator icon={User} active={step === 'contact'} completed={['legal', 'finish'].includes(step)} label="Contacto" />
+                        <StepIndicator icon={FileText} active={step === 'legal'} completed={step === 'finish'} label="Documentos" />
                     </div>
                     <div className="text-right hidden sm:block">
-                        <h2 className="text-xl font-black text-gray-900 tracking-tight">Onboarding Proveedor</h2>
+                        <h2 className="text-xl font-black text-gray-900 tracking-tight">Registro de Proveedor</h2>
                         <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">Fonnetapp Setup</p>
                     </div>
                 </div>
@@ -100,7 +110,7 @@ export function ProviderOnboarding() {
                     {step === 'basics' && (
                         <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-500">
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                <div className="space-y-2">
+                                <div className="space-y-2 md:col-span-2">
                                     <label className="text-sm font-bold text-gray-700">Razón Social / Nombre Completo *</label>
                                     <input
                                         type="text"
@@ -111,23 +121,150 @@ export function ProviderOnboarding() {
                                     />
                                 </div>
                                 <div className="space-y-2">
-                                    <label className="text-sm font-bold text-gray-700">NIT / Cédula *</label>
+                                    <label className="text-sm font-bold text-gray-700">Tipo de Persona</label>
+                                    <select
+                                        className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all font-medium"
+                                        value={formData.person_type}
+                                        onChange={(e) => setFormData({ ...formData, person_type: e.target.value as any })}
+                                    >
+                                        <option value="juridica">Jurídica</option>
+                                        <option value="natural">Natural</option>
+                                    </select>
+                                </div>
+                                <div className="space-y-2">
+                                    <label className="text-sm font-bold text-gray-700">Tipo de Documento</label>
+                                    <select
+                                        className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all font-medium"
+                                        value={formData.document_type}
+                                        onChange={(e) => setFormData({ ...formData, document_type: e.target.value as any })}
+                                    >
+                                        <option value="nit">NIT</option>
+                                        <option value="cedula_ciudadania">Cédula de Ciudadanía</option>
+                                        <option value="cedula_extranjeria">Cédula de Extranjería</option>
+                                        <option value="pasaporte">Pasaporte</option>
+                                    </select>
+                                </div>
+                                <div className="space-y-2 md:col-span-2">
+                                    <label className="text-sm font-bold text-gray-700">Número de Documento / NIT *</label>
                                     <input
                                         type="text"
                                         className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all font-medium"
                                         placeholder="Ej. 900.123.456-7"
-                                        value={formData.tax_id}
-                                        onChange={(e) => setFormData({ ...formData, tax_id: e.target.value })}
+                                        value={formData.document_number}
+                                        onChange={(e) => setFormData({ ...formData, document_number: e.target.value })}
+                                    />
+                                </div>
+                                <div className="space-y-2 md:col-span-2">
+                                    <label className="text-sm font-bold text-gray-700 text-purple-600">Ubicación</label>
+                                    <div className="bg-purple-50/50 p-6 rounded-2xl border border-purple-100 space-y-4">
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                            <div className="space-y-1">
+                                                <label className="text-[10px] font-black uppercase text-purple-400">Dirección</label>
+                                                <input
+                                                    type="text"
+                                                    className="w-full px-4 py-2 bg-white border border-purple-100 rounded-lg focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 outline-none transition-all text-sm font-medium"
+                                                    placeholder="Calle 123 # 45-67"
+                                                    value={formData.address}
+                                                    onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                                                />
+                                            </div>
+                                            <div className="space-y-1">
+                                                <label className="text-[10px] font-black uppercase text-purple-400">País</label>
+                                                <select
+                                                    className="w-full px-4 py-2 bg-white border border-purple-100 rounded-lg focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 outline-none transition-all text-sm font-medium"
+                                                    value={formData.country}
+                                                    onChange={(e) => setFormData({ ...formData, country: e.target.value, department: '', city: '' })}
+                                                >
+                                                    <option value="Colombia">Colombia</option>
+                                                    <option value="México">México</option>
+                                                    <option value="España">España</option>
+                                                    <option value="USA">USA</option>
+                                                    <option value="Otro">Otro</option>
+                                                </select>
+                                            </div>
+                                            <div className="space-y-1">
+                                                <label className="text-[10px] font-black uppercase text-purple-400">Departamento</label>
+                                                {formData.country === 'Colombia' ? (
+                                                    <select
+                                                        className="w-full px-4 py-2 bg-white border border-purple-100 rounded-lg focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 outline-none transition-all text-sm font-medium"
+                                                        value={formData.department}
+                                                        onChange={(e) => setFormData({ ...formData, department: e.target.value, city: '' })}
+                                                    >
+                                                        <option value="">Selecciona...</option>
+                                                        {COLOMBIA_DEPARTMENTS.map(dept => (
+                                                            <option key={dept.id} value={dept.name}>{dept.name}</option>
+                                                        ))}
+                                                    </select>
+                                                ) : (
+                                                    <input
+                                                        type="text"
+                                                        className="w-full px-4 py-2 bg-white border border-purple-100 rounded-lg focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 outline-none transition-all text-sm font-medium"
+                                                        placeholder="Estado / Provincia"
+                                                        value={formData.department}
+                                                        onChange={(e) => setFormData({ ...formData, department: e.target.value })}
+                                                    />
+                                                )}
+                                            </div>
+                                            <div className="space-y-1">
+                                                <label className="text-[10px] font-black uppercase text-purple-400">Ciudad / Municipio</label>
+                                                {formData.country === 'Colombia' && formData.department ? (
+                                                    <select
+                                                        className="w-full px-4 py-2 bg-white border border-purple-100 rounded-lg focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 outline-none transition-all text-sm font-medium"
+                                                        value={formData.city}
+                                                        onChange={(e) => setFormData({ ...formData, city: e.target.value })}
+                                                    >
+                                                        <option value="">Selecciona...</option>
+                                                        {COLOMBIA_CITIES_BY_DEPT[COLOMBIA_DEPARTMENTS.find(d => d.name === formData.department)?.id || '']?.map(city => (
+                                                            <option key={city} value={city}>{city}</option>
+                                                        ))}
+                                                    </select>
+                                                ) : (
+                                                    <input
+                                                        type="text"
+                                                        className="w-full px-4 py-2 bg-white border border-purple-100 rounded-lg focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 outline-none transition-all text-sm font-medium"
+                                                        placeholder="Ciudad"
+                                                        value={formData.city}
+                                                        onChange={(e) => setFormData({ ...formData, city: e.target.value })}
+                                                        disabled={formData.country === 'Colombia' && !formData.department}
+                                                    />
+                                                )}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div className="md:col-span-2 pt-4">
+                                    <button
+                                        onClick={nextStep}
+                                        className="w-full bg-blue-600 hover:bg-blue-700 text-white px-10 py-4 rounded-2xl font-black text-sm transition-all shadow-lg shadow-blue-200 hover:scale-[1.01] active:scale-100"
+                                    >
+                                        Continuar a Información de Contacto
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {step === 'contact' && (
+                        <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-500">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div className="space-y-2 md:col-span-2">
+                                    <label className="text-sm font-bold text-gray-700">Nombre de Contacto Principal</label>
+                                    <input
+                                        type="text"
+                                        className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all font-medium"
+                                        placeholder="Ej. Juan Pérez"
+                                        value={formData.contact_name}
+                                        onChange={(e) => setFormData({ ...formData, contact_name: e.target.value })}
                                     />
                                 </div>
                                 <div className="space-y-2">
-                                    <label className="text-sm font-bold text-gray-700">Correo Electrónico</label>
+                                    <label className="text-sm font-bold text-gray-700">Email de Contacto</label>
                                     <input
                                         type="email"
                                         className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all font-medium"
-                                        placeholder="provider@example.com"
-                                        value={formData.email}
-                                        onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                                        placeholder="contacto@empresa.com"
+                                        value={formData.contact_email}
+                                        onChange={(e) => setFormData({ ...formData, contact_email: e.target.value })}
                                     />
                                 </div>
                                 <div className="space-y-2">
@@ -135,88 +272,30 @@ export function ProviderOnboarding() {
                                     <input
                                         type="text"
                                         className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all font-medium"
-                                        placeholder="+57..."
-                                        value={formData.phone}
-                                        onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                                        placeholder="+57 300 123 4567"
+                                        value={formData.contact_phone}
+                                        onChange={(e) => setFormData({ ...formData, contact_phone: e.target.value })}
                                     />
-                                </div>
-                                <div className="space-y-2">
-                                    <label className="text-sm font-bold text-gray-700">País</label>
-                                    <select
-                                        className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all font-medium"
-                                        value={formData.country}
-                                        onChange={(e) => setFormData({ ...formData, country: e.target.value, department: '', city: '' })}
-                                    >
-                                        <option value="Colombia">Colombia</option>
-                                        <option value="México">México</option>
-                                        <option value="España">España</option>
-                                        <option value="USA">USA</option>
-                                        <option value="Otro">Otro</option>
-                                    </select>
-                                </div>
-                                <div className="space-y-2">
-                                    <label className="text-sm font-bold text-gray-700">Departamento</label>
-                                    {formData.country === 'Colombia' ? (
-                                        <select
-                                            className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all font-medium"
-                                            value={formData.department}
-                                            onChange={(e) => setFormData({ ...formData, department: e.target.value, city: '' })}
-                                        >
-                                            <option value="">Selecciona Departamento</option>
-                                            {COLOMBIA_DEPARTMENTS.map(dept => (
-                                                <option key={dept.id} value={dept.name}>{dept.name}</option>
-                                            ))}
-                                        </select>
-                                    ) : (
-                                        <input
-                                            type="text"
-                                            className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all font-medium"
-                                            placeholder="Estado / Provincia"
-                                            value={formData.department}
-                                            onChange={(e) => setFormData({ ...formData, department: e.target.value })}
-                                        />
-                                    )}
-                                </div>
-                                <div className="space-y-2">
-                                    <label className="text-sm font-bold text-gray-700">Ciudad / Municipio</label>
-                                    {formData.country === 'Colombia' && formData.department ? (
-                                        <select
-                                            className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all font-medium"
-                                            value={formData.city}
-                                            onChange={(e) => setFormData({ ...formData, city: e.target.value })}
-                                        >
-                                            <option value="">Selecciona Municipio</option>
-                                            {COLOMBIA_CITIES_BY_DEPT[COLOMBIA_DEPARTMENTS.find(d => d.name === formData.department)?.id || '']?.map(city => (
-                                                <option key={city} value={city}>{city}</option>
-                                            ))}
-                                        </select>
-                                    ) : (
-                                        <input
-                                            type="text"
-                                            className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all font-medium"
-                                            placeholder="Ciudad"
-                                            value={formData.city}
-                                            onChange={(e) => setFormData({ ...formData, city: e.target.value })}
-                                            disabled={formData.country === 'Colombia' && !formData.department}
-                                        />
-                                    )}
                                 </div>
                                 <div className="space-y-2 md:col-span-2">
-                                    <label className="text-sm font-bold text-gray-700">Dirección</label>
+                                    <label className="text-sm font-bold text-gray-700">Email de Facturación Electrónica</label>
                                     <input
-                                        type="text"
+                                        type="email"
                                         className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all font-medium"
-                                        placeholder="Calle 123 # 45-67"
-                                        value={formData.address}
-                                        onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                                        placeholder="facturacion@empresa.com"
+                                        value={formData.billing_email}
+                                        onChange={(e) => setFormData({ ...formData, billing_email: e.target.value })}
                                     />
                                 </div>
-                                <button
-                                    onClick={nextStep}
-                                    className="bg-blue-600 hover:bg-blue-700 text-white px-10 py-4 rounded-2xl font-black text-sm transition-all shadow-lg shadow-blue-200 hover:scale-[1.02] active:scale-100"
-                                >
-                                    Continuar a Documentos
-                                </button>
+                                <div className="md:col-span-2 flex justify-between pt-4">
+                                    <button onClick={() => setStep('basics')} className="text-gray-400 font-bold text-sm hover:text-gray-600">Atrás</button>
+                                    <button
+                                        onClick={nextStep}
+                                        className="bg-blue-600 hover:bg-blue-700 text-white px-10 py-4 rounded-2xl font-black text-sm transition-all shadow-lg shadow-blue-200 hover:scale-[1.01] active:scale-100"
+                                    >
+                                        Continuar a Documentos
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     )}
@@ -230,18 +309,35 @@ export function ProviderOnboarding() {
                                 </p>
                             </div>
 
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 opacity-50 pointer-events-none">
-                                {documentTypes.map((doc) => (
-                                    <div key={doc.id} className="p-4 border border-gray-100 rounded-2xl">
-                                        <div className="flex justify-between items-center mb-2">
-                                            <span className="text-sm font-bold text-gray-700">{doc.label}</span>
-                                        </div>
-                                        <div className="flex items-center justify-center gap-2 py-4 border-2 border-dashed border-gray-200 rounded-xl">
-                                            <Upload className="w-5 h-5 text-gray-400" />
-                                            <span className="text-xs font-bold text-gray-400">Próximamente</span>
-                                        </div>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pb-6">
+                                <div className="p-4 border border-blue-100 bg-blue-50/20 rounded-2xl flex items-center justify-between">
+                                    <div className="flex items-center gap-3">
+                                        <FileText className="w-5 h-5 text-blue-500" />
+                                        <span className="text-sm font-bold text-slate-700">RUT Actualizado</span>
                                     </div>
-                                ))}
+                                    <span className="text-[10px] font-black text-blue-400 uppercase tracking-widest">Pendiente</span>
+                                </div>
+                                <div className="p-4 border border-blue-100 bg-blue-50/20 rounded-2xl flex items-center justify-between">
+                                    <div className="flex items-center gap-3">
+                                        <Building2 className="w-5 h-5 text-indigo-500" />
+                                        <span className="text-sm font-bold text-slate-700">Cámara de Comercio</span>
+                                    </div>
+                                    <span className="text-[10px] font-black text-blue-400 uppercase tracking-widest">Pendiente</span>
+                                </div>
+                                <div className="p-4 border border-blue-100 bg-blue-50/20 rounded-2xl flex items-center justify-between">
+                                    <div className="flex items-center gap-3">
+                                        <User className="w-5 h-5 text-emerald-500" />
+                                        <span className="text-sm font-bold text-slate-700">Cédula Rep. Legal</span>
+                                    </div>
+                                    <span className="text-[10px] font-black text-blue-400 uppercase tracking-widest">Pendiente</span>
+                                </div>
+                                <div className="p-4 border border-blue-100 bg-blue-50/20 rounded-2xl flex items-center justify-between">
+                                    <div className="flex items-center gap-3">
+                                        <CreditCard className="w-5 h-5 text-purple-500" />
+                                        <span className="text-sm font-bold text-slate-700">Certificación Bancaria</span>
+                                    </div>
+                                    <span className="text-[10px] font-black text-blue-400 uppercase tracking-widest">Pendiente</span>
+                                </div>
                             </div>
 
                             <div className="flex justify-between pt-6">
