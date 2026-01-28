@@ -30,12 +30,13 @@ export function ProjectFinanceSummary({
     comisionPorcentaje,
     utilidadProyectada,
     utilidadReal,
-    currency = 'USD'
+    currency = 'COP'
 }: FinanceSummaryProps) {
     const formatCurrency = (value: number) => {
-        return new Intl.NumberFormat('en-US', {
+        return new Intl.NumberFormat('es-CO', {
             style: 'currency',
             currency: currency,
+            maximumFractionDigits: 0,
         }).format(value);
     };
 

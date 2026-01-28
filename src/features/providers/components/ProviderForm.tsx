@@ -300,6 +300,34 @@ export function ProviderForm({ onSuccess, onCancel, initialData }: ProviderFormP
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 <FormField
                                     control={form.control}
+                                    name="country"
+                                    render={({ field }) => (
+                                        <FormItem className="md:col-span-2">
+                                            <FormLabel className="text-sm font-bold text-slate-700">País</FormLabel>
+                                            <Select onValueChange={(val) => {
+                                                field.onChange(val);
+                                                form.setValue('department', '');
+                                                form.setValue('city', '');
+                                            }} value={field.value || 'Colombia'}>
+                                                <FormControl>
+                                                    <SelectTrigger className="bg-white">
+                                                        <SelectValue placeholder="Selecciona país" />
+                                                    </SelectTrigger>
+                                                </FormControl>
+                                                <SelectContent>
+                                                    <SelectItem value="Colombia">Colombia</SelectItem>
+                                                    <SelectItem value="México">México</SelectItem>
+                                                    <SelectItem value="España">España</SelectItem>
+                                                    <SelectItem value="USA">USA</SelectItem>
+                                                    <SelectItem value="Otro">Otro</SelectItem>
+                                                </SelectContent>
+                                            </Select>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
+                                <FormField
+                                    control={form.control}
                                     name="address"
                                     render={({ field }) => (
                                         <FormItem className="md:col-span-2">
@@ -307,34 +335,6 @@ export function ProviderForm({ onSuccess, onCancel, initialData }: ProviderFormP
                                             <FormControl>
                                                 <Input {...field} placeholder="Calle 123 # 45-67" className="bg-white" />
                                             </FormControl>
-                                            <FormMessage />
-                                        </FormItem>
-                                    )}
-                                />
-                                <FormField
-                                    control={form.control}
-                                    name="city"
-                                    render={({ field }) => (
-                                        <FormItem>
-                                            <FormLabel className="text-sm font-bold text-slate-700">Ciudad / Municipio</FormLabel>
-                                            {country === 'Colombia' && departmentName ? (
-                                                <Select onValueChange={field.onChange} value={field.value || ''}>
-                                                    <FormControl>
-                                                        <SelectTrigger className="bg-white">
-                                                            <SelectValue placeholder="Selecciona municipio" />
-                                                        </SelectTrigger>
-                                                    </FormControl>
-                                                    <SelectContent>
-                                                        {COLOMBIA_CITIES_BY_DEPT[COLOMBIA_DEPARTMENTS.find(d => d.name === departmentName)?.id || '']?.map(city => (
-                                                            <SelectItem key={city} value={city}>{city}</SelectItem>
-                                                        ))}
-                                                    </SelectContent>
-                                                </Select>
-                                            ) : (
-                                                <FormControl>
-                                                    <Input {...field} placeholder="Bogotá" className="bg-white" disabled={country === 'Colombia' && !departmentName} />
-                                                </FormControl>
-                                            )}
                                             <FormMessage />
                                         </FormItem>
                                     )}
@@ -372,28 +372,28 @@ export function ProviderForm({ onSuccess, onCancel, initialData }: ProviderFormP
                                 />
                                 <FormField
                                     control={form.control}
-                                    name="country"
+                                    name="city"
                                     render={({ field }) => (
-                                        <FormItem className="md:col-span-2">
-                                            <FormLabel className="text-sm font-bold text-slate-700">País</FormLabel>
-                                            <Select onValueChange={(val) => {
-                                                field.onChange(val);
-                                                form.setValue('department', '');
-                                                form.setValue('city', '');
-                                            }} value={field.value || 'Colombia'}>
+                                        <FormItem>
+                                            <FormLabel className="text-sm font-bold text-slate-700">Ciudad / Municipio</FormLabel>
+                                            {country === 'Colombia' && departmentName ? (
+                                                <Select onValueChange={field.onChange} value={field.value || ''}>
+                                                    <FormControl>
+                                                        <SelectTrigger className="bg-white">
+                                                            <SelectValue placeholder="Selecciona municipio" />
+                                                        </SelectTrigger>
+                                                    </FormControl>
+                                                    <SelectContent>
+                                                        {COLOMBIA_CITIES_BY_DEPT[COLOMBIA_DEPARTMENTS.find(d => d.name === departmentName)?.id || '']?.map(city => (
+                                                            <SelectItem key={city} value={city}>{city}</SelectItem>
+                                                        ))}
+                                                    </SelectContent>
+                                                </Select>
+                                            ) : (
                                                 <FormControl>
-                                                    <SelectTrigger className="bg-white">
-                                                        <SelectValue placeholder="Selecciona país" />
-                                                    </SelectTrigger>
+                                                    <Input {...field} placeholder="Bogotá" className="bg-white" disabled={country === 'Colombia' && !departmentName} />
                                                 </FormControl>
-                                                <SelectContent>
-                                                    <SelectItem value="Colombia">Colombia</SelectItem>
-                                                    <SelectItem value="México">México</SelectItem>
-                                                    <SelectItem value="España">España</SelectItem>
-                                                    <SelectItem value="USA">USA</SelectItem>
-                                                    <SelectItem value="Otro">Otro</SelectItem>
-                                                </SelectContent>
-                                            </Select>
+                                            )}
                                             <FormMessage />
                                         </FormItem>
                                     )}

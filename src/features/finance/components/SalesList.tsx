@@ -86,10 +86,10 @@ export function SalesList() {
                                             {sale.proyecto?.name || 'Sin proyecto'}
                                         </td>
                                         <td className="px-6 py-4 text-right font-mono text-slate-700">
-                                            {sale.valor_venta_neto.toLocaleString('en-US', { style: 'currency', currency: 'USD' })}
+                                            {sale.valor_venta_neto.toLocaleString('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 })}
                                         </td>
                                         <td className="px-6 py-4 text-right font-bold text-emerald-600">
-                                            {sale.total_con_iva.toLocaleString('en-US', { style: 'currency', currency: 'USD' })}
+                                            {sale.total_con_iva.toLocaleString('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 })}
                                         </td>
                                         <td className="px-6 py-4 text-center">
                                             <Badge variant="secondary" className={

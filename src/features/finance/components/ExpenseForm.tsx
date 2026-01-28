@@ -183,7 +183,7 @@ export function ExpenseForm({ onSuccess, initialProjectId, initialClientId }: Ex
             const requiresApproval = totalConIva > limit;
 
             if (requiresApproval) {
-                const proceed = confirm(`El monto total (${totalConIva.toLocaleString()}) supera tu límite de aprobación (${limit.toLocaleString()}). \n\nEl gasto será registrado pero quedará marcado como 'PENDIENTE DE APROBACIÓN SUPERIOR'. ¿Deseas continuar?`);
+                const proceed = confirm(`El monto total (${totalConIva.toLocaleString('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 })}) supera tu límite de aprobación (${limit.toLocaleString('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 })}). \n\nEl gasto será registrado pero quedará marcado como 'PENDIENTE DE APROBACIÓN SUPERIOR'. ¿Deseas continuar?`);
                 if (!proceed) {
                     setIsSubmitting(false);
                     return;
@@ -350,7 +350,7 @@ export function ExpenseForm({ onSuccess, initialProjectId, initialClientId }: Ex
                                         name="valor_neto"
                                         render={({ field }) => (
                                             <FormItem className="col-span-2">
-                                                <FormLabel className="text-xs font-bold text-slate-500">Valor Neto (USD)</FormLabel>
+                                                <FormLabel className="text-xs font-bold text-slate-500">Valor Neto (COP)</FormLabel>
                                                 <FormControl>
                                                     <Input {...field} type="number" className="font-bold text-lg" />
                                                 </FormControl>
@@ -380,13 +380,13 @@ export function ExpenseForm({ onSuccess, initialProjectId, initialClientId }: Ex
                                         {tieneIva && (
                                             <div className="text-right">
                                                 <span className="text-[10px] font-bold text-slate-400 block uppercase">IVA ({ivaPorcentaje}%)</span>
-                                                <span className="text-sm font-bold text-slate-700">{ivaValor.toLocaleString('en-US', { style: 'currency', currency: 'USD' })}</span>
+                                                <span className="text-sm font-bold text-slate-700">{ivaValor.toLocaleString('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 })}</span>
                                             </div>
                                         )}
                                     </div>
                                     <div className="p-3 bg-emerald-50 border border-emerald-100 rounded-lg col-span-2">
                                         <span className="text-[10px] font-bold text-emerald-600 block uppercase">Total con IVA</span>
-                                        <span className="text-sm font-black text-emerald-700">{totalConIva.toLocaleString('en-US', { style: 'currency', currency: 'USD' })}</span>
+                                        <span className="text-sm font-black text-emerald-700">{totalConIva.toLocaleString('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 })}</span>
                                     </div>
                                     <FormField
                                         control={form.control}

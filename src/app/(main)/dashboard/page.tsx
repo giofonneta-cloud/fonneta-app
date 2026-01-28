@@ -43,7 +43,7 @@ export default function DashboardPage() {
           <div className="space-y-4">
             <ActivityItem text="Nuevo proveedor 'Imprenta Los Andes' completó onboarding" time="Hace 2 horas" />
             <ActivityItem text="Proyecto 'Navidad 2026' pasó a fase de Producción" time="Hace 5 horas" />
-            <ActivityItem text="Gasto registrado por $2,500 USD en proyecto 'Revista'" time="Ayer" />
+            <ActivityItem text="Gasto registrado por $10.000.000 COP en proyecto 'Revista'" time="Ayer" />
           </div>
         </div>
 

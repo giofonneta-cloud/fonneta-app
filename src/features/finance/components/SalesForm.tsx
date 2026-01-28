@@ -275,7 +275,7 @@ export function SalesForm({ onSuccess, initialProjectId, initialClientId }: Sale
                                     name="valor_venta_neto"
                                     render={({ field }) => (
                                         <FormItem>
-                                            <FormLabel className="text-xs font-bold text-slate-500">Valor Neto (USD)</FormLabel>
+                                            <FormLabel className="text-xs font-bold text-slate-500">Valor Neto (COP)</FormLabel>
                                             <FormControl>
                                                 <div className="relative">
                                                     <DollarSign className="absolute left-3 top-2.5 w-4 h-4 text-slate-400" />
@@ -289,13 +289,13 @@ export function SalesForm({ onSuccess, initialProjectId, initialClientId }: Sale
                                 <div className="space-y-2">
                                     <label className="text-xs font-bold text-slate-500">IVA (19%)</label>
                                     <div className="h-10 px-3 py-2 bg-slate-100/50 rounded-md border border-slate-200 text-slate-600 font-medium">
-                                        {ivaValor.toLocaleString('en-US', { style: 'currency', currency: 'USD' })}
+                                        {ivaValor.toLocaleString('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 })}
                                     </div>
                                 </div>
                                 <div className="space-y-2">
                                     <label className="text-xs font-bold text-slate-500">Total con IVA</label>
                                     <div className="h-10 px-3 py-2 bg-emerald-500 text-white rounded-md font-bold shadow-sm">
-                                        {totalConIva.toLocaleString('en-US', { style: 'currency', currency: 'USD' })}
+                                        {totalConIva.toLocaleString('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 })}
                                     </div>
                                 </div>
                                 <FormField
@@ -448,7 +448,7 @@ export function SalesForm({ onSuccess, initialProjectId, initialClientId }: Sale
                                         <div className="space-y-1">
                                             <span className="text-xs font-bold text-slate-400 tracking-tighter uppercase">Valor Comisión</span>
                                             <p className="text-2xl font-black text-slate-800 tracking-tighter">
-                                                {valorComision.toLocaleString('en-US', { style: 'currency', currency: 'USD' })}
+                                                {valorComision.toLocaleString('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 })}
                                             </p>
                                             <p className="text-[10px] text-slate-400 font-medium">Calculado sobre el valor neto sin IVA</p>
                                         </div>

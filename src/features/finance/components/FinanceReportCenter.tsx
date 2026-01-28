@@ -86,7 +86,7 @@ export function FinanceReportCenter() {
     const netIncome = stats.income - stats.expenses;
     const margin = stats.income > 0 ? (netIncome / stats.income) * 100 : 0;
 
-    const fmt = (n: number) => n.toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 });
+    const fmt = (n: number) => n.toLocaleString('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 });
 
     const kpis = [
         { label: 'Ingresos Totales', value: fmt(stats.income), trend: '+12.5%', isUp: true, color: 'emerald' },
@@ -241,8 +241,8 @@ export function FinanceReportCenter() {
                                 </Badge>
                                 <Target className="w-5 h-5 opacity-50" />
                             </div>
-                            <CardTitle className="text-2xl font-black mb-1">$1.2M USD</CardTitle>
-                            <CardDescription className="text-blue-100 text-xs font-medium">Faltan $450k para el objetivo</CardDescription>
+                            <CardTitle className="text-2xl font-black mb-1">$5.000M COP</CardTitle>
+                            <CardDescription className="text-blue-100 text-xs font-medium">Faltan $1.750M para el objetivo</CardDescription>
                         </CardHeader>
                         <CardContent className="p-6 pt-0 space-y-4">
                             <div className="h-2 w-full bg-white/20 rounded-full overflow-hidden">
