@@ -401,61 +401,6 @@ export function ProviderForm({ onSuccess, onCancel, initialData }: ProviderFormP
                             </div>
                         </section>
 
-                        {/* Estado del Registro (Solo visible para admin/edición) */}
-                        <section className="space-y-4">
-                            <div className="flex items-center gap-2 mb-4">
-                                <Info className="w-5 h-5 text-blue-600" />
-                                <h3 className="text-lg font-bold text-slate-800">Estado del Registro</h3>
-                            </div>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-slate-50 p-6 rounded-lg border">
-                                <FormField
-                                    control={form.control}
-                                    name="onboarding_status"
-                                    render={({ field }) => (
-                                        <FormItem>
-                                            <FormLabel className="text-sm font-bold text-slate-700">Estado</FormLabel>
-                                            <Select onValueChange={field.onChange} value={field.value}>
-                                                <FormControl>
-                                                    <SelectTrigger className={cn(
-                                                        "bg-white font-bold",
-                                                        field.value === 'VALIDADO' && "text-green-700 border-green-200",
-                                                        field.value === 'DEVUELTO' && "text-orange-700 border-orange-200",
-                                                        field.value === 'EN REVISION' && "text-blue-700 border-blue-200"
-                                                    )}>
-                                                        <SelectValue />
-                                                    </SelectTrigger>
-                                                </FormControl>
-                                                <SelectContent>
-                                                    <SelectItem value="EN REVISION">EN REVISIÓN</SelectItem>
-                                                    <SelectItem value="DEVUELTO">DEVUELTO</SelectItem>
-                                                    <SelectItem value="VALIDADO">VALIDADO</SelectItem>
-                                                </SelectContent>
-                                            </Select>
-                                            <FormMessage />
-                                        </FormItem>
-                                    )}
-                                />
-                                {onboardingStatus === 'DEVUELTO' && (
-                                    <FormField
-                                        control={form.control}
-                                        name="onboarding_notes"
-                                        render={({ field }) => (
-                                            <FormItem className="md:col-span-2">
-                                                <FormLabel className="text-sm font-bold text-slate-700">Notas de Retroalimentación</FormLabel>
-                                                <FormControl>
-                                                    <Textarea 
-                                                        {...field} 
-                                                        placeholder="Explica qué debe corregir el proveedor..." 
-                                                        className="bg-white min-h-[100px]"
-                                                    />
-                                                </FormControl>
-                                                <FormMessage />
-                                            </FormItem>
-                                        )}
-                                    />
-                                )}
-                            </div>
-                        </section>
 
                         {/* Documentos */}
                         <section className="space-y-4">
@@ -618,6 +563,60 @@ export function ProviderForm({ onSuccess, onCancel, initialData }: ProviderFormP
                                                     Le vendemos servicios o productos
                                                 </FormDescription>
                                             </div>
+                                        </FormItem>
+                                    )}
+                                />
+                            </div>
+                        </section>
+
+                        {/* Estado del Registro (Solo visible para admin/edición) */}
+                        <section className="space-y-4">
+                            <div className="flex items-center gap-2 mb-4">
+                                <Info className="w-5 h-5 text-blue-600" />
+                                <h3 className="text-lg font-bold text-slate-800">Estado del Registro</h3>
+                            </div>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-slate-50 p-6 rounded-lg border">
+                                <FormField
+                                    control={form.control}
+                                    name="onboarding_status"
+                                    render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel className="text-sm font-bold text-slate-700">Estado</FormLabel>
+                                            <Select onValueChange={field.onChange} value={field.value}>
+                                                <FormControl>
+                                                    <SelectTrigger className={cn(
+                                                        "bg-white font-bold",
+                                                        field.value === 'VALIDADO' && "text-green-700 border-green-200",
+                                                        field.value === 'DEVUELTO' && "text-orange-700 border-orange-200",
+                                                        field.value === 'EN REVISION' && "text-blue-700 border-blue-200"
+                                                    )}>
+                                                        <SelectValue />
+                                                    </SelectTrigger>
+                                                </FormControl>
+                                                <SelectContent>
+                                                    <SelectItem value="EN REVISION">EN REVISIÓN</SelectItem>
+                                                    <SelectItem value="DEVUELTO">DEVUELTO</SelectItem>
+                                                    <SelectItem value="VALIDADO">VALIDADO</SelectItem>
+                                                </SelectContent>
+                                            </Select>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
+                                <FormField
+                                    control={form.control}
+                                    name="onboarding_notes"
+                                    render={({ field }) => (
+                                        <FormItem className="md:col-span-2">
+                                            <FormLabel className="text-sm font-bold text-slate-700">Notas de Retroalimentación / Observaciones</FormLabel>
+                                            <FormControl>
+                                                <Textarea 
+                                                    {...field} 
+                                                    placeholder="Registra observaciones sobre este proveedor o explica qué debe corregir..." 
+                                                    className="bg-white min-h-[100px]"
+                                                />
+                                            </FormControl>
+                                            <FormMessage />
                                         </FormItem>
                                     )}
                                 />
