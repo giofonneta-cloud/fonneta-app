@@ -122,27 +122,81 @@ export class EmailService {
   }
 
   /**
-   * Notificar al proveedor que su factura fue recibida
+   * Notificar al proveedor que su factura fue registrada exitosamente
+   * Email consolidado con toda la información y documentos asociados
    */
   async sendProviderInvoiceReceived(
     providerEmail: string,
     providerName: string,
     invoiceNumber: string,
-    radicado?: string
+    radicado: string,
+    invoiceType: 'factura' | 'cuenta_cobro',
+    amount: number,
+    concept: string,
+    documents: { name: string; uploaded: boolean }[]
   ): Promise<void> {
-    const radicadoNumber = radicado || invoiceNumber;
+    const tipoDocumento = invoiceType === 'factura' ? 'Factura' : 'Cuenta de Cobro';
+    const formattedAmount = new Intl.NumberFormat('es-CO', {
+      style: 'currency',
+      currency: 'COP',
+      maximumFractionDigits: 0,
+    }).format(amount);
+
+    // Lista de documentos adjuntos
+    const documentsList = documents
+      .filter(d => d.uploaded)
+      .map(d => `<li style="margin: 5px 0;">✓ ${d.name}</li>`)
+      .join('');
 
     const html = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-        <h2 style="color: #2563eb;">Confirmación de Recepción</h2>
+        <h2 style="color: #2563eb;">Confirmación de Radicación</h2>
         <p>Hola <strong>${providerName}</strong>,</p>
-        <p>Tu factura/cuenta de cobro con número <strong>${invoiceNumber}</strong> ha sido enviada satisfactoriamente.</p>
-        <div style="background-color: #f3f4f6; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #2563eb;">
-          <p style="margin: 0; font-size: 16px;"><strong>Número de Radicado:</strong> ${radicadoNumber}</p>
+        <p>Tu ${tipoDocumento.toLowerCase()} ha sido radicada exitosamente en nuestro sistema.</p>
+
+        <div style="background-color: #dbeafe; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #2563eb;">
+          <p style="margin: 0 0 10px 0; font-size: 18px; font-weight: bold; color: #1e40af;">
+            Número de Radicado: ${radicado}
+          </p>
+          <p style="margin: 0; color: #1e40af; font-size: 14px;">
+            Guarda este número para futuras consultas
+          </p>
         </div>
-        <p>Este documento se encuentra en proceso de revisión por parte de nuestro equipo administrativo.</p>
+
+        <h3 style="color: #374151; margin-top: 25px;">Información del Documento</h3>
+        <table style="width: 100%; border-collapse: collapse; margin: 10px 0;">
+          <tr>
+            <td style="padding: 8px 0; border-bottom: 1px solid #e5e7eb; color: #6b7280;">Tipo:</td>
+            <td style="padding: 8px 0; border-bottom: 1px solid #e5e7eb; font-weight: bold;">${tipoDocumento}</td>
+          </tr>
+          <tr>
+            <td style="padding: 8px 0; border-bottom: 1px solid #e5e7eb; color: #6b7280;">Número:</td>
+            <td style="padding: 8px 0; border-bottom: 1px solid #e5e7eb; font-weight: bold;">${invoiceNumber}</td>
+          </tr>
+          <tr>
+            <td style="padding: 8px 0; border-bottom: 1px solid #e5e7eb; color: #6b7280;">Monto:</td>
+            <td style="padding: 8px 0; border-bottom: 1px solid #e5e7eb; font-weight: bold;">${formattedAmount}</td>
+          </tr>
+          <tr>
+            <td style="padding: 8px 0; border-bottom: 1px solid #e5e7eb; color: #6b7280;">Concepto:</td>
+            <td style="padding: 8px 0; border-bottom: 1px solid #e5e7eb;">${concept}</td>
+          </tr>
+        </table>
+
+        <h3 style="color: #374151; margin-top: 25px;">Documentos Adjuntos</h3>
+        <ul style="list-style: none; padding: 0; margin: 10px 0; color: #059669;">
+          ${documentsList}
+        </ul>
+
+        <div style="background-color: #fef3c7; padding: 15px; border-radius: 8px; margin: 20px 0;">
+          <p style="margin: 0; color: #92400e; font-size: 14px;">
+            <strong>Estado:</strong> En revisión por el equipo administrativo.
+            Te notificaremos cuando haya actualizaciones.
+          </p>
+        </div>
+
         <hr style="border: 1px solid #e5e7eb; margin: 20px 0;">
-        <p style="color: #6b7280; font-size: 14px;">
+        <p style="color: #6b7280; font-size: 12px;">
           Este es un mensaje automático de Fonneta. Por favor no respondas a este correo.
         </p>
       </div>
@@ -150,45 +204,86 @@ export class EmailService {
 
     await this.sendEmail({
       to: providerEmail,
-      subject: `Confirmación de envío - Factura ${invoiceNumber}`,
+      subject: `Radicado ${radicado} - ${tipoDocumento} ${invoiceNumber} recibida`,
       html,
-      text: `Hola ${providerName}, tu factura ${invoiceNumber} ha sido enviada satisfactoriamente. Número de radicado: ${radicadoNumber}.`,
+      text: `Hola ${providerName}, tu ${tipoDocumento.toLowerCase()} ${invoiceNumber} ha sido radicada exitosamente. Número de radicado: ${radicado}. Monto: ${formattedAmount}.`,
     });
   }
 
   /**
-   * Notificar al admin sobre nueva factura
+   * Notificar al admin sobre nueva factura radicada
    */
   async sendAdminInvoiceReview(
-    invoiceUrl: string,
     providerName: string,
     invoiceNumber: string,
-    amount: number
+    radicado: string,
+    invoiceType: 'factura' | 'cuenta_cobro',
+    amount: number,
+    concept: string,
+    documents: { name: string; uploaded: boolean }[]
   ): Promise<void> {
     const adminEmail = process.env.ADMIN_EMAIL || this.fromEmail;
+    const tipoDocumento = invoiceType === 'factura' ? 'Factura' : 'Cuenta de Cobro';
     const formattedAmount = new Intl.NumberFormat('es-CO', {
       style: 'currency',
       currency: 'COP',
       maximumFractionDigits: 0,
     }).format(amount);
 
+    const documentsList = documents
+      .filter(d => d.uploaded)
+      .map(d => `<li style="margin: 5px 0;">✓ ${d.name}</li>`)
+      .join('');
+
     const html = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-        <h2 style="color: #2563eb;">Nueva Factura para Revisar</h2>
-        <p>El proveedor <strong>${providerName}</strong> ha registrado una nueva factura:</p>
-        <ul>
-          <li><strong>Número:</strong> ${invoiceNumber}</li>
-          <li><strong>Monto:</strong> ${formattedAmount}</li>
-          <li><strong>Proveedor:</strong> ${providerName}</li>
+        <h2 style="color: #dc2626;">Nueva ${tipoDocumento} Radicada</h2>
+        <p>El proveedor <strong>${providerName}</strong> ha radicado un nuevo documento para revisión.</p>
+
+        <div style="background-color: #fee2e2; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #dc2626;">
+          <p style="margin: 0; font-size: 18px; font-weight: bold; color: #991b1b;">
+            Radicado: ${radicado}
+          </p>
+        </div>
+
+        <h3 style="color: #374151;">Detalles</h3>
+        <table style="width: 100%; border-collapse: collapse; margin: 10px 0;">
+          <tr>
+            <td style="padding: 8px 0; border-bottom: 1px solid #e5e7eb; color: #6b7280; width: 40%;">Proveedor:</td>
+            <td style="padding: 8px 0; border-bottom: 1px solid #e5e7eb; font-weight: bold;">${providerName}</td>
+          </tr>
+          <tr>
+            <td style="padding: 8px 0; border-bottom: 1px solid #e5e7eb; color: #6b7280;">Tipo:</td>
+            <td style="padding: 8px 0; border-bottom: 1px solid #e5e7eb;">${tipoDocumento}</td>
+          </tr>
+          <tr>
+            <td style="padding: 8px 0; border-bottom: 1px solid #e5e7eb; color: #6b7280;">Número:</td>
+            <td style="padding: 8px 0; border-bottom: 1px solid #e5e7eb;">${invoiceNumber}</td>
+          </tr>
+          <tr>
+            <td style="padding: 8px 0; border-bottom: 1px solid #e5e7eb; color: #6b7280;">Monto:</td>
+            <td style="padding: 8px 0; border-bottom: 1px solid #e5e7eb; font-weight: bold; color: #059669;">${formattedAmount}</td>
+          </tr>
+          <tr>
+            <td style="padding: 8px 0; border-bottom: 1px solid #e5e7eb; color: #6b7280;">Concepto:</td>
+            <td style="padding: 8px 0; border-bottom: 1px solid #e5e7eb;">${concept}</td>
+          </tr>
+        </table>
+
+        <h3 style="color: #374151; margin-top: 20px;">Documentos Adjuntos</h3>
+        <ul style="list-style: none; padding: 0; margin: 10px 0; color: #059669;">
+          ${documentsList}
         </ul>
-        <p>
-          <a href="${invoiceUrl}" 
-             style="display: inline-block; background-color: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; margin-top: 10px;">
-            Ver Factura
+
+        <p style="margin-top: 20px;">
+          <a href="${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}/dashboard/providers/invoices"
+             style="display: inline-block; background-color: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px;">
+            Revisar en el Sistema
           </a>
         </p>
+
         <hr style="border: 1px solid #e5e7eb; margin: 20px 0;">
-        <p style="color: #6b7280; font-size: 14px;">
+        <p style="color: #6b7280; font-size: 12px;">
           Sistema de Gestión Fonneta
         </p>
       </div>
@@ -196,9 +291,9 @@ export class EmailService {
 
     await this.sendEmail({
       to: adminEmail,
-      subject: `Nueva factura de ${providerName} - ${invoiceNumber}`,
+      subject: `[RADICADO ${radicado}] Nueva ${tipoDocumento} de ${providerName}`,
       html,
-      text: `El proveedor ${providerName} ha registrado la factura ${invoiceNumber} por ${formattedAmount}. Ver: ${invoiceUrl}`,
+      text: `Nueva ${tipoDocumento.toLowerCase()} radicada. Radicado: ${radicado}. Proveedor: ${providerName}. Número: ${invoiceNumber}. Monto: ${formattedAmount}.`,
     });
   }
 }

@@ -75,6 +75,7 @@ export type InvoiceStatus = 'pendiente' | 'en_revision' | 'aprobado' | 'pagado' 
 export interface ProviderInvoice {
     id: string;
     provider_id: string;
+    radicado_number: string | null; // Número único de radicado (RAD-YYYY-NNNN)
     invoice_number: string;
     invoice_type: InvoiceType;
     issue_date: string;

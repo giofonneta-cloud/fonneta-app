@@ -35,23 +35,36 @@ async function testEmailNotifications() {
     );
     console.log('✅ Email enviado al admin');
     
-    // Test 3: Notificación de factura recibida
+    // Test 3: Notificación de factura recibida (al proveedor)
     console.log('\n💰 Test 3: Notificación de factura recibida');
+    const testDocuments = [
+      { name: 'Factura / Cuenta de Cobro', uploaded: true },
+      { name: 'Orden de Compra', uploaded: true },
+      { name: 'Soporte Seguridad Social', uploaded: true },
+      { name: 'Release Document', uploaded: false }
+    ];
     await emailService.sendProviderInvoiceReceived(
       'norificacionesfonneta@gmail.com',
       'Proveedor de Prueba S.A.S',
       'FAC-001',
-      'RAD-2026-001'
+      'RAD-2026-0001',
+      'cuenta_cobro',
+      1500000,
+      'Servicios de consultoría mes de enero 2026',
+      testDocuments
     );
     console.log('✅ Email de factura enviado al proveedor');
 
     // Test 4: Notificación de factura al admin
     console.log('\n📊 Test 4: Notificación de factura al admin');
     await emailService.sendAdminInvoiceReview(
-      'https://example.com/invoice.pdf',
       'Proveedor de Prueba S.A.S',
       'FAC-001',
-      1500000
+      'RAD-2026-0001',
+      'cuenta_cobro',
+      1500000,
+      'Servicios de consultoría mes de enero 2026',
+      testDocuments
     );
     console.log('✅ Email de factura enviado al admin');
     

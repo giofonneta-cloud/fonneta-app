@@ -142,8 +142,8 @@ export function ProviderInvoiceForm() {
                 );
             }
 
-            // 2. Crear factura
-            await providerInvoiceService.createInvoice({
+            // 2. Crear factura (el radicado se genera automáticamente en la BD)
+            const createdInvoice = await providerInvoiceService.createInvoice({
                 provider_id: provider.id,
                 invoice_number: formData.invoice_number,
                 invoice_type: formData.invoice_type,
@@ -156,7 +156,35 @@ export function ProviderInvoiceForm() {
                 release_url: releaseUrl
             });
 
-            // 3. Redirigir al listado
+            // 3. Enviar notificaciones (UN solo email consolidado)
+            try {
+                const documentsUploaded = [
+                    { name: 'Factura / Cuenta de Cobro', uploaded: !!documentUrl },
+                    { name: 'Orden de Compra', uploaded: !!ordenCompraUrl },
+                    { name: 'Soporte Seguridad Social', uploaded: !!seguridadSocialUrl },
+                    { name: 'Release Document', uploaded: !!releaseUrl }
+                ];
+
+                await fetch('/api/providers/invoice-notification', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        invoiceId: createdInvoice.id,
+                        providerId: provider.id,
+                        invoiceNumber: formData.invoice_number,
+                        radicadoNumber: createdInvoice.radicado_number,
+                        invoiceType: formData.invoice_type,
+                        amount,
+                        concept: formData.concept,
+                        documents: documentsUploaded
+                    })
+                });
+            } catch (notifError) {
+                // Si falla la notificación, no bloquear el flujo
+                console.warn('Error enviando notificaciones:', notifError);
+            }
+
+            // 4. Redirigir al listado
             router.push('/portal/invoices');
         } catch (err: any) {
             console.error('Error al crear factura:', JSON.stringify(err, null, 2));
