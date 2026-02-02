@@ -29,11 +29,11 @@ Para que las notificaciones por email funcionen, necesitas configurar una **cont
 Reemplaza la línea en tu archivo `.env.local`:
 
 ```bash
-# Antes
-SMTP_PASSWORD=Notif2026*
+# Antes (contraseña de aplicación antigua - REVOCADA)
+SMTP_PASSWORD=old-password-here
 
-# Después (usa la contraseña generada, SIN espacios)
-SMTP_PASSWORD=abcdefghijklmnop
+# Después (usa la contraseña generada por Google, SIN espacios)
+SMTP_PASSWORD=your-16-char-app-password
 ```
 
 ### 4. Reiniciar el servidor

@@ -58,9 +58,9 @@ GOOGLE_DRIVE_ROOT_FOLDER_ID=1abc...xyz # ID de la carpeta que creaste
 # Email / SMTP
 SMTP_HOST=smtp.gmail.com
 SMTP_PORT=587
-SMTP_USER=norificacionesfonneta@gmail.com
-SMTP_PASSWORD=Notif2026*
-NOTIFICATION_FROM_EMAIL=norificacionesfonneta@gmail.com
+SMTP_USER=your-email@gmail.com
+SMTP_PASSWORD=your-app-password-here  # Ver GMAIL_SMTP_SETUP.md para generar
+NOTIFICATION_FROM_EMAIL=your-email@gmail.com
 NOTIFICATION_FROM_NAME=Fonneta
 ADMIN_EMAIL=admin@fonneta.com # Email del administrador
 ```
