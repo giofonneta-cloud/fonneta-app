@@ -46,6 +46,24 @@ Las siguientes funcionalidades están planeadas para las próximas fases de desa
 - **Sistema de Notificaciones In-App**:
   - Centro de notificaciones en tiempo real para Admin y Proveedores.
   - Alertas visuales inmediatas sobre cambios de estado en facturas.
+  - Componente `NotificationBell` con contador de notificaciones no leídas.
+  - Integración en layouts de Admin y Proveedores.
+
+### Fixed
+
+- **Registro de Proveedores - Condición de Carrera**:
+  - Implementado mecanismo de espera para creación de perfil de usuario.
+  - Creado API route `/api/create-profile` con privilegios de service role.
+  - Solución definitiva para error `foreign key constraint "providers_user_id_fkey"`.
+  - Manejo robusto de casos donde el trigger de Supabase falla o es lento.
+
+### Security
+
+- **Credenciales SMTP Expuestas**:
+  - Removidas credenciales hardcodeadas de archivos de documentación.
+  - Actualizado `GOOGLE_DRIVE_SETUP.md` y `GMAIL_SMTP_SETUP.md` con placeholders.
+  - Instrucciones claras para rotación de credenciales comprometidas.
+  - Reforzadas prácticas de seguridad en documentación.
 
 ## [1.4.0] - 2026-01-28
 
