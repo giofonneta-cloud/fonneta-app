@@ -157,21 +157,21 @@ export function ProviderOnboarding() {
 
             const profileCreated = await waitForProfile(authData.user.id);
             if (!profileCreated) {
-                // Si el trigger falla, intentar crearlo manualmente como fallback
-                // IMPORTANTE: Esto requiere la política de RLS "Users can insert their own profile"
-                const { error: profileError } = await supabase.from('profiles').insert({
-                    id: authData.user.id,
-                    email: formData.contact_email,
-                    full_name: formData.contact_name,
-                    role: 'proveedor',
-                    created_at: new Date().toISOString()
+                // Si el trigger falla, usar RPC con privilegios elevados
+                // Esto evita problemas de RLS porque la función se ejecuta como SECURITY DEFINER
+                const { data: rpcResult, error: rpcError } = await supabase.rpc('create_profile_for_new_user', {
+                    user_id: authData.user.id,
+                    user_email: formData.contact_email,
+                    user_full_name: formData.contact_name,
+                    user_role: 'proveedor'
                 });
 
-                if (profileError) {
-                    console.error('Error creating profile manually:', profileError);
-                    // Si falla el insert manual (probablemente por RLS), lanzamos error explicativo
-                    throw new Error(`Error crítico: No se pudo crear el perfil de usuario. ${profileError.message}`);
+                if (rpcError || !rpcResult?.success) {
+                    console.error('Error creating profile via RPC:', rpcError || rpcResult);
+                    throw new Error(`Error crítico: No se pudo crear el perfil de usuario. ${rpcError?.message || rpcResult?.error || 'Unknown error'}`);
                 }
+                
+                console.log('Profile created successfully via RPC fallback');
             }
 
             // 3. Crear registro de proveedor vinculado al user_id
