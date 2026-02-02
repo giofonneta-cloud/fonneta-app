@@ -140,8 +140,32 @@ export function ProviderOnboarding() {
                 throw new Error('No se pudo crear el usuario en el sistema de autenticación.');
             }
 
-            // 2. El perfil se crea automáticamente vía trigger (on_auth_user_created)
-            // No es necesario crearlo manualmente aquí.
+            // 2. Esperar a que el perfil se cree automáticamente vía trigger
+            const waitForProfile = async (userId: string, retries = 5, delay = 1000) => {
+                for (let i = 0; i < retries; i++) {
+                    const { data } = await supabase
+                        .from('profiles')
+                        .select('id')
+                        .eq('id', userId)
+                        .single();
+                    
+                    if (data) return true;
+                    await new Promise(resolve => setTimeout(resolve, delay));
+                }
+                return false;
+            };
+
+            const profileCreated = await waitForProfile(authData.user.id);
+            if (!profileCreated) {
+                // Si el trigger falla, intentar crearlo manualmente como fallback
+                await supabase.from('profiles').insert({
+                    id: authData.user.id,
+                    email: formData.contact_email,
+                    full_name: formData.contact_name,
+                    role: 'proveedor',
+                    created_at: new Date().toISOString()
+                });
+            }
 
             // 3. Crear registro de proveedor vinculado al user_id
             console.log('Intentando crear proveedor con ID:', authData.user.id);
