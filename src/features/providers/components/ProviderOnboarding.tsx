@@ -140,29 +140,26 @@ export function ProviderOnboarding() {
                 throw new Error('No se pudo crear el usuario en el sistema de autenticación.');
             }
 
-            // 2. Esperar a que el perfil se cree automáticamente vía trigger
-            // El trigger ahora es más robusto y debería funcionar siempre
-            const waitForProfile = async (userId: string, retries = 10, delay = 1000) => {
-                for (let i = 0; i < retries; i++) {
-                    const { data } = await supabase
-                        .from('profiles')
-                        .select('id')
-                        .eq('id', userId)
-                        .single();
-                    
-                    if (data) {
-                        console.log(`Profile found after ${i + 1} attempt(s)`);
-                        return true;
-                    }
-                    await new Promise(resolve => setTimeout(resolve, delay));
-                }
-                return false;
-            };
+            // 2. Crear perfil usando API route con service role
+            // Esto evita TODOS los problemas de RLS y triggers
+            const profileResponse = await fetch('/api/create-profile', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    userId: authData.user.id,
+                    email: formData.contact_email,
+                    fullName: formData.contact_name,
+                    role: 'proveedor'
+                })
+            });
 
-            const profileCreated = await waitForProfile(authData.user.id);
-            if (!profileCreated) {
-                throw new Error('El sistema no pudo crear tu perfil automáticamente. Por favor contacta a soporte técnico.');
+            if (!profileResponse.ok) {
+                const errorData = await profileResponse.json();
+                throw new Error(`Error creando perfil: ${errorData.error || 'Unknown error'}`);
             }
+
+            const profileData = await profileResponse.json();
+            console.log('Profile created via API:', profileData);
 
             // 3. Crear registro de proveedor vinculado al user_id
             console.log('Intentando crear proveedor con ID:', authData.user.id);
