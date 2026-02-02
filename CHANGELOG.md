@@ -29,6 +29,24 @@ Las siguientes funcionalidades están planeadas para las próximas fases de desa
 
 ---
 
+## [1.5.0] - 2026-02-02
+
+### Added
+
+- **Integración Financiera de Proveedores**:
+  - Vinculación automática entre Facturas de Proveedores y Gastos Internos.
+  - Generación automática de registros en `gastos` al aprobar una factura.
+  - Consistencia de datos financieros (Valor Neto, IVA, Total).
+- **Gestión de Plazos de Pago**:
+  - Configuración de plazo de pago por defecto a 60 días para proveedores.
+  - Capacidad administrativa para ajustar plazos y ver fecha estimada de pago.
+- **Mejoras en Dashboard Administrativo**:
+  - Modal de revisión enriquecido con selector de proyectos y categorías de gasto.
+  - Visualización clara de fechas estimadas y estados de pago.
+- **Sistema de Notificaciones In-App**:
+  - Centro de notificaciones en tiempo real para Admin y Proveedores.
+  - Alertas visuales inmediatas sobre cambios de estado en facturas.
+
 ## [1.4.0] - 2026-01-28
 
 ### Added

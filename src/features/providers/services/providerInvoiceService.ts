@@ -20,6 +20,11 @@ export const providerInvoiceService = {
                 issue_date: input.issue_date,
                 due_date: input.due_date || null,
                 amount: input.amount,
+                valor_neto: input.valor_neto,
+                iva_porcentaje: input.iva_porcentaje,
+                iva_valor: input.iva_valor,
+                total_con_iva: input.total_con_iva,
+                plazo_pago: input.plazo_pago || 60,
                 concept: input.concept,
                 document_url: input.document_url || null,
                 orden_compra_url: input.orden_compra_url || null,
@@ -108,11 +113,17 @@ export const providerInvoiceService = {
         id: string,
         status: InvoiceStatus,
         adminNotes?: string,
-        paymentDate?: string
+        paymentDate?: string,
+        projectId?: string | null,
+        categoria?: string | null,
+        plazoPago?: number
     ) {
         const updateData: Partial<ProviderInvoice> = {
             status,
             admin_notes: adminNotes || null,
+            project_id: projectId || null,
+            categoria: categoria || null,
+            plazo_pago: plazoPago ?? 60,
             updated_at: new Date().toISOString()
         };
 
@@ -121,16 +132,106 @@ export const providerInvoiceService = {
             updateData.payment_date = paymentDate || new Date().toISOString().split('T')[0];
         }
 
-        const { data, error } = await supabase
+        // 1. Actualizar la factura primero para tener los datos frescos
+        const { data: invoice, error: updateError } = await supabase
             .from('provider_invoices')
             .update(updateData)
             .eq('id', id)
-            .select()
+            .select('*')
             .single();
 
-        if (error) throw error;
-        return data as ProviderInvoice;
+        if (updateError) throw updateError;
+        const updatedInvoice = invoice as ProviderInvoice;
+
+        // 3. Enviar notificación de cambio de estado
+        try {
+            // Email Notification (Server-side API)
+            await fetch('/api/providers/invoice-status-change', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    invoiceId: updatedInvoice.id,
+                    providerId: updatedInvoice.provider_id,
+                    invoiceNumber: updatedInvoice.invoice_number,
+                    radicadoNumber: updatedInvoice.radicado_number || 'PENDIENTE',
+                    newStatus: status,
+                    adminNotes: adminNotes
+                })
+            });
+
+            // In-App Notification (Client-side directly to DB)
+            // First we need the user_id of the provider to send the notification
+            const { data: providerData } = await supabase
+                .from('providers')
+                .select('user_id')
+                .eq('id', updatedInvoice.provider_id)
+                .single();
+
+            if (providerData?.user_id) {
+                const { notificationService } = await import('@/shared/services/notificationService');
+                const statusLabels: Record<string, string> = {
+                    'pendiente': 'Pendiente',
+                    'en_revision': 'En Revisión',
+                    'aprobado': 'Aprobado',
+                    'pagado': 'Pagado',
+                    'rechazado': 'Rechazado',
+                    'devuelto': 'Devuelto'
+                };
+
+                await notificationService.createNotification({
+                    user_id: providerData.user_id,
+                    type: 'invoice_update',
+                    title: `Factura ${statusLabels[status] || status}`,
+                    message: `Tu factura #${updatedInvoice.invoice_number} ha cambiado de estado a: ${statusLabels[status] || status}.`,
+                    data: {
+                        invoice_id: updatedInvoice.id,
+                        status: status
+                    }
+                });
+            }
+
+        } catch (notifyError) {
+            console.error('Error enviando notificación:', notifyError);
+            // No bloqueamos el flujo si falla la notificación
+        }
+
+        // 2. Si se aprueba y NO tiene gasto vinculado, crear el Gasto
+        if (status === 'aprobado' && !updatedInvoice.expense_id && updatedInvoice.project_id) {
+            try {
+                const { expensesService } = await import('@/features/finance/services/expensesService');
+                
+                const gasto = await expensesService.createGasto({
+                    proyecto_id: updatedInvoice.project_id,
+                    proveedor_id: updatedInvoice.provider_id,
+                    valor_neto: updatedInvoice.valor_neto,
+                    iva_porcentaje: updatedInvoice.iva_porcentaje,
+                    iva_valor: updatedInvoice.iva_valor,
+                    total_con_iva: updatedInvoice.total_con_iva,
+                    categoria: updatedInvoice.categoria || 'pendiente',
+                    numero_factura_proveedor: updatedInvoice.invoice_number,
+                    factura_url: updatedInvoice.document_url || undefined,
+                    fecha_radicado: new Date().toISOString().split('T')[0],
+                    // Calcular fecha límite de pago basado en plazo_pago
+                    fecha_limite_pago: new Date(Date.now() + (updatedInvoice.plazo_pago || 60) * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+                    estado_pago: 'pendiente',
+                    observaciones: `[AUTO] Generado desde Radicado ${updatedInvoice.radicado_number}. ${updatedInvoice.admin_notes || ''}`
+                } as any);
+
+                if (gasto?.id) {
+                    await supabase
+                        .from('provider_invoices')
+                        .update({ expense_id: gasto.id })
+                        .eq('id', id);
+                }
+            } catch (gastoError) {
+                console.error('Error creando gasto automático:', gastoError);
+                // No bloqueamos el update de la factura, pero logueamos el error
+            }
+        }
+
+        return updatedInvoice;
     },
+
 
     /**
      * Eliminar factura (solo admin)

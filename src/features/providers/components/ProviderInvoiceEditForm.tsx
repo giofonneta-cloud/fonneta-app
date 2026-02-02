@@ -1,17 +1,26 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useProviderProfile } from '../hooks/useProviderProfile';
 import { providerInvoiceService } from '../services/providerInvoiceService';
-import { InvoiceType } from '../types/provider.types';
-import { Loader2, Save, Upload, FileText, DollarSign } from 'lucide-react';
+import { ProviderInvoice, InvoiceType } from '../types/provider.types';
+import { Loader2, Save, Upload, FileText, DollarSign, AlertTriangle, MessageSquare, ArrowLeft } from 'lucide-react';
+import Link from 'next/link';
 
-export function ProviderInvoiceForm() {
+interface ProviderInvoiceEditFormProps {
+    invoiceId: string;
+}
+
+export function ProviderInvoiceEditForm({ invoiceId }: ProviderInvoiceEditFormProps) {
     const router = useRouter();
     const { provider } = useProviderProfile();
+    const [invoice, setInvoice] = useState<ProviderInvoice | null>(null);
+    const [isLoading, setIsLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
     const [error, setError] = useState<string | null>(null);
+
+    // Archivos nuevos (solo si el usuario quiere reemplazar)
     const [pdfFile, setPdfFile] = useState<File | null>(null);
     const [ordenCompraFile, setOrdenCompraFile] = useState<File | null>(null);
     const [seguridadSocialFile, setSeguridadSocialFile] = useState<File | null>(null);
@@ -25,40 +34,49 @@ export function ProviderInvoiceForm() {
     const [formData, setFormData] = useState({
         invoice_number: '',
         invoice_type: 'cuenta_cobro' as InvoiceType,
-        issue_date: new Date().toISOString().split('T')[0],
-        valor_neto: '',
-        iva_porcentaje: '0',
-        tiene_iva: false,
-        amount: '', // Este se usará para total_con_iva
-        concept: '',
-        plazo_pago: 60
+        issue_date: '',
+        amount: '',
+        concept: ''
     });
 
-    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (!file) return;
+    // Cargar datos de la factura
+    useEffect(() => {
+        loadInvoice();
+    }, [invoiceId]);
 
-        // Validar tipo
-        if (file.type !== 'application/pdf') {
-            setError('Solo se permiten archivos PDF para la factura');
-            return;
+    const loadInvoice = async () => {
+        try {
+            setIsLoading(true);
+            const data = await providerInvoiceService.getInvoiceById(invoiceId);
+            setInvoice(data);
+
+            // Verificar que sea una factura devuelta
+            if (data.status !== 'devuelto') {
+                setError('Solo puedes editar facturas con estado "Devuelto"');
+                return;
+            }
+
+            // Prellenar formulario
+            setFormData({
+                invoice_number: data.invoice_number,
+                invoice_type: data.invoice_type,
+                issue_date: data.issue_date,
+                amount: `$ ${data.amount.toLocaleString('es-CO')}`,
+                concept: data.concept
+            });
+        } catch (err: unknown) {
+            console.error('Error al cargar factura:', err);
+            setError('No se pudo cargar la factura');
+        } finally {
+            setIsLoading(false);
         }
-
-        // Validar tamaño (máx 10MB)
-        if (file.size > 10 * 1024 * 1024) {
-            setError('El archivo debe ser menor a 10MB');
-            return;
-        }
-
-        setPdfFile(file);
-        setError(null);
     };
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
 
-        if (!provider) {
-            setError('No se pudo cargar información del proveedor');
+        if (!provider || !invoice) {
+            setError('No se pudo cargar información necesaria');
             return;
         }
 
@@ -68,34 +86,11 @@ export function ProviderInvoiceForm() {
             return;
         }
 
-        if (!pdfFile) {
-             setError('El documento de Factura / Cuenta de Cobro es obligatorio');
-             return;
-        }
-
-        if (!ordenCompraFile) {
-             setError('La Orden de Compra es obligatoria');
-             return;
-        }
-
-        if (!seguridadSocialFile) {
-             setError('El Soporte de Seguridad Social es obligatorio');
-             return;
-        }
-        
-        if (!releaseFile) {
-            setError('El Release Document es obligatorio');
-            return;
-        }
-
         // Limpiar formato de moneda
-        const rawValorNeto = formData.valor_neto.replace(/\D/g, '');
-        const valorNeto = parseFloat(rawValorNeto);
-        const ivaPorcentaje = parseFloat(formData.iva_porcentaje);
-        const ivaValor = valorNeto * (ivaPorcentaje / 100);
-        const totalConIva = valorNeto + ivaValor;
+        const rawAmount = formData.amount.replace(/\D/g, '');
+        const amount = parseFloat(rawAmount);
 
-        if (isNaN(valorNeto) || valorNeto <= 0) {
+        if (isNaN(amount) || amount <= 0) {
             setError('El monto debe ser un número válido mayor a 0');
             return;
         }
@@ -104,122 +99,131 @@ export function ProviderInvoiceForm() {
         setError(null);
 
         try {
-            let documentUrl: string | undefined;
-            let ordenCompraUrl: string | undefined;
-            let seguridadSocialUrl: string | undefined;
-            let releaseUrl: string | undefined;
+            let documentUrl = invoice.document_url;
+            let ordenCompraUrl = invoice.orden_compra_url;
+            let seguridadSocialUrl = invoice.seguridad_social_url;
+            let releaseUrl = invoice.release_url;
 
-            // 1. Subir archivos
-            // TODO: Actualizar servicio para soportar carga genérica o crear métodos específicos
-            // Por ahora usaremos el mismo método uploadInvoiceDocument cambiando el prefijo del nombre si es necesario
-            // o idealmente el servicio debería aceptar el tipo de doc.
-            
-            // Nota: providerInvoiceService.uploadInvoiceDocument sube a bucket 'invoices'.
-            // Usaremos ese para todos por ahora.
-
+            // Subir archivos nuevos si fueron seleccionados
             if (pdfFile) {
                 documentUrl = await providerInvoiceService.uploadInvoiceDocument(
                     provider.id,
-                    `${formData.invoice_number}_factura`,
+                    `${formData.invoice_number}_factura_v2`,
                     pdfFile,
-                    totalConIva
+                    amount
                 );
             }
 
             if (ordenCompraFile) {
                 ordenCompraUrl = await providerInvoiceService.uploadInvoiceDocument(
                     provider.id,
-                    `${formData.invoice_number}_orden_compra`,
+                    `${formData.invoice_number}_orden_compra_v2`,
                     ordenCompraFile,
-                    totalConIva
+                    amount
                 );
             }
 
             if (seguridadSocialFile) {
                 seguridadSocialUrl = await providerInvoiceService.uploadInvoiceDocument(
                     provider.id,
-                    `${formData.invoice_number}_seguridad_social`,
+                    `${formData.invoice_number}_seguridad_social_v2`,
                     seguridadSocialFile,
-                    totalConIva
+                    amount
                 );
             }
 
             if (releaseFile) {
                 releaseUrl = await providerInvoiceService.uploadInvoiceDocument(
                     provider.id,
-                    `${formData.invoice_number}_release`,
+                    `${formData.invoice_number}_release_v2`,
                     releaseFile,
-                    totalConIva
+                    amount
                 );
             }
 
-            // 2. Crear factura (el radicado se genera automáticamente en la BD)
-            const createdInvoice = await providerInvoiceService.createInvoice({
-                provider_id: provider.id,
+            // Actualizar factura - vuelve a estado pendiente para nueva revisión
+            await providerInvoiceService.updateInvoice(invoice.id, {
                 invoice_number: formData.invoice_number,
                 invoice_type: formData.invoice_type,
                 issue_date: formData.issue_date,
-                amount: totalConIva,
-                valor_neto: valorNeto,
-                iva_porcentaje: ivaPorcentaje,
-                iva_valor: ivaValor,
-                total_con_iva: totalConIva,
-                plazo_pago: formData.plazo_pago,
+                amount,
                 concept: formData.concept,
                 document_url: documentUrl,
                 orden_compra_url: ordenCompraUrl,
                 seguridad_social_url: seguridadSocialUrl,
-                release_url: releaseUrl
+                release_url: releaseUrl,
+                status: 'pendiente', // Vuelve a pendiente para nueva revisión
+                admin_notes: null // Limpiar notas anteriores
             });
 
-            // 3. Enviar notificaciones (UN solo email consolidado)
-            try {
-                const documentsUploaded = [
-                    { name: 'Factura / Cuenta de Cobro', uploaded: !!documentUrl },
-                    { name: 'Orden de Compra', uploaded: !!ordenCompraUrl },
-                    { name: 'Soporte Seguridad Social', uploaded: !!seguridadSocialUrl },
-                    { name: 'Release Document', uploaded: !!releaseUrl }
-                ];
-
-                await fetch('/api/providers/invoice-notification', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        invoiceId: createdInvoice.id,
-                        providerId: provider.id,
-                        invoiceNumber: formData.invoice_number,
-                        radicadoNumber: createdInvoice.radicado_number,
-                        invoiceType: formData.invoice_type,
-                        amount: totalConIva,
-                        concept: formData.concept,
-                        documents: documentsUploaded
-                    })
-                });
-            } catch (notifError) {
-                // Si falla la notificación, no bloquear el flujo
-                console.warn('Error enviando notificaciones:', notifError);
-            }
-
-            // 4. Redirigir al listado
+            // Redirigir al listado
             router.push('/portal/invoices');
-        } catch (err: any) {
-            console.error('Error al crear factura:', JSON.stringify(err, null, 2));
-            const errorMessage = err.message || (typeof err === 'object' ? JSON.stringify(err) : String(err));
-            setError(`Error al registrar factura: ${errorMessage}`);
+        } catch (err: unknown) {
+            console.error('Error al actualizar factura:', err);
+            const errorMessage = err instanceof Error ? err.message : String(err);
+            setError(`Error al actualizar factura: ${errorMessage}`);
         } finally {
             setIsSaving(false);
         }
     };
 
+    if (isLoading) {
+        return (
+            <div className="flex items-center justify-center min-h-[400px]">
+                <Loader2 className="w-12 h-12 text-blue-500 animate-spin" />
+            </div>
+        );
+    }
+
+    if (!invoice || invoice.status !== 'devuelto') {
+        return (
+            <div className="bg-red-50 border border-red-200 rounded-2xl p-8 text-center">
+                <AlertTriangle className="w-16 h-16 text-red-400 mx-auto mb-4" />
+                <h2 className="text-xl font-bold text-red-800 mb-2">No se puede editar</h2>
+                <p className="text-red-600 mb-6">
+                    {error || 'Solo puedes editar facturas con estado "Devuelto"'}
+                </p>
+                <Link
+                    href="/portal/invoices"
+                    className="inline-flex items-center gap-2 px-6 py-3 bg-gray-600 text-white rounded-xl font-bold hover:bg-gray-700 transition-colors"
+                >
+                    <ArrowLeft className="w-4 h-4" />
+                    Volver a Mis Facturas
+                </Link>
+            </div>
+        );
+    }
+
     return (
         <div className="space-y-6">
             {/* Header */}
-            <div>
-                <h1 className="text-3xl font-black text-gray-900">Nueva Factura</h1>
-                <p className="text-gray-500 font-medium mt-1">
-                    Registra una nueva factura o cuenta de cobro
-                </p>
+            <div className="flex items-center gap-4">
+                <Link
+                    href="/portal/invoices"
+                    className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                >
+                    <ArrowLeft className="w-5 h-5 text-gray-500" />
+                </Link>
+                <div>
+                    <h1 className="text-3xl font-black text-gray-900">Corregir Factura</h1>
+                    <p className="text-gray-500 font-medium mt-1">
+                        Radicado: <span className="text-blue-600 font-bold">{invoice.radicado_number}</span>
+                    </p>
+                </div>
             </div>
+
+            {/* Alerta de Devolución */}
+            {invoice.admin_notes && (
+                <div className="bg-orange-50 border-2 border-orange-200 rounded-2xl p-6">
+                    <div className="flex items-start gap-4">
+                        <MessageSquare className="w-6 h-6 text-orange-500 mt-1" />
+                        <div>
+                            <h3 className="font-bold text-orange-800 mb-2">Motivo de Devolución</h3>
+                            <p className="text-orange-700">{invoice.admin_notes}</p>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* Error Alert */}
             {error && (
@@ -288,7 +292,6 @@ export function ProviderInvoiceForm() {
                             <input
                                 type="text"
                                 className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all font-medium"
-                                placeholder="Ej. F-2024-001"
                                 value={formData.invoice_number}
                                 onChange={(e) => setFormData({ ...formData, invoice_number: e.target.value })}
                                 required
@@ -296,51 +299,19 @@ export function ProviderInvoiceForm() {
                         </div>
                         <div>
                             <label className="text-sm font-bold text-gray-700 block mb-2">
-                                Valor Neto (Monto antes de IVA) *
+                                Monto (COP) *
                             </label>
                             <input
                                 type="text"
-                                className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all font-black text-lg"
-                                placeholder="$ 0"
-                                value={formData.valor_neto}
+                                className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all font-medium"
+                                value={formData.amount}
                                 onChange={(e) => {
                                     const val = e.target.value.replace(/\D/g, '');
                                     const formatted = val ? `$ ${parseInt(val).toLocaleString('es-CO')}` : '';
-                                    setFormData({ ...formData, valor_neto: formatted });
+                                    setFormData({ ...formData, amount: formatted });
                                 }}
                                 required
                             />
-                        </div>
-                        <div className="space-y-4 p-4 bg-gray-50 rounded-2xl border border-gray-100">
-                            <div className="flex items-center justify-between">
-                                <label className="text-sm font-bold text-gray-700 flex items-center gap-2 cursor-pointer">
-                                    <input
-                                        type="checkbox"
-                                        className="w-4 h-4 rounded text-blue-600"
-                                        checked={formData.tiene_iva}
-                                        onChange={(e) => setFormData({ 
-                                            ...formData, 
-                                            tiene_iva: e.target.checked,
-                                            iva_porcentaje: e.target.checked ? '19' : '0'
-                                        })}
-                                    />
-                                    Aplicar IVA (19%)
-                                </label>
-                                {formData.tiene_iva && (
-                                    <div className="text-right">
-                                        <div className="text-[10px] font-black text-gray-400 uppercase">IVA Calculado</div>
-                                        <div className="font-bold text-gray-900">
-                                            $ {( (parseFloat(formData.valor_neto.replace(/\D/g, '')) || 0) * 0.19 ).toLocaleString('es-CO')}
-                                        </div>
-                                    </div>
-                                )}
-                            </div>
-                            <div className="pt-2 border-t border-gray-200 flex items-center justify-between">
-                                <div className="text-xs font-black text-gray-400 uppercase tracking-widest">Total con IVA</div>
-                                <div className="text-2xl font-black text-blue-600">
-                                    $ {( (parseFloat(formData.valor_neto.replace(/\D/g, '')) || 0) * (formData.tiene_iva ? 1.19 : 1) ).toLocaleString('es-CO')}
-                                </div>
-                            </div>
                         </div>
                         <div>
                             <label className="text-sm font-bold text-gray-700 block mb-2">
@@ -354,29 +325,6 @@ export function ProviderInvoiceForm() {
                                 required
                             />
                         </div>
-                        <div>
-                            <label className="text-sm font-bold text-gray-700 block mb-2">
-                                Plazo de Pago (Días)
-                            </label>
-                            <div className="w-full px-4 py-3 bg-blue-50/50 border border-blue-100 text-blue-800 rounded-xl font-black flex items-center justify-between">
-                                <span>{formData.plazo_pago} Días</span>
-                                <span className="text-[10px] bg-blue-100 px-2 py-1 rounded-lg uppercase tracking-widest text-blue-600">ESTÁNDAR FONNETA</span>
-                            </div>
-                            <div className="mt-3 p-3 bg-white border border-blue-50 rounded-xl">
-                                <div className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Fecha de Pago Estimada</div>
-                                <div className="text-sm font-bold text-blue-600 mt-1">
-                                    {formData.issue_date ? (
-                                        new Date(new Date(formData.issue_date).getTime() + (formData.plazo_pago * 24 * 60 * 60 * 1000)).toLocaleDateString('es-CO', { 
-                                            day: '2-digit', month: 'long', year: 'numeric' 
-                                        })
-                                    ) : '--'}
-                                </div>
-                            </div>
-                            <p className="text-[10px] text-gray-400 mt-2 font-bold uppercase tracking-tighter">
-                                Los pagos se procesan a 60 días del radicado.
-                            </p>
-                        </div>
-                        {/* Fecha de Vencimiento eliminada */}
                         <div className="md:col-span-2">
                             <label className="text-sm font-bold text-gray-700 block mb-2">
                                 Concepto / Descripción *
@@ -384,7 +332,6 @@ export function ProviderInvoiceForm() {
                             <textarea
                                 rows={4}
                                 className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all font-medium resize-none"
-                                placeholder="Describe los servicios o productos facturados..."
                                 value={formData.concept}
                                 onChange={(e) => setFormData({ ...formData, concept: e.target.value })}
                                 required
@@ -393,32 +340,37 @@ export function ProviderInvoiceForm() {
                     </div>
                 </div>
 
-                {/* Documentos Requeridos */}
+                {/* Documentos */}
                 <div className="pt-6 border-t border-gray-100">
-                    <div className="flex items-center gap-2 mb-6">
+                    <div className="flex items-center gap-2 mb-2">
                         <Upload className="w-5 h-5 text-purple-500" />
-                        <h3 className="text-lg font-bold text-gray-900">Documentos Requeridos</h3>
+                        <h3 className="text-lg font-bold text-gray-900">Actualizar Documentos</h3>
                     </div>
+                    <p className="text-sm text-gray-500 mb-6">
+                        Solo sube los documentos que necesitas corregir. Los demás se mantendrán.
+                    </p>
 
                     <div className="space-y-4">
                         {/* 1. Factura / Cuenta de Cobro */}
-                        <div className="bg-white border border-gray-200 rounded-xl p-4 flex items-center justify-between">
+                        <div className={`border rounded-xl p-4 flex items-center justify-between ${invoice.document_url ? 'border-green-200 bg-green-50/50' : 'border-gray-200'}`}>
                             <div className="flex items-center gap-4">
                                 <div className="p-2 bg-blue-50 rounded-lg">
                                     <FileText className="w-6 h-6 text-blue-600" />
                                 </div>
                                 <div>
-                                    <h4 className="font-bold text-gray-900">Factura / Cuenta de Cobro *</h4>
-                                    <p className="text-xs text-gray-500">Formato PDF (Obligatorio)</p>
-                                    {pdfFile && <p className="text-xs text-green-600 font-bold mt-1">✓ {pdfFile.name}</p>}
+                                    <h4 className="font-bold text-gray-900">Factura / Cuenta de Cobro</h4>
+                                    {invoice.document_url && !pdfFile && (
+                                        <p className="text-xs text-green-600 font-medium">Documento actual conservado</p>
+                                    )}
+                                    {pdfFile && <p className="text-xs text-orange-600 font-bold mt-1">Nuevo: {pdfFile.name}</p>}
                                 </div>
                             </div>
-                            <button 
+                            <button
                                 type="button"
                                 onClick={() => pdfRef.current?.click()}
                                 className="px-4 py-2 bg-white border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-50 font-medium text-sm cursor-pointer transition-all"
                             >
-                                {pdfFile ? 'Cambiar' : 'Subir'}
+                                {pdfFile ? 'Cambiar' : 'Reemplazar'}
                             </button>
                             <input
                                 ref={pdfRef}
@@ -433,23 +385,25 @@ export function ProviderInvoiceForm() {
                         </div>
 
                         {/* 2. Orden de Compra */}
-                        <div className="bg-white border border-gray-200 rounded-xl p-4 flex items-center justify-between">
+                        <div className={`border rounded-xl p-4 flex items-center justify-between ${invoice.orden_compra_url ? 'border-green-200 bg-green-50/50' : 'border-gray-200'}`}>
                             <div className="flex items-center gap-4">
                                 <div className="p-2 bg-purple-50 rounded-lg">
                                     <FileText className="w-6 h-6 text-purple-600" />
                                 </div>
                                 <div>
-                                    <h4 className="font-bold text-gray-900">Orden de Compra *</h4>
-                                    <p className="text-xs text-gray-500">PDF, PNG o JPG (Obligatorio)</p>
-                                    {ordenCompraFile && <p className="text-xs text-green-600 font-bold mt-1">✓ {ordenCompraFile.name}</p>}
+                                    <h4 className="font-bold text-gray-900">Orden de Compra</h4>
+                                    {invoice.orden_compra_url && !ordenCompraFile && (
+                                        <p className="text-xs text-green-600 font-medium">Documento actual conservado</p>
+                                    )}
+                                    {ordenCompraFile && <p className="text-xs text-orange-600 font-bold mt-1">Nuevo: {ordenCompraFile.name}</p>}
                                 </div>
                             </div>
-                            <button 
+                            <button
                                 type="button"
                                 onClick={() => ordenCompraRef.current?.click()}
                                 className="px-4 py-2 bg-white border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-50 font-medium text-sm cursor-pointer transition-all"
                             >
-                                {ordenCompraFile ? 'Cambiar' : 'Subir'}
+                                {ordenCompraFile ? 'Cambiar' : 'Reemplazar'}
                             </button>
                             <input
                                 ref={ordenCompraRef}
@@ -464,23 +418,25 @@ export function ProviderInvoiceForm() {
                         </div>
 
                         {/* 3. Soporte Seguridad Social */}
-                        <div className="bg-white border border-gray-200 rounded-xl p-4 flex items-center justify-between">
+                        <div className={`border rounded-xl p-4 flex items-center justify-between ${invoice.seguridad_social_url ? 'border-green-200 bg-green-50/50' : 'border-gray-200'}`}>
                             <div className="flex items-center gap-4">
                                 <div className="p-2 bg-green-50 rounded-lg">
                                     <FileText className="w-6 h-6 text-green-600" />
                                 </div>
                                 <div>
-                                    <h4 className="font-bold text-gray-900">Soporte Seguridad Social *</h4>
-                                    <p className="text-xs text-gray-500">Pago mes actual (Obligatorio)</p>
-                                    {seguridadSocialFile && <p className="text-xs text-green-600 font-bold mt-1">✓ {seguridadSocialFile.name}</p>}
+                                    <h4 className="font-bold text-gray-900">Soporte Seguridad Social</h4>
+                                    {invoice.seguridad_social_url && !seguridadSocialFile && (
+                                        <p className="text-xs text-green-600 font-medium">Documento actual conservado</p>
+                                    )}
+                                    {seguridadSocialFile && <p className="text-xs text-orange-600 font-bold mt-1">Nuevo: {seguridadSocialFile.name}</p>}
                                 </div>
                             </div>
-                            <button 
+                            <button
                                 type="button"
                                 onClick={() => seguridadSocialRef.current?.click()}
                                 className="px-4 py-2 bg-white border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-50 font-medium text-sm cursor-pointer transition-all"
                             >
-                                {seguridadSocialFile ? 'Cambiar' : 'Subir'}
+                                {seguridadSocialFile ? 'Cambiar' : 'Reemplazar'}
                             </button>
                             <input
                                 ref={seguridadSocialRef}
@@ -495,23 +451,25 @@ export function ProviderInvoiceForm() {
                         </div>
 
                         {/* 4. Release Document */}
-                        <div className="bg-white border border-gray-200 rounded-xl p-4 flex items-center justify-between">
+                        <div className={`border rounded-xl p-4 flex items-center justify-between ${invoice.release_url ? 'border-green-200 bg-green-50/50' : 'border-gray-200'}`}>
                             <div className="flex items-center gap-4">
                                 <div className="p-2 bg-orange-50 rounded-lg">
                                     <FileText className="w-6 h-6 text-orange-600" />
                                 </div>
                                 <div>
-                                    <h4 className="font-bold text-gray-900">Release Document *</h4>
-                                    <p className="text-xs text-gray-500">Formato firmado (Obligatorio)</p>
-                                    {releaseFile && <p className="text-xs text-green-600 font-bold mt-1">✓ {releaseFile.name}</p>}
+                                    <h4 className="font-bold text-gray-900">Release Document</h4>
+                                    {invoice.release_url && !releaseFile && (
+                                        <p className="text-xs text-green-600 font-medium">Documento actual conservado</p>
+                                    )}
+                                    {releaseFile && <p className="text-xs text-orange-600 font-bold mt-1">Nuevo: {releaseFile.name}</p>}
                                 </div>
                             </div>
-                            <button 
+                            <button
                                 type="button"
                                 onClick={() => releaseRef.current?.click()}
                                 className="px-4 py-2 bg-white border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-50 font-medium text-sm cursor-pointer transition-all"
                             >
-                                {releaseFile ? 'Cambiar' : 'Subir'}
+                                {releaseFile ? 'Cambiar' : 'Reemplazar'}
                             </button>
                             <input
                                 ref={releaseRef}
@@ -529,28 +487,26 @@ export function ProviderInvoiceForm() {
 
                 {/* Actions */}
                 <div className="flex justify-end gap-4 pt-6 border-t border-gray-100">
-                    <button
-                        type="button"
-                        onClick={() => router.back()}
-                        disabled={isSaving}
-                        className="px-6 py-3 bg-gray-100 text-gray-700 rounded-xl font-bold text-sm hover:bg-gray-200 transition-all disabled:opacity-50"
+                    <Link
+                        href="/portal/invoices"
+                        className="px-6 py-3 bg-gray-100 text-gray-700 rounded-xl font-bold text-sm hover:bg-gray-200 transition-all"
                     >
                         Cancelar
-                    </button>
+                    </Link>
                     <button
                         type="submit"
                         disabled={isSaving}
-                        className="px-6 py-3 bg-blue-600 text-white rounded-xl font-bold text-sm hover:bg-blue-700 transition-all disabled:opacity-50 flex items-center gap-2"
+                        className="px-6 py-3 bg-orange-500 text-white rounded-xl font-bold text-sm hover:bg-orange-600 transition-all disabled:opacity-50 flex items-center gap-2"
                     >
                         {isSaving ? (
                             <>
                                 <Loader2 className="w-4 h-4 animate-spin" />
-                                Registrando...
+                                Guardando...
                             </>
                         ) : (
                             <>
                                 <Save className="w-4 h-4" />
-                                Registrar Factura
+                                Enviar Corrección
                             </>
                         )}
                     </button>

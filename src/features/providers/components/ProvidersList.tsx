@@ -224,40 +224,44 @@ export function ProvidersTable({ onEdit, onDelete }: ProvidersTableProps) {
                 <div className="overflow-x-auto">
                     <Table>
                         <TableHeader>
-                            <TableRow className="bg-slate-50">
-                                <TableHead className="font-bold w-[25%]">Nombre</TableHead>
-                                <TableHead className="font-bold w-[10%]">Tipo Persona</TableHead>
-                                <TableHead className="font-bold w-[15%]">Documento</TableHead>
-                                <TableHead className="font-bold w-[20%]">Contacto</TableHead>
-                                <TableHead className="font-bold w-[10%]">Tipo</TableHead>
-                                <TableHead className="font-bold w-[12%]">Registro</TableHead>
-                                <TableHead className="font-bold w-[10%]">Observaciones</TableHead>
-                                <TableHead className="font-bold w-[30px] text-right">Acciones</TableHead>
-                            </TableRow>
+                            <tr className="bg-gray-50/50 border-b border-gray-100">
+                                <th className="px-6 py-5 text-left text-xs font-black text-gray-400 uppercase tracking-wider">Nombre / Entidad</th>
+                                <th className="px-6 py-5 text-left text-xs font-black text-gray-400 uppercase tracking-wider">Tipo</th>
+                                <th className="px-6 py-5 text-left text-xs font-black text-gray-400 uppercase tracking-wider">Documento</th>
+                                <th className="px-6 py-5 text-left text-xs font-black text-gray-400 uppercase tracking-wider">Contacto</th>
+                                <th className="px-6 py-5 text-left text-xs font-black text-gray-400 uppercase tracking-wider">Categoría</th>
+                                <th className="px-6 py-5 text-left text-xs font-black text-gray-400 uppercase tracking-wider">Estado Onboarding</th>
+                                <th className="px-6 py-5 text-right text-xs font-black text-gray-400 uppercase tracking-wider">Acciones</th>
+                            </tr>
                         </TableHeader>
                         <TableBody>
                             {filteredProviders.length === 0 ? (
-                                <TableRow>
-                                    <TableCell colSpan={7} className="text-center py-8 text-slate-500">
-                                        No se encontraron resultados
-                                    </TableCell>
-                                </TableRow>
+                                <tr>
+                                    <td colSpan={7} className="px-6 py-20 text-center">
+                                        <div className="flex flex-col items-center gap-3">
+                                            <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center">
+                                                <Building2 className="w-8 h-8 text-gray-200" />
+                                            </div>
+                                            <p className="text-gray-400 font-bold uppercase tracking-widest text-xs">No se encontraron registros</p>
+                                        </div>
+                                    </td>
+                                </tr>
                             ) : (
                                 filteredProviders.map((provider) => (
-                                    <TableRow key={provider.id} className="hover:bg-slate-50">
-                                        <TableCell>
-                                            <div className="flex items-center gap-2">
-                                                <div className="p-2 bg-blue-50 rounded">
-                                                    <Building2 className="w-4 h-4 text-blue-600" />
+                                    <tr key={provider.id} className="hover:bg-gray-50/50 transition-colors group">
+                                        <td className="px-6 py-4">
+                                            <div className="flex items-center gap-4">
+                                                <div className="w-10 h-10 bg-blue-50 rounded-xl flex items-center justify-center group-hover:bg-blue-600 transition-all">
+                                                    <Building2 className="w-5 h-5 text-blue-600 group-hover:text-white transition-all" />
                                                 </div>
                                                 <div>
-                                                    <p className="font-medium text-slate-900">{provider.business_name}</p>
+                                                    <div className="font-black text-gray-900 leading-tight group-hover:text-blue-600 transition-colors uppercase italic">{provider.business_name}</div>
                                                     {provider.contact_name && (
-                                                        <p className="text-xs text-slate-500">{provider.contact_name}</p>
+                                                        <div className="text-[10px] font-bold text-gray-400 uppercase tracking-tighter mt-0.5">{provider.contact_name}</div>
                                                     )}
                                                 </div>
                                             </div>
-                                        </TableCell>
+                                        </td>
                                         <TableCell>
                                             {provider.person_type && (
                                                 <Badge variant="outline" className="capitalize">
@@ -365,7 +369,7 @@ export function ProvidersTable({ onEdit, onDelete }: ProvidersTableProps) {
                                                 </DropdownMenuContent>
                                             </DropdownMenu>
                                         </TableCell>
-                                    </TableRow>
+                                    </tr>
                                 ))
                             )}
                         </TableBody>

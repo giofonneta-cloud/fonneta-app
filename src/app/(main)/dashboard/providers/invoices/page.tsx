@@ -1,5 +1,5 @@
-import { AdminInvoicesView } from '@/features/providers/components/AdminInvoicesView'
+import { AdminDashboard } from '@/features/providers/components/AdminDashboard'
 
 export default function AdminInvoicesPage() {
-  return <AdminInvoicesView />
+  return <AdminDashboard />
 }

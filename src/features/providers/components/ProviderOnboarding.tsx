@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { Upload, CheckCircle, AlertCircle, FileText, Building2, CreditCard, Loader2, User } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -640,6 +640,8 @@ interface DocumentUploadCardProps {
 }
 
 function DocumentUploadCard({ id, label, icon: Icon, iconColor, required, file, onFileChange }: DocumentUploadCardProps) {
+    const fileInputRef = useRef<HTMLInputElement>(null);
+
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const selectedFile = e.target.files?.[0];
         if (!selectedFile) {
@@ -666,6 +668,10 @@ function DocumentUploadCard({ id, label, icon: Icon, iconColor, required, file, 
         onFileChange(selectedFile);
     };
 
+    const handleClick = () => {
+        fileInputRef.current?.click();
+    };
+
     return (
         <div className="p-4 border border-blue-100 bg-blue-50/20 rounded-2xl">
             <div className="flex items-center justify-between mb-3">
@@ -683,7 +689,7 @@ function DocumentUploadCard({ id, label, icon: Icon, iconColor, required, file, 
                     </span>
                 )}
             </div>
-            <label htmlFor={id} className="block cursor-pointer">
+            <div onClick={handleClick} className="block cursor-pointer">
                 <div className="flex items-center gap-2 p-3 bg-white border border-gray-200 rounded-lg hover:border-blue-300 transition-colors">
                     <Upload className="w-4 h-4 text-gray-400" />
                     <span className="text-xs text-gray-600 font-medium flex-1 truncate">
@@ -691,16 +697,18 @@ function DocumentUploadCard({ id, label, icon: Icon, iconColor, required, file, 
                     </span>
                 </div>
                 <input
+                    ref={fileInputRef}
                     id={id}
                     type="file"
                     accept=".pdf,.jpg,.jpeg,.png"
                     onChange={handleFileChange}
                     className="hidden"
                 />
-            </label>
+            </div>
         </div>
     );
 }
+
 
 function StepIndicator({ icon: Icon, active, completed, label }: { icon: any, active: boolean, completed: boolean, label: string }) {
     return (

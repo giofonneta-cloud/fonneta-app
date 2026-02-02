@@ -296,6 +296,119 @@ export class EmailService {
       text: `Nueva ${tipoDocumento.toLowerCase()} radicada. Radicado: ${radicado}. Proveedor: ${providerName}. Número: ${invoiceNumber}. Monto: ${formattedAmount}.`,
     });
   }
+
+  /**
+   * Notificar al proveedor sobre cambio de estado en su factura
+   */
+  async sendProviderInvoiceStatusChange(
+    providerEmail: string,
+    providerName: string,
+    invoiceNumber: string,
+    radicado: string,
+    newStatus: string,
+    adminNotes?: string
+  ): Promise<void> {
+    // Determinar color y mensaje según el estado
+    const statusConfig: Record<string, { color: string; bgColor: string; message: string }> = {
+      'Pendiente': {
+        color: '#ca8a04',
+        bgColor: '#fef9c3',
+        message: 'Tu documento está pendiente de revisión.'
+      },
+      'En Revisión': {
+        color: '#2563eb',
+        bgColor: '#dbeafe',
+        message: 'Tu documento está siendo revisado por nuestro equipo.'
+      },
+      'Aprobado': {
+        color: '#16a34a',
+        bgColor: '#dcfce7',
+        message: 'Tu documento ha sido aprobado. Procederemos con el pago según los términos acordados.'
+      },
+      'Pagado': {
+        color: '#059669',
+        bgColor: '#d1fae5',
+        message: 'El pago de tu factura ha sido procesado exitosamente.'
+      },
+      'Rechazado': {
+        color: '#dc2626',
+        bgColor: '#fee2e2',
+        message: 'Tu documento ha sido rechazado. Por favor revisa los comentarios del administrador.'
+      },
+      'Devuelto': {
+        color: '#ea580c',
+        bgColor: '#ffedd5',
+        message: 'Tu documento ha sido devuelto para corrección. Por favor revisa los comentarios y realiza las correcciones necesarias.'
+      }
+    };
+
+    const config = statusConfig[newStatus] || {
+      color: '#6b7280',
+      bgColor: '#f3f4f6',
+      message: 'El estado de tu documento ha sido actualizado.'
+    };
+
+    const html = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2 style="color: #1f2937;">Actualización de Estado</h2>
+        <p>Hola <strong>${providerName}</strong>,</p>
+        <p>Te informamos que el estado de tu documento ha sido actualizado:</p>
+
+        <div style="background-color: ${config.bgColor}; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid ${config.color};">
+          <p style="margin: 0 0 10px 0; font-size: 18px; font-weight: bold; color: ${config.color};">
+            Estado: ${newStatus}
+          </p>
+          <p style="margin: 0; color: #374151;">
+            ${config.message}
+          </p>
+        </div>
+
+        <h3 style="color: #374151; margin-top: 25px;">Información del Documento</h3>
+        <table style="width: 100%; border-collapse: collapse; margin: 10px 0;">
+          <tr>
+            <td style="padding: 8px 0; border-bottom: 1px solid #e5e7eb; color: #6b7280;">Radicado:</td>
+            <td style="padding: 8px 0; border-bottom: 1px solid #e5e7eb; font-weight: bold;">${radicado}</td>
+          </tr>
+          <tr>
+            <td style="padding: 8px 0; border-bottom: 1px solid #e5e7eb; color: #6b7280;">Número:</td>
+            <td style="padding: 8px 0; border-bottom: 1px solid #e5e7eb; font-weight: bold;">${invoiceNumber}</td>
+          </tr>
+        </table>
+
+        ${adminNotes ? `
+        <div style="background-color: #f3f4f6; padding: 15px; border-radius: 8px; margin: 20px 0;">
+          <p style="margin: 0 0 10px 0; font-weight: bold; color: #374151;">
+            Comentarios del Administrador:
+          </p>
+          <p style="margin: 0; color: #4b5563;">
+            ${adminNotes}
+          </p>
+        </div>
+        ` : ''}
+
+        ${newStatus === 'Devuelto' ? `
+        <p style="margin-top: 20px;">
+          <a href="${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}/portal/invoices"
+             style="display: inline-block; background-color: #ea580c; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px;">
+            Ir a Mis Facturas
+          </a>
+        </p>
+        ` : ''}
+
+        <hr style="border: 1px solid #e5e7eb; margin: 20px 0;">
+        <p style="color: #6b7280; font-size: 12px;">
+          Este es un mensaje automático de Fonneta. Por favor no respondas a este correo.
+        </p>
+      </div>
+    `;
+
+    await this.sendEmail({
+      to: providerEmail,
+      subject: `[${radicado}] Tu factura ${invoiceNumber} cambió a estado: ${newStatus}`,
+      html,
+      text: `Hola ${providerName}, el estado de tu factura ${invoiceNumber} (Radicado: ${radicado}) ha cambiado a: ${newStatus}.${adminNotes ? ` Comentarios: ${adminNotes}` : ''}`,
+    });
+  }
 }
 
 // Singleton instance

@@ -70,7 +70,7 @@ export interface ProviderDocument {
 // ============================================
 
 export type InvoiceType = 'factura' | 'cuenta_cobro';
-export type InvoiceStatus = 'pendiente' | 'en_revision' | 'aprobado' | 'pagado' | 'rechazado';
+export type InvoiceStatus = 'pendiente' | 'en_revision' | 'aprobado' | 'pagado' | 'rechazado' | 'devuelto';
 
 export interface ProviderInvoice {
     id: string;
@@ -80,13 +80,21 @@ export interface ProviderInvoice {
     invoice_type: InvoiceType;
     issue_date: string;
     due_date: string | null;
-    amount: number;
+    amount: number; // Este mapeará a total_con_iva
+    valor_neto: number;
+    iva_porcentaje: number;
+    iva_valor: number;
+    total_con_iva: number;
+    plazo_pago: number; // Por defecto 60
     concept: string;
     document_url: string | null;
     orden_compra_url?: string | null;
     seguridad_social_url?: string | null;
     release_url?: string | null;
     status: InvoiceStatus;
+    project_id: string | null;
+    expense_id: string | null; // ID del gasto creado
+    categoria: string | null; // Categoría de gasto
     payment_date: string | null;
     admin_notes: string | null;
     created_at: string;
@@ -100,6 +108,11 @@ export interface CreateInvoiceInput {
     issue_date: string;
     due_date?: string;
     amount: number;
+    valor_neto: number;
+    iva_porcentaje: number;
+    iva_valor: number;
+    total_con_iva: number;
+    plazo_pago?: number;
     concept: string;
     document_url?: string;
     orden_compra_url?: string;
@@ -113,12 +126,20 @@ export interface UpdateInvoiceInput {
     issue_date?: string;
     due_date?: string;
     amount?: number;
+    valor_neto?: number;
+    iva_porcentaje?: number;
+    iva_valor?: number;
+    total_con_iva?: number;
+    plazo_pago?: number;
     concept?: string;
-    document_url?: string;
-    orden_compra_url?: string;
-    seguridad_social_url?: string;
-    release_url?: string;
+    document_url?: string | null;
+    orden_compra_url?: string | null;
+    seguridad_social_url?: string | null;
+    release_url?: string | null;
     status?: InvoiceStatus;
-    payment_date?: string;
-    admin_notes?: string;
+    project_id?: string | null;
+    expense_id?: string | null;
+    categoria?: string | null;
+    payment_date?: string | null;
+    admin_notes?: string | null;
 }

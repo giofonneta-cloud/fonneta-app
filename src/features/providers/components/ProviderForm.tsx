@@ -59,6 +59,13 @@ export function ProviderForm({ onSuccess, onCancel, initialData }: ProviderFormP
     }>({});
     const [existingDocuments, setExistingDocuments] = useState<ProviderDocument[]>([]);
 
+    const fileInputRefs = {
+        rut: React.useRef<HTMLInputElement>(null),
+        camara: React.useRef<HTMLInputElement>(null),
+        cedula_rep: React.useRef<HTMLInputElement>(null),
+        bancaria: React.useRef<HTMLInputElement>(null),
+    };
+
     useEffect(() => {
         if (initialData) {
             loadDocuments();
@@ -472,13 +479,13 @@ export function ProviderForm({ onSuccess, onCancel, initialData }: ProviderFormP
                                             accept=".pdf"
                                             onChange={handleFileSelect('rut')}
                                             className="hidden"
-                                            id="upload-rut"
+                                            ref={fileInputRefs.rut}
                                         />
                                         <Button 
                                             type="button" 
                                             variant="outline" 
                                             size="sm" 
-                                            onClick={() => document.getElementById('upload-rut')?.click()}
+                                            onClick={() => fileInputRefs.rut.current?.click()}
                                         >
                                             {documentFiles.rut ? 'Cambiar' : 'Subir'}
                                         </Button>
@@ -516,13 +523,13 @@ export function ProviderForm({ onSuccess, onCancel, initialData }: ProviderFormP
                                                 accept=".pdf"
                                                 onChange={handleFileSelect('camara')}
                                                 className="hidden"
-                                                id="upload-camara"
+                                                ref={fileInputRefs.camara}
                                             />
                                             <Button 
                                                 type="button" 
                                                 variant="outline" 
                                                 size="sm" 
-                                                onClick={() => document.getElementById('upload-camara')?.click()}
+                                                onClick={() => fileInputRefs.camara.current?.click()}
                                             >
                                                 {documentFiles.camara ? 'Cambiar' : 'Subir'}
                                             </Button>
@@ -560,13 +567,13 @@ export function ProviderForm({ onSuccess, onCancel, initialData }: ProviderFormP
                                             accept=".pdf,.png,.jpg,.jpeg"
                                             onChange={handleFileSelect('cedula_rep')}
                                             className="hidden"
-                                            id="upload-cedula"
+                                            ref={fileInputRefs.cedula_rep}
                                         />
                                         <Button 
                                             type="button" 
                                             variant="outline" 
                                             size="sm" 
-                                            onClick={() => document.getElementById('upload-cedula')?.click()}
+                                            onClick={() => fileInputRefs.cedula_rep.current?.click()}
                                         >
                                             {documentFiles.cedula_rep ? 'Cambiar' : 'Subir'}
                                         </Button>
@@ -603,13 +610,13 @@ export function ProviderForm({ onSuccess, onCancel, initialData }: ProviderFormP
                                             accept=".pdf"
                                             onChange={handleFileSelect('bancaria')}
                                             className="hidden"
-                                            id="upload-bancaria"
+                                            ref={fileInputRefs.bancaria}
                                         />
                                         <Button 
                                             type="button" 
                                             variant="outline" 
                                             size="sm" 
-                                            onClick={() => document.getElementById('upload-bancaria')?.click()}
+                                            onClick={() => fileInputRefs.bancaria.current?.click()}
                                         >
                                             {documentFiles.bancaria ? 'Cambiar' : 'Subir'}
                                         </Button>
