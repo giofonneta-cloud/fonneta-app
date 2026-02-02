@@ -141,7 +141,8 @@ export function ProviderOnboarding() {
             }
 
             // 2. Esperar a que el perfil se cree automáticamente vía trigger
-            const waitForProfile = async (userId: string, retries = 5, delay = 1000) => {
+            // El trigger ahora es más robusto y debería funcionar siempre
+            const waitForProfile = async (userId: string, retries = 10, delay = 1000) => {
                 for (let i = 0; i < retries; i++) {
                     const { data } = await supabase
                         .from('profiles')
@@ -149,7 +150,10 @@ export function ProviderOnboarding() {
                         .eq('id', userId)
                         .single();
                     
-                    if (data) return true;
+                    if (data) {
+                        console.log(`Profile found after ${i + 1} attempt(s)`);
+                        return true;
+                    }
                     await new Promise(resolve => setTimeout(resolve, delay));
                 }
                 return false;
@@ -157,21 +161,7 @@ export function ProviderOnboarding() {
 
             const profileCreated = await waitForProfile(authData.user.id);
             if (!profileCreated) {
-                // Si el trigger falla, usar RPC con privilegios elevados
-                // Esto evita problemas de RLS porque la función se ejecuta como SECURITY DEFINER
-                const { data: rpcResult, error: rpcError } = await supabase.rpc('create_profile_for_new_user', {
-                    user_id: authData.user.id,
-                    user_email: formData.contact_email,
-                    user_full_name: formData.contact_name,
-                    user_role: 'proveedor'
-                });
-
-                if (rpcError || !rpcResult?.success) {
-                    console.error('Error creating profile via RPC:', rpcError || rpcResult);
-                    throw new Error(`Error crítico: No se pudo crear el perfil de usuario. ${rpcError?.message || rpcResult?.error || 'Unknown error'}`);
-                }
-                
-                console.log('Profile created successfully via RPC fallback');
+                throw new Error('El sistema no pudo crear tu perfil automáticamente. Por favor contacta a soporte técnico.');
             }
 
             // 3. Crear registro de proveedor vinculado al user_id
