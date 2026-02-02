@@ -6,12 +6,13 @@ import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { providerService } from '../services/providerService';
 import { COLOMBIA_DEPARTMENTS, COLOMBIA_CITIES_BY_DEPT } from '@/shared/lib/colombia-data';
+import { supabase } from '@/shared/lib/supabase';
 
 function cn(...inputs: ClassValue[]) {
     return twMerge(clsx(inputs));
 }
 
-type OnboardingStep = 'basics' | 'contact' | 'legal' | 'finish';
+type OnboardingStep = 'basics' | 'documents' | 'contact' | 'finish';
 
 const documentTypes = [
     { id: 'RUT', label: 'RUT (Registro Único Tributario)' },
@@ -34,16 +35,49 @@ export function ProviderOnboarding() {
         contact_email: '',
         contact_phone: '',
         billing_email: '',
+        password: '',
+        confirm_password: '',
         address: '',
         country: 'Colombia',
         department: '',
         city: '',
     });
+    const [uploadedFiles, setUploadedFiles] = useState<{
+        RUT: File | null;
+        Cedula_Rep_Legal: File | null;
+        Camara_Comercio: File | null;
+        Cert_Bancaria: File | null;
+    }>({
+        RUT: null,
+        Cedula_Rep_Legal: null,
+        Camara_Comercio: null,
+        Cert_Bancaria: null,
+    });
+    const [dataAuthorizationAccepted, setDataAuthorizationAccepted] = useState(false);
 
     const nextStep = () => {
         if (step === 'basics') {
             if (!formData.business_name || !formData.document_number || !formData.address || !formData.country || (!formData.department && formData.country === 'Colombia') || (!formData.city && formData.country === 'Colombia')) {
                 setError('Por favor completa todos los campos obligatorios de identificación y ubicación.');
+                return;
+            }
+            setStep('documents');
+        } else if (step === 'documents') {
+            // Validar documentos obligatorios
+            if (!uploadedFiles.RUT) {
+                setError('El RUT es obligatorio');
+                return;
+            }
+            if (!uploadedFiles.Cedula_Rep_Legal) {
+                setError('La Cédula del Representante Legal es obligatoria');
+                return;
+            }
+            if (formData.person_type === 'juridica' && !uploadedFiles.Camara_Comercio) {
+                setError('La Cámara de Comercio es obligatoria para personas jurídicas');
+                return;
+            }
+            if (!dataAuthorizationAccepted) {
+                setError('Debes aceptar la Política de Tratamiento de Datos Personales para continuar');
                 return;
             }
             setStep('contact');
@@ -52,7 +86,16 @@ export function ProviderOnboarding() {
                 setError('Por favor completa todos los campos de información de contacto y facturación.');
                 return;
             }
-            setStep('legal');
+            if (!formData.password || formData.password.length < 6) {
+                setError('La contraseña debe tener al menos 6 caracteres.');
+                return;
+            }
+            if (formData.password !== formData.confirm_password) {
+                setError('Las contraseñas no coinciden.');
+                return;
+            }
+            // Aquí se procesa el submit
+            handleSubmit();
         }
         setError(null);
     };
@@ -61,7 +104,48 @@ export function ProviderOnboarding() {
         setIsSubmitting(true);
         setError(null);
         try {
-            await providerService.createProvider({
+            // Validar documentos obligatorios
+            if (!uploadedFiles.RUT) {
+                throw new Error('El RUT es obligatorio');
+            }
+            if (!uploadedFiles.Cedula_Rep_Legal) {
+                throw new Error('La Cédula del Representante Legal es obligatoria');
+            }
+            if (formData.person_type === 'juridica' && !uploadedFiles.Camara_Comercio) {
+                throw new Error('La Cámara de Comercio es obligatoria para personas jurídicas');
+            }
+
+            // Validar checkbox de autorización
+            if (!dataAuthorizationAccepted) {
+                throw new Error('Debes aceptar la Política de Tratamiento de Datos Personales para continuar');
+            }
+
+            // 1. Crear usuario en Supabase Auth
+            const { data: authData, error: authError } = await supabase.auth.signUp({
+                email: formData.contact_email,
+                password: formData.password,
+                options: {
+                    data: {
+                        full_name: formData.contact_name,
+                        role: 'proveedor'
+                    }
+                }
+            });
+
+            if (authError) {
+                throw new Error(`Error al crear usuario: ${authError.message}`);
+            }
+
+            if (!authData.user) {
+                throw new Error('No se pudo crear el usuario en el sistema de autenticación.');
+            }
+
+            // 2. El perfil se crea automáticamente vía trigger (on_auth_user_created)
+            // No es necesario crearlo manualmente aquí.
+
+            // 3. Crear registro de proveedor vinculado al user_id
+            console.log('Intentando crear proveedor con ID:', authData.user.id);
+            const providerData = await providerService.createProvider({
                 business_name: formData.business_name,
                 person_type: formData.person_type,
                 document_type: formData.document_type,
@@ -76,12 +160,79 @@ export function ProviderOnboarding() {
                 country: formData.country,
                 is_provider: true,
                 is_client: false,
-                onboarding_status: 'EN REVISION'
+                onboarding_status: 'EN REVISION',
+                user_id: authData.user.id
             });
+
+            // 4. Subir documentos a Google Drive vía API y guardar enlaces
+            const providerId = providerData.id;
+            const providerNIT = formData.document_number;
+            const providerBusinessName = formData.business_name;
+
+            const uploadedDocuments: { [key: string]: string } = {};
+
+            // Función helper para subir un documento
+            const uploadDocument = async (file: File, documentType: string): Promise<string> => {
+                const formData = new FormData();
+                formData.append('file', file);
+                formData.append('providerId', providerId);
+                formData.append('providerName', providerBusinessName);
+                formData.append('providerNIT', providerNIT);
+                formData.append('documentType', documentType);
+
+                const response = await fetch('/api/providers/upload-document', {
+                    method: 'POST',
+                    body: formData,
+                });
+
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.error || 'Error al subir documento');
+                }
+
+                const result = await response.json();
+                return result.webViewLink;
+            };
+
+            // Subir RUT
+            if (uploadedFiles.RUT) {
+                uploadedDocuments.rut_url = await uploadDocument(uploadedFiles.RUT, 'RUT');
+            }
+
+            // Subir Cédula
+            if (uploadedFiles.Cedula_Rep_Legal) {
+                uploadedDocuments.cedula_url = await uploadDocument(uploadedFiles.Cedula_Rep_Legal, 'Cedula_Rep_Legal');
+            }
+
+            // Subir Cámara de Comercio (si aplica)
+            if (uploadedFiles.Camara_Comercio) {
+                uploadedDocuments.camara_comercio_url = await uploadDocument(uploadedFiles.Camara_Comercio, 'Camara_Comercio');
+            }
+
+            // Subir Certificación Bancaria (si existe)
+            if (uploadedFiles.Cert_Bancaria) {
+                uploadedDocuments.cert_bancaria_url = await uploadDocument(uploadedFiles.Cert_Bancaria, 'Cert_Bancaria');
+            }
+
+            // 5. Actualizar registro del proveedor con URLs de documentos
+            await supabase
+                .from('providers')
+                .update({
+                    rut_url: uploadedDocuments.rut_url || null,
+                    cedula_url: uploadedDocuments.cedula_url || null,
+                    camara_comercio_url: uploadedDocuments.camara_comercio_url || null,
+                    cert_bancaria_url: uploadedDocuments.cert_bancaria_url || null,
+                })
+                .eq('id', providerId);
+
             setStep('finish');
+            window.scrollTo({ top: 0, behavior: 'smooth' });
         } catch (err: any) {
-            console.error('Error al registrar proveedor:', err);
-            setError(err.message || 'Error al procesar el registro. Inténtalo de nuevo.');
+            console.error('Error al registrar proveedor (RAW):', err);
+            console.error('Error al registrar proveedor (JSON):', JSON.stringify(err, null, 2));
+            const errorMessage = err.message || err.error_description || JSON.stringify(err);
+            setError(errorMessage || 'Error al procesar el registro. Inténtalo de nuevo.');
+            window.scrollTo({ top: 0, behavior: 'smooth' });
         } finally {
             setIsSubmitting(false);
         }
@@ -94,8 +245,8 @@ export function ProviderOnboarding() {
                 <div className="bg-gray-50/50 p-8 border-b border-gray-100 flex justify-between items-center">
                     <div className="flex gap-4">
                         <StepIndicator icon={Building2} active={step === 'basics'} completed={step !== 'basics'} label="Datos" />
-                        <StepIndicator icon={User} active={step === 'contact'} completed={['legal', 'finish'].includes(step)} label="Contacto" />
-                        <StepIndicator icon={FileText} active={step === 'legal'} completed={step === 'finish'} label="Documentos" />
+                        <StepIndicator icon={FileText} active={step === 'documents'} completed={['contact', 'finish'].includes(step)} label="Documentos" />
+                        <StepIndicator icon={User} active={step === 'contact'} completed={step === 'finish'} label="Contacto" />
                     </div>
                     <div className="text-right hidden sm:block">
                         <h2 className="text-xl font-black text-gray-900 tracking-tight">Registro de Proveedor</h2>
@@ -241,7 +392,7 @@ export function ProviderOnboarding() {
                                         onClick={nextStep}
                                         className="w-full bg-blue-600 hover:bg-blue-700 text-white px-10 py-4 rounded-2xl font-black text-sm transition-all shadow-lg shadow-blue-200 hover:scale-[1.01] active:scale-100"
                                     >
-                                        Continuar a Información de Contacto
+                                        Continuar a Documentos
                                     </button>
                                 </div>
                             </div>
@@ -291,68 +442,140 @@ export function ProviderOnboarding() {
                                         onChange={(e) => setFormData({ ...formData, billing_email: e.target.value })}
                                     />
                                 </div>
+
+                                {/* Credenciales de Acceso */}
+                                <div className="md:col-span-2 pt-4">
+                                    <div className="bg-blue-50/50 p-6 rounded-2xl border border-blue-100 space-y-4">
+                                        <div className="flex items-center gap-2 mb-4">
+                                            <User className="w-5 h-5 text-blue-500" />
+                                            <label className="text-sm font-bold text-blue-700">Credenciales de Acceso al Portal</label>
+                                        </div>
+                                        <p className="text-xs text-blue-600 mb-4">
+                                            El email de contacto <span className="font-bold">{formData.contact_email || 'ingresado arriba'}</span> será tu usuario para acceder al portal.
+                                        </p>
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                            <div className="space-y-1">
+                                                <label className="text-[10px] font-black uppercase text-blue-400">Contraseña *</label>
+                                                <input
+                                                    type="password"
+                                                    className="w-full px-4 py-2 bg-white border border-blue-100 rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all text-sm font-medium"
+                                                    placeholder="Mínimo 6 caracteres"
+                                                    value={formData.password}
+                                                    onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                                                />
+                                            </div>
+                                            <div className="space-y-1">
+                                                <label className="text-[10px] font-black uppercase text-blue-400">Confirmar Contraseña *</label>
+                                                <input
+                                                    type="password"
+                                                    className="w-full px-4 py-2 bg-white border border-blue-100 rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all text-sm font-medium"
+                                                    placeholder="Repite la contraseña"
+                                                    value={formData.confirm_password}
+                                                    onChange={(e) => setFormData({ ...formData, confirm_password: e.target.value })}
+                                                />
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
                                 <div className="md:col-span-2 flex justify-between pt-4">
-                                    <button onClick={() => setStep('basics')} className="text-gray-400 font-bold text-sm hover:text-gray-600">Atrás</button>
+                                    <button onClick={() => setStep('documents')} className="text-gray-400 font-bold text-sm hover:text-gray-600">Atrás</button>
                                     <button
                                         onClick={nextStep}
-                                        className="bg-blue-600 hover:bg-blue-700 text-white px-10 py-4 rounded-2xl font-black text-sm transition-all shadow-lg shadow-blue-200 hover:scale-[1.01] active:scale-100"
+                                        disabled={isSubmitting}
+                                        className="bg-blue-600 hover:bg-blue-700 text-white px-10 py-4 rounded-2xl font-black text-sm transition-all shadow-lg shadow-blue-200 hover:scale-[1.01] active:scale-100 disabled:opacity-50 flex items-center gap-2"
                                     >
-                                        Continuar a Documentos
+                                        {isSubmitting && <Loader2 className="w-4 h-4 animate-spin" />}
+                                        Finalizar Registro
                                     </button>
                                 </div>
                             </div>
                         </div>
                     )}
 
-                    {step === 'legal' && (
+                    {step === 'documents' && (
                         <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-500">
                             <div className="bg-blue-50 p-4 rounded-2xl border border-blue-100 flex gap-4 items-start">
                                 <AlertCircle className="w-6 h-6 text-blue-500 flex-shrink-0" />
                                 <p className="text-sm text-blue-700 font-medium">
-                                    Para esta fase inicial, omitiremos la carga de archivos. Por favor, confirma que tienes tus documentos listos para finalizar el registro.
+                                    Por favor adjunta los documentos requeridos. Los archivos deben ser PDF, JPG o PNG (máx. 5MB cada uno).
                                 </p>
                             </div>
 
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pb-6">
-                                <div className="p-4 border border-blue-100 bg-blue-50/20 rounded-2xl flex items-center justify-between">
-                                    <div className="flex items-center gap-3">
-                                        <FileText className="w-5 h-5 text-blue-500" />
-                                        <span className="text-sm font-bold text-slate-700">RUT Actualizado</span>
-                                    </div>
-                                    <span className="text-[10px] font-black text-blue-400 uppercase tracking-widest">Pendiente</span>
-                                </div>
-                                <div className="p-4 border border-blue-100 bg-blue-50/20 rounded-2xl flex items-center justify-between">
-                                    <div className="flex items-center gap-3">
-                                        <Building2 className="w-5 h-5 text-indigo-500" />
-                                        <span className="text-sm font-bold text-slate-700">Cámara de Comercio</span>
-                                    </div>
-                                    <span className="text-[10px] font-black text-blue-400 uppercase tracking-widest">Pendiente</span>
-                                </div>
-                                <div className="p-4 border border-blue-100 bg-blue-50/20 rounded-2xl flex items-center justify-between">
-                                    <div className="flex items-center gap-3">
-                                        <User className="w-5 h-5 text-emerald-500" />
-                                        <span className="text-sm font-bold text-slate-700">Cédula Rep. Legal</span>
-                                    </div>
-                                    <span className="text-[10px] font-black text-blue-400 uppercase tracking-widest">Pendiente</span>
-                                </div>
-                                <div className="p-4 border border-blue-100 bg-blue-50/20 rounded-2xl flex items-center justify-between">
-                                    <div className="flex items-center gap-3">
-                                        <CreditCard className="w-5 h-5 text-purple-500" />
-                                        <span className="text-sm font-bold text-slate-700">Certificación Bancaria</span>
-                                    </div>
-                                    <span className="text-[10px] font-black text-blue-400 uppercase tracking-widest">Pendiente</span>
-                                </div>
+                                {/* RUT - OBLIGATORIO */}
+                                <DocumentUploadCard
+                                    id="RUT"
+                                    label="RUT Actualizado"
+                                    icon={FileText}
+                                    iconColor="text-blue-500"
+                                    required={true}
+                                    file={uploadedFiles.RUT}
+                                    onFileChange={(file) => setUploadedFiles({ ...uploadedFiles, RUT: file })}
+                                />
+
+                                {/* Cédula Rep. Legal - OBLIGATORIO */}
+                                <DocumentUploadCard
+                                    id="Cedula_Rep_Legal"
+                                    label="Cédula Rep. Legal"
+                                    icon={User}
+                                    iconColor="text-emerald-500"
+                                    required={true}
+                                    file={uploadedFiles.Cedula_Rep_Legal}
+                                    onFileChange={(file) => setUploadedFiles({ ...uploadedFiles, Cedula_Rep_Legal: file })}
+                                />
+
+                                {/* Cámara de Comercio - OBLIGATORIO solo para Jurídicas */}
+                                {formData.person_type === 'juridica' && (
+                                    <DocumentUploadCard
+                                        id="Camara_Comercio"
+                                        label="Cámara de Comercio (<30 días)"
+                                        icon={Building2}
+                                        iconColor="text-indigo-500"
+                                        required={true}
+                                        file={uploadedFiles.Camara_Comercio}
+                                        onFileChange={(file) => setUploadedFiles({ ...uploadedFiles, Camara_Comercio: file })}
+                                    />
+                                )}
+
+                                {/* Certificación Bancaria - OPCIONAL */}
+                                <DocumentUploadCard
+                                    id="Cert_Bancaria"
+                                    label="Certificación Bancaria"
+                                    icon={CreditCard}
+                                    iconColor="text-purple-500"
+                                    required={false}
+                                    file={uploadedFiles.Cert_Bancaria}
+                                    onFileChange={(file) => setUploadedFiles({ ...uploadedFiles, Cert_Bancaria: file })}
+                                />
+                            </div>
+
+                            {/* Checkbox de Autorización de Datos */}
+                            <div className="bg-gray-50 p-6 rounded-2xl border border-gray-200">
+                                <label className="flex items-start gap-3 cursor-pointer group">
+                                    <input
+                                        type="checkbox"
+                                        checked={dataAuthorizationAccepted}
+                                        onChange={(e) => setDataAuthorizationAccepted(e.target.checked)}
+                                        className="mt-1 w-5 h-5 rounded border-gray-300 text-blue-600 focus:ring-2 focus:ring-blue-500/20 cursor-pointer"
+                                    />
+                                    <span className="text-sm text-gray-700 font-medium group-hover:text-gray-900 transition-colors">
+                                        Acepto la{' '}
+                                        <a href="/politica-privacidad" target="_blank" className="text-blue-600 underline hover:text-blue-700">
+                                            Política de Tratamiento de Datos Personales
+                                        </a>{' '}
+                                        y autorizo el uso de mi información según lo establecido. <span className="text-red-500">*</span>
+                                    </span>
+                                </label>
                             </div>
 
                             <div className="flex justify-between pt-6">
                                 <button onClick={() => setStep('basics')} className="text-gray-400 font-bold text-sm hover:text-gray-600">Atrás</button>
                                 <button
-                                    onClick={handleSubmit}
+                                    onClick={nextStep}
                                     disabled={isSubmitting}
                                     className="bg-blue-600 hover:bg-blue-700 text-white px-10 py-4 rounded-2xl font-black text-sm transition-all shadow-lg shadow-blue-200 disabled:opacity-50 flex items-center gap-2"
                                 >
-                                    {isSubmitting && <Loader2 className="w-4 h-4 animate-spin" />}
-                                    Finalizar Registro
+                                    Continuar a Información de Contacto
                                 </button>
                             </div>
                         </div>
@@ -363,20 +586,118 @@ export function ProviderOnboarding() {
                             <div className="w-24 h-24 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
                                 <CheckCircle className="w-12 h-12 text-green-500" />
                             </div>
-                            <h3 className="text-3xl font-black text-gray-900">¡Registro Enviado!</h3>
-                            <p className="text-gray-500 font-medium max-w-sm mx-auto">
-                                Tus datos han sido recibidos. Nuestro equipo administrativo validará la información y se pondrá en contacto pronto.
-                            </p>
-                            <button 
+                            <h3 className="text-3xl font-black text-gray-900">¡Registro Completado!</h3>
+
+                            <div className="max-w-md mx-auto space-y-4">
+                                <div className="bg-blue-50 p-6 rounded-2xl border border-blue-100 text-left">
+                                    <h4 className="text-sm font-bold text-blue-700 mb-3 flex items-center gap-2">
+                                        <User className="w-4 h-4" />
+                                        Tus Credenciales de Acceso
+                                    </h4>
+                                    <div className="space-y-2 text-sm">
+                                        <div>
+                                            <span className="text-blue-500 font-medium">Usuario:</span>
+                                            <p className="text-blue-900 font-bold">{formData.contact_email}</p>
+                                        </div>
+                                        <div>
+                                            <span className="text-blue-500 font-medium">Contraseña:</span>
+                                            <p className="text-blue-900 font-bold">La que acabas de crear</p>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <p className="text-gray-500 font-medium text-sm">
+                                    Tu cuenta ha sido creada exitosamente. Nuestro equipo administrativo validará tu información y podrás acceder al portal de proveedores.
+                                </p>
+
+                                <p className="text-xs text-gray-400">
+                                    Revisa tu email <span className="font-bold text-gray-600">{formData.contact_email}</span> para verificar tu cuenta.
+                                </p>
+                            </div>
+
+                            <button
                                 onClick={() => window.location.href = '/login'}
                                 className="bg-gray-900 text-white px-10 py-4 rounded-2xl font-black text-sm hover:bg-gray-800 transition-all"
                             >
-                                Volver al Inicio
+                                Ir al Inicio de Sesión
                             </button>
                         </div>
                     )}
                 </div>
             </div>
+        </div>
+    );
+}
+
+interface DocumentUploadCardProps {
+    id: string;
+    label: string;
+    icon: any;
+    iconColor: string;
+    required: boolean;
+    file: File | null;
+    onFileChange: (file: File | null) => void;
+}
+
+function DocumentUploadCard({ id, label, icon: Icon, iconColor, required, file, onFileChange }: DocumentUploadCardProps) {
+    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const selectedFile = e.target.files?.[0];
+        if (!selectedFile) {
+            onFileChange(null);
+            return;
+        }
+
+        // Validar tipo de archivo
+        const allowedTypes = ['application/pdf', 'image/jpeg', 'image/jpg', 'image/png'];
+        if (!allowedTypes.includes(selectedFile.type)) {
+            alert('Solo se permiten archivos PDF, JPG o PNG');
+            e.target.value = '';
+            return;
+        }
+
+        // Validar tamaño (5MB)
+        const maxSize = 5 * 1024 * 1024; // 5MB en bytes
+        if (selectedFile.size > maxSize) {
+            alert('El archivo no debe superar 5MB');
+            e.target.value = '';
+            return;
+        }
+
+        onFileChange(selectedFile);
+    };
+
+    return (
+        <div className="p-4 border border-blue-100 bg-blue-50/20 rounded-2xl">
+            <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-3">
+                    <Icon className={cn("w-5 h-5", iconColor)} />
+                    <span className="text-sm font-bold text-slate-700">
+                        {label} {required && <span className="text-red-500">*</span>}
+                    </span>
+                </div>
+                {file ? (
+                    <CheckCircle className="w-5 h-5 text-green-500" />
+                ) : (
+                    <span className="text-[10px] font-black text-blue-400 uppercase tracking-widest">
+                        {required ? 'Requerido' : 'Opcional'}
+                    </span>
+                )}
+            </div>
+            <label htmlFor={id} className="block cursor-pointer">
+                <div className="flex items-center gap-2 p-3 bg-white border border-gray-200 rounded-lg hover:border-blue-300 transition-colors">
+                    <Upload className="w-4 h-4 text-gray-400" />
+                    <span className="text-xs text-gray-600 font-medium flex-1 truncate">
+                        {file ? file.name : 'Seleccionar archivo...'}
+                    </span>
+                </div>
+                <input
+                    id={id}
+                    type="file"
+                    accept=".pdf,.jpg,.jpeg,.png"
+                    onChange={handleFileChange}
+                    className="hidden"
+                />
+            </label>
         </div>
     );
 }

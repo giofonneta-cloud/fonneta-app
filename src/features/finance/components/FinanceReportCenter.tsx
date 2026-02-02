@@ -39,8 +39,34 @@ import {
 } from 'recharts';
 
 export function FinanceReportCenter() {
-    const [period, setPeriod] = useState('2024-Q1');
+    const [period, setPeriod] = useState('2026-Q1');
     const [stats, setStats] = useState({ income: 0, expenses: 0, projectData: [] as any[] });
+
+    // Helper to check if date falls in period
+    const isInPeriod = (dateStr: string, periodStr: string) => {
+        if (periodStr === 'all') return true;
+        
+        const date = new Date(dateStr);
+        const year = date.getFullYear();
+        const month = date.getMonth() + 1; // 1-12
+
+        if (periodStr.startsWith('2026-Q')) {
+            if (year !== 2026) return false;
+            const quarter = parseInt(periodStr.split('-Q')[1]);
+            const qStartMonth = (quarter - 1) * 3 + 1;
+            const qEndMonth = qStartMonth + 2;
+            return month >= qStartMonth && month <= qEndMonth;
+        }
+
+        if (periodStr.startsWith('2026-')) {
+            // Format: 2026-01, 2026-02, etc.
+            if (year !== 2026) return false;
+            const targetMonth = parseInt(periodStr.split('-')[1]);
+            return month === targetMonth;
+        }
+
+        return false;
+    };
 
     React.useEffect(() => {
         const loadData = async () => {
@@ -50,19 +76,23 @@ export function FinanceReportCenter() {
                     expensesService.getAllExpenses()
                 ]);
 
-                const totalIncome = sales.reduce((acc, curr) => acc + (Number(curr.valor_venta_neto) || 0), 0);
-                const totalExpenses = expenses.reduce((acc, curr) => acc + (Number(curr.valor_neto) || 0), 0);
+                // Filter data based on period
+                const filteredSales = sales.filter(s => isInPeriod(s.fecha_factura || s.created_at, period));
+                const filteredExpenses = expenses.filter(e => isInPeriod(e.fecha_radicado || e.created_at, period));
+
+                const totalIncome = filteredSales.reduce((acc, curr) => acc + (Number(curr.valor_venta_neto) || 0), 0);
+                const totalExpenses = filteredExpenses.reduce((acc, curr) => acc + (Number(curr.valor_neto) || 0), 0);
 
                 // Agrupar por proyecto para el gráfico
                 const projectsMap: Record<string, { name: string, income: number, expense: number }> = {};
                 
-                sales.forEach(s => {
+                filteredSales.forEach(s => {
                     const name = s.proyecto?.name || 'Varios';
                     if (!projectsMap[name]) projectsMap[name] = { name, income: 0, expense: 0 };
                     projectsMap[name].income += Number(s.valor_venta_neto) || 0;
                 });
 
-                expenses.forEach(e => {
+                filteredExpenses.forEach(e => {
                     // Nota: Asumiendo que e tiene proyecto_id y necesitamos su nombre. 
                     // En una implementación real se haría un join o fetch previo.
                     const name = 'Proyecto ' + (e.proyecto_id?.substring(0, 4) || 'Desconocido');
@@ -81,7 +111,7 @@ export function FinanceReportCenter() {
             }
         };
         loadData();
-    }, []);
+    }, [period]);
 
     const netIncome = stats.income - stats.expenses;
     const margin = stats.income > 0 ? (netIncome / stats.income) * 100 : 0;
@@ -110,7 +140,22 @@ export function FinanceReportCenter() {
                         </SelectTrigger>
                         <SelectContent>
                             <SelectItem value="all">Todo el tiempo</SelectItem>
-                            <SelectItem value="2024-Q1">Q1 - 2024</SelectItem>
+                            <SelectItem value="2026-Q1">Q1 - 2026</SelectItem>
+                            <SelectItem value="2026-Q2">Q2 - 2026</SelectItem>
+                            <SelectItem value="2026-Q3">Q3 - 2026</SelectItem>
+                            <SelectItem value="2026-Q4">Q4 - 2026</SelectItem>
+                            <SelectItem value="2026-01">Enero 2026</SelectItem>
+                            <SelectItem value="2026-02">Febrero 2026</SelectItem>
+                            <SelectItem value="2026-03">Marzo 2026</SelectItem>
+                            <SelectItem value="2026-04">Abril 2026</SelectItem>
+                            <SelectItem value="2026-05">Mayo 2026</SelectItem>
+                            <SelectItem value="2026-06">Junio 2026</SelectItem>
+                            <SelectItem value="2026-07">Julio 2026</SelectItem>
+                            <SelectItem value="2026-08">Agosto 2026</SelectItem>
+                            <SelectItem value="2026-09">Septiembre 2026</SelectItem>
+                            <SelectItem value="2026-10">Octubre 2026</SelectItem>
+                            <SelectItem value="2026-11">Noviembre 2026</SelectItem>
+                            <SelectItem value="2026-12">Diciembre 2026</SelectItem>
                         </SelectContent>
                     </Select>
                     <Button variant="outline" size="icon" className="border-slate-200">

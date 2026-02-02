@@ -26,10 +26,16 @@ export interface Provider {
     onboarding_notes: string | null;
     created_at: string;
     updated_at: string;
+    // URLs de documentos
+    rut_url?: string | null;
+    cedula_url?: string | null;
+    camara_comercio_url?: string | null;
+    cert_bancaria_url?: string | null;
 }
 
 export interface CreateProviderInput {
     business_name: string;
+    user_id?: string;
     contact_name?: string;
     contact_email?: string;
     contact_phone?: string;
@@ -57,4 +63,61 @@ export interface ProviderDocument {
     estado: DocumentStatus;
     created_at: string;
     updated_at: string;
+}
+
+// ============================================
+// FACTURACIÓN - PRP-001
+// ============================================
+
+export type InvoiceType = 'factura' | 'cuenta_cobro';
+export type InvoiceStatus = 'pendiente' | 'en_revision' | 'aprobado' | 'pagado' | 'rechazado';
+
+export interface ProviderInvoice {
+    id: string;
+    provider_id: string;
+    invoice_number: string;
+    invoice_type: InvoiceType;
+    issue_date: string;
+    due_date: string | null;
+    amount: number;
+    concept: string;
+    document_url: string | null;
+    orden_compra_url?: string | null;
+    seguridad_social_url?: string | null;
+    release_url?: string | null;
+    status: InvoiceStatus;
+    payment_date: string | null;
+    admin_notes: string | null;
+    created_at: string;
+    updated_at: string;
+}
+
+export interface CreateInvoiceInput {
+    provider_id: string;
+    invoice_number: string;
+    invoice_type: InvoiceType;
+    issue_date: string;
+    due_date?: string;
+    amount: number;
+    concept: string;
+    document_url?: string;
+    orden_compra_url?: string;
+    seguridad_social_url?: string;
+    release_url?: string;
+}
+
+export interface UpdateInvoiceInput {
+    invoice_number?: string;
+    invoice_type?: InvoiceType;
+    issue_date?: string;
+    due_date?: string;
+    amount?: number;
+    concept?: string;
+    document_url?: string;
+    orden_compra_url?: string;
+    seguridad_social_url?: string;
+    release_url?: string;
+    status?: InvoiceStatus;
+    payment_date?: string;
+    admin_notes?: string;
 }

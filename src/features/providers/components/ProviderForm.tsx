@@ -4,7 +4,6 @@ import React, { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/shared/components/ui/dialog';
 import { Card, CardContent, CardHeader, CardTitle } from '@/shared/components/ui/card';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from '@/shared/components/ui/form';
 import { Input } from '@/shared/components/ui/input';
@@ -17,7 +16,7 @@ import { COLOMBIA_DEPARTMENTS, COLOMBIA_CITIES_BY_DEPT } from '@/shared/lib/colo
 import { Textarea } from '@/shared/components/ui/textarea';
 import { cn } from '@/shared/lib/utils';
 import { useEffect } from 'react';
-import { ExternalLink, Eye } from 'lucide-react';
+import { ExternalLink } from 'lucide-react';
 
 const providerFormSchema = z.object({
     business_name: z.string().min(3, "Mínimo 3 caracteres"),
@@ -59,7 +58,6 @@ export function ProviderForm({ onSuccess, onCancel, initialData }: ProviderFormP
         bancaria?: File;
     }>({});
     const [existingDocuments, setExistingDocuments] = useState<ProviderDocument[]>([]);
-    const [previewDoc, setPreviewDoc] = useState<{ url: string; type: string } | null>(null);
 
     useEffect(() => {
         if (initialData) {
@@ -460,12 +458,12 @@ export function ProviderForm({ onSuccess, onCancel, initialData }: ProviderFormP
                                                 variant="ghost" 
                                                 size="sm" 
                                                 className="text-blue-600 hover:text-blue-700"
-                                                onClick={() => setPreviewDoc({
-                                                    url: existingDocuments.find(d => d.tipo_documento === 'RUT')?.archivo_url!,
-                                                    type: 'RUT'
-                                                })}
+                                                onClick={() => {
+                                                    const url = existingDocuments.find(d => d.tipo_documento === 'RUT')?.archivo_url;
+                                                    if (url) window.open(url, '_blank');
+                                                }}
                                             >
-                                                <Eye className="w-4 h-4 mr-1" /> Ver
+                                                <ExternalLink className="w-4 h-4 mr-1" /> Abrir
                                             </Button>
                                         )}
                                         {documentFiles.rut && <span className="text-xs text-green-600 font-medium">Nuevo</span>}
@@ -504,12 +502,12 @@ export function ProviderForm({ onSuccess, onCancel, initialData }: ProviderFormP
                                                     variant="ghost" 
                                                     size="sm" 
                                                     className="text-blue-600 hover:text-blue-700"
-                                                    onClick={() => setPreviewDoc({
-                                                        url: existingDocuments.find(d => d.tipo_documento === 'Camara_Comercio')?.archivo_url!,
-                                                        type: 'Cámara de Comercio'
-                                                    })}
+                                                    onClick={() => {
+                                                        const url = existingDocuments.find(d => d.tipo_documento === 'Camara_Comercio')?.archivo_url;
+                                                        if (url) window.open(url, '_blank');
+                                                    }}
                                                 >
-                                                    <Eye className="w-4 h-4 mr-1" /> Ver
+                                                    <ExternalLink className="w-4 h-4 mr-1" /> Abrir
                                                 </Button>
                                             )}
                                             {documentFiles.camara && <span className="text-xs text-green-600 font-medium">Nuevo</span>}
@@ -548,12 +546,12 @@ export function ProviderForm({ onSuccess, onCancel, initialData }: ProviderFormP
                                                 variant="ghost" 
                                                 size="sm" 
                                                 className="text-blue-600 hover:text-blue-700"
-                                                onClick={() => setPreviewDoc({
-                                                    url: existingDocuments.find(d => d.tipo_documento === 'Cedula_Rep_Legal')?.archivo_url!,
-                                                    type: 'Cédula Rep. Legal'
-                                                })}
+                                                onClick={() => {
+                                                    const url = existingDocuments.find(d => d.tipo_documento === 'Cedula_Rep_Legal')?.archivo_url;
+                                                    if (url) window.open(url, '_blank');
+                                                }}
                                             >
-                                                <Eye className="w-4 h-4 mr-1" /> Ver
+                                                <ExternalLink className="w-4 h-4 mr-1" /> Abrir
                                             </Button>
                                         )}
                                         {documentFiles.cedula_rep && <span className="text-xs text-green-600 font-medium">Nuevo</span>}
@@ -591,12 +589,12 @@ export function ProviderForm({ onSuccess, onCancel, initialData }: ProviderFormP
                                                 variant="ghost" 
                                                 size="sm" 
                                                 className="text-blue-600 hover:text-blue-700"
-                                                onClick={() => setPreviewDoc({
-                                                    url: existingDocuments.find(d => d.tipo_documento === 'Cert_Bancaria')?.archivo_url!,
-                                                    type: 'Certificación Bancaria'
-                                                })}
+                                                onClick={() => {
+                                                    const url = existingDocuments.find(d => d.tipo_documento === 'Cert_Bancaria')?.archivo_url;
+                                                    if (url) window.open(url, '_blank');
+                                                }}
                                             >
-                                                <Eye className="w-4 h-4 mr-1" /> Ver
+                                                <ExternalLink className="w-4 h-4 mr-1" /> Abrir
                                             </Button>
                                         )}
                                         {documentFiles.bancaria && <span className="text-xs text-green-600 font-medium">Nuevo</span>}
@@ -751,34 +749,6 @@ export function ProviderForm({ onSuccess, onCancel, initialData }: ProviderFormP
                     </form>
                 </Form>
             </CardContent>
-
-            <Dialog open={!!previewDoc} onOpenChange={() => setPreviewDoc(null)}>
-                <DialogContent className="max-w-[95vw] w-full h-[95vh] flex flex-col p-4">
-                    <DialogHeader>
-                        <DialogTitle>{previewDoc?.type}</DialogTitle>
-                    </DialogHeader>
-                    <div className="flex-1 w-full h-full bg-slate-100 rounded-lg overflow-hidden">
-                        {previewDoc?.url && (
-                            previewDoc.url.toLowerCase().endsWith('.pdf') ? (
-                                <iframe 
-                                    src={previewDoc.url} 
-                                    className="w-full h-full" 
-                                    title="Document Preview"
-                                />
-                            ) : (
-                                <div className="w-full h-full flex items-center justify-center">
-                                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                                    <img 
-                                        src={previewDoc.url} 
-                                        alt="Document Preview" 
-                                        className="max-w-full max-h-full object-contain"
-                                    />
-                                </div>
-                            )
-                        )}
-                    </div>
-                </DialogContent>
-            </Dialog>
         </Card>
     );
 }

@@ -16,25 +16,31 @@ export const dynamic = 'force-dynamic';
 export default async function DashboardPage() {
   const supabase = await createClient();
 
+  const SYSTEM_START_DATE = '2026-01-01T00:00:00Z';
+
   // 1. Fetch Stats
   const { count: projectsCount } = await supabase
     .from('projects')
-    .select('*', { count: 'exact', head: true });
+    .select('*', { count: 'exact', head: true })
+    .gte('created_at', SYSTEM_START_DATE);
 
   const { count: providersCount } = await supabase
     .from('providers')
-    .select('*', { count: 'exact', head: true });
+    .select('*', { count: 'exact', head: true })
+    .gte('created_at', SYSTEM_START_DATE);
 
   // 2. Fetch Recent Activity (Projects & Providers)
   const { data: recentProjects } = await supabase
     .from('projects')
     .select('name, created_at')
+    .gte('created_at', SYSTEM_START_DATE)
     .order('created_at', { ascending: false })
     .limit(3);
 
   const { data: recentProviders } = await supabase
     .from('providers')
     .select('business_name, created_at')
+    .gte('created_at', SYSTEM_START_DATE)
     .order('created_at', { ascending: false })
     .limit(3);
 

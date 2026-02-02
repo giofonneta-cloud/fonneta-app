@@ -7,6 +7,7 @@ export const providerService = {
             .from('providers')
             .insert([{
                 business_name: input.business_name,
+                user_id: input.user_id || null,
                 contact_name: input.contact_name || null,
                 contact_email: input.contact_email || null,
                 contact_phone: input.contact_phone || null,
@@ -21,6 +22,8 @@ export const providerService = {
                 city: input.city || null,
                 department: input.department || null,
                 country: input.country || 'Colombia',
+                onboarding_status: input.onboarding_status || 'EN REVISION',
+                onboarding_notes: input.onboarding_notes || null
             }])
             .select()
             .single();
@@ -79,40 +82,35 @@ export const providerService = {
     async deleteProvider(id: string) {
         const { error } = await supabase
             .from('providers')
-            .delete()
+            .update({ is_active: false })
             .eq('id', id);
 
         if (error) throw error;
     },
 
     async uploadDocument(providerId: string, type: string, file: File) {
-        const fileExt = file.name.split('.').pop();
-        const fileName = `${providerId}/${type}_${Date.now()}.${fileExt}`;
-        const filePath = `documents/${fileName}`;
+        try {
+            const formData = new FormData();
+            formData.append('file', file);
+            formData.append('providerId', providerId);
+            formData.append('type', type);
 
-        const { error: uploadError } = await supabase.storage
-            .from('providers')
-            .upload(filePath, file);
+            const response = await fetch('/api/upload/provider-document', {
+                method: 'POST',
+                body: formData,
+            });
 
-        if (uploadError) throw uploadError;
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.error || 'Error al subir el documento');
+            }
 
-        const { data: { publicUrl } } = supabase.storage
-            .from('providers')
-            .getPublicUrl(filePath);
-
-        const { data, error } = await supabase
-            .from('provider_documents')
-            .insert({
-                provider_id: providerId,
-                tipo_documento: type,
-                archivo_url: publicUrl,
-                estado: 'en_revision'
-            })
-            .select()
-            .single();
-
-        if (error) throw error;
-        return data as ProviderDocument;
+            const result = await response.json();
+            return result.document as ProviderDocument;
+        } catch (error) {
+            console.error('Error uploading document:', error);
+            throw error;
+        }
     },
 
     async getProviderDocuments(providerId: string) {

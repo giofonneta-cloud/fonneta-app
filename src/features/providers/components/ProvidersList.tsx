@@ -40,7 +40,7 @@ export function ProvidersTable({ onEdit, onDelete }: ProvidersTableProps) {
     const [isLoading, setIsLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
     const [typeFilter, setTypeFilter] = useState<'all' | 'provider' | 'client'>('all');
-    const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
+    const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('active');
     const [isDeleting, setIsDeleting] = useState<string | null>(null);
     const [isNotesDialogOpen, setIsNotesDialogOpen] = useState(false);
     const [selectedProviderForNotes, setSelectedProviderForNotes] = useState<Provider | null>(null);
@@ -225,21 +225,20 @@ export function ProvidersTable({ onEdit, onDelete }: ProvidersTableProps) {
                     <Table>
                         <TableHeader>
                             <TableRow className="bg-slate-50">
-                                <TableHead className="font-bold">Nombre</TableHead>
-                                <TableHead className="font-bold">Tipo Persona</TableHead>
-                                <TableHead className="font-bold">Documento</TableHead>
-                                <TableHead className="font-bold">Contacto</TableHead>
-                                <TableHead className="font-bold">Ubicación</TableHead>
-                                <TableHead className="font-bold">Tipo</TableHead>
-                                <TableHead className="font-bold">Registro</TableHead>
-                                <TableHead className="font-bold">Observaciones</TableHead>
-                                <TableHead className="font-bold text-right">Acciones</TableHead>
+                                <TableHead className="font-bold w-[25%]">Nombre</TableHead>
+                                <TableHead className="font-bold w-[10%]">Tipo Persona</TableHead>
+                                <TableHead className="font-bold w-[15%]">Documento</TableHead>
+                                <TableHead className="font-bold w-[20%]">Contacto</TableHead>
+                                <TableHead className="font-bold w-[10%]">Tipo</TableHead>
+                                <TableHead className="font-bold w-[12%]">Registro</TableHead>
+                                <TableHead className="font-bold w-[10%]">Observaciones</TableHead>
+                                <TableHead className="font-bold w-[30px] text-right">Acciones</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
                             {filteredProviders.length === 0 ? (
                                 <TableRow>
-                                    <TableCell colSpan={8} className="text-center py-8 text-slate-500">
+                                    <TableCell colSpan={7} className="text-center py-8 text-slate-500">
                                         No se encontraron resultados
                                     </TableCell>
                                 </TableRow>
@@ -294,14 +293,6 @@ export function ProvidersTable({ onEdit, onDelete }: ProvidersTableProps) {
                                                     </div>
                                                 )}
                                             </div>
-                                        </TableCell>
-                                        <TableCell>
-                                            {provider.city && (
-                                                <div className="flex items-center gap-2 text-sm text-slate-600">
-                                                    <MapPin className="w-3 h-3" />
-                                                    <span>{provider.city}{provider.department && `, ${provider.department}`}</span>
-                                                </div>
-                                            )}
                                         </TableCell>
                                         <TableCell>
                                             <div className="flex gap-1 flex-wrap">
