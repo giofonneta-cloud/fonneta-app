@@ -158,13 +158,20 @@ export function ProviderOnboarding() {
             const profileCreated = await waitForProfile(authData.user.id);
             if (!profileCreated) {
                 // Si el trigger falla, intentar crearlo manualmente como fallback
-                await supabase.from('profiles').insert({
+                // IMPORTANTE: Esto requiere la política de RLS "Users can insert their own profile"
+                const { error: profileError } = await supabase.from('profiles').insert({
                     id: authData.user.id,
                     email: formData.contact_email,
                     full_name: formData.contact_name,
                     role: 'proveedor',
                     created_at: new Date().toISOString()
                 });
+
+                if (profileError) {
+                    console.error('Error creating profile manually:', profileError);
+                    // Si falla el insert manual (probablemente por RLS), lanzamos error explicativo
+                    throw new Error(`Error crítico: No se pudo crear el perfil de usuario. ${profileError.message}`);
+                }
             }
 
             // 3. Crear registro de proveedor vinculado al user_id
