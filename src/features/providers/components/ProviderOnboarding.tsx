@@ -230,7 +230,20 @@ export function ProviderOnboarding() {
         } catch (err: any) {
             console.error('Error al registrar proveedor (RAW):', err);
             console.error('Error al registrar proveedor (JSON):', JSON.stringify(err, null, 2));
-            const errorMessage = err.message || err.error_description || JSON.stringify(err);
+            
+            let errorMessage = err.message || err.error_description || JSON.stringify(err);
+            
+            // Handle specific Supabase duplicate key errors
+            if (errorMessage.includes('providers_business_name_key') || 
+                (err.code === '23505' && errorMessage.includes('business_name'))) {
+                errorMessage = 'Ya existe una empresa registrada con esta Razón Social. Por favor verifica o contacta a soporte.';
+            } else if (errorMessage.includes('providers_document_number_key') || 
+                       (err.code === '23505' && errorMessage.includes('document_number'))) {
+                errorMessage = 'Ya existe una empresa registrada con este Número de Documento / NIT.';
+            } else if (errorMessage.includes('User already registered')) {
+                errorMessage = 'Este correo electrónico ya está registrado. Por favor inicia sesión.';
+            }
+
             setError(errorMessage || 'Error al procesar el registro. Inténtalo de nuevo.');
             window.scrollTo({ top: 0, behavior: 'smooth' });
         } finally {
