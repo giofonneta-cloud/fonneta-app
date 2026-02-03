@@ -64,7 +64,7 @@ export async function updateSession(request: NextRequest) {
 
     // Verificar roles para rutas específicas
     if (user && (isDashboardRoute || isPortalRoute)) {
-        const { data: profile } = await supabase
+        const { data: profile, error: profileError } = await supabase
             .from('profiles')
             .select('role')
             .eq('id', user.id)
@@ -72,8 +72,15 @@ export async function updateSession(request: NextRequest) {
 
         const userRole = profile?.role || ''
 
+        // Debug logging
+        console.log('[Middleware] User:', user.email, 'Role:', userRole, 'Path:', pathname)
+        if (profileError) {
+            console.error('[Middleware] Profile error:', profileError.message)
+        }
+
         // Proveedor intentando acceder al dashboard admin
         if (isDashboardRoute && userRole === 'proveedor') {
+            console.log('[Middleware] Redirecting proveedor to /portal')
             return NextResponse.redirect(new URL('/portal', request.url))
         }
 
