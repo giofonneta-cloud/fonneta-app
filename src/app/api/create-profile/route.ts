@@ -25,6 +25,25 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Wait for user to exist in auth.users (race condition fix)
+    let userExists = false;
+    for (let i = 0; i < 5; i++) {
+      const { data: user } = await supabaseAdmin.auth.admin.getUserById(userId);
+      if (user?.user) {
+        userExists = true;
+        break;
+      }
+      // Wait 500ms before retry
+      await new Promise(resolve => setTimeout(resolve, 500));
+    }
+
+    if (!userExists) {
+      return NextResponse.json(
+        { error: 'User not found in auth system after retries' },
+        { status: 404 }
+      );
+    }
+
     // Create profile using service role (bypasses RLS)
     const { data, error } = await supabaseAdmin
       .from('profiles')

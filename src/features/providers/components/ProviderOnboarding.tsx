@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef } from 'react';
-import { Upload, CheckCircle, AlertCircle, FileText, Building2, CreditCard, Loader2, User } from 'lucide-react';
+import { Upload, CheckCircle, AlertCircle, FileText, Building2, CreditCard, Loader2, User, Mail } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { providerService } from '../services/providerService';
@@ -641,9 +641,22 @@ export function ProviderOnboarding() {
                                     Tu cuenta ha sido creada exitosamente. Nuestro equipo administrativo validará tu información y podrás acceder al portal de proveedores.
                                 </p>
 
-                                <p className="text-xs text-gray-400">
-                                    Revisa tu email <span className="font-bold text-gray-600">{formData.contact_email}</span> para verificar tu cuenta.
-                                </p>
+                                <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4 text-left">
+                                    <div className="flex items-start gap-3">
+                                        <Mail className="w-5 h-5 text-yellow-600 mt-0.5 flex-shrink-0" />
+                                        <div className="space-y-1">
+                                            <p className="text-sm font-bold text-yellow-900">
+                                                📧 Verifica tu correo electrónico
+                                            </p>
+                                            <p className="text-xs text-yellow-700">
+                                                Revisa tu bandeja de entrada en <span className="font-bold">{formData.contact_email}</span>
+                                            </p>
+                                            <p className="text-xs text-yellow-600 font-medium">
+                                                ⚠️ Si no lo encuentras, <span className="font-bold">revisa tu carpeta de SPAM o correo no deseado</span>
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
 
                             <button
