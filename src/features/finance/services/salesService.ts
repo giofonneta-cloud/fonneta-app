@@ -1,6 +1,5 @@
 import { supabase } from '@/shared/lib/supabase';
 import { Venta, PaymentStatus } from '../types/sales-expenses.types';
-import { CreateVentaSchema, RegistrarPagoSchema, validateOrThrow } from '@/shared/lib/validators';
 
 export const salesService = {
     async getAllSales() {
@@ -28,59 +27,69 @@ export const salesService = {
     },
 
     /**
-     * Crea una venta con cálculos automáticos de IVA y retención
-     * Usa: create_venta_calculada RPC function
-     * Valida con Zod antes de enviar
+     * Crea una venta con cálculos automáticos de IVA
+     * Inserta directamente en la tabla ventas
      */
     async createSale(input: {
-        project_id: string;
-        client_id: string;
-        descripcion: string;
-        monto_base: number;
+        proyecto_id: string;
+        cliente_id: string;
+        valor_venta_neto: number;
         iva_porcentaje?: number;
-        retencion_porcentaje?: number;
-        fecha_venta: string;
-        fecha_vencimiento?: string;
-        metodo_pago?: string;
-        notas?: string;
+        line_of_business?: string;
+        estado_oc?: 'oc_recibida' | 'facturar_sin_oc';
+        numero_oc?: string;
+        numero_factura?: string;
+        fecha_factura?: string;
+        plazo_pago_dias?: number;
+        fecha_cobro_estimada?: string;
+        comercial_id?: string;
+        porcentaje_comision?: number;
+        notas_internas?: string;
     }) {
-        // Validar con Zod
-        validateOrThrow(CreateVentaSchema, input);
+        // Calcular IVA automáticamente
+        const ivaPorcentaje = input.iva_porcentaje ?? 19;
+        const ivaValor = input.valor_venta_neto * (ivaPorcentaje / 100);
+        const totalConIva = input.valor_venta_neto + ivaValor;
+        const valorComision = input.porcentaje_comision
+            ? input.valor_venta_neto * (input.porcentaje_comision / 100)
+            : 0;
 
-        const { data, error } = await supabase.rpc('create_venta_calculada', {
-            p_project_id: input.project_id,
-            p_client_id: input.client_id,
-            p_descripcion: input.descripcion,
-            p_monto_base: input.monto_base,
-            p_iva_porcentaje: input.iva_porcentaje ?? 19,
-            p_retencion_porcentaje: input.retencion_porcentaje ?? 0,
-            p_fecha_venta: input.fecha_venta,
-            p_fecha_vencimiento: input.fecha_vencimiento || null,
-            p_metodo_pago: input.metodo_pago || null,
-            p_notas: input.notas || null,
-        });
-
-        if (error) throw error;
-        return data as {
-            venta_id: string;
-            monto_base: number;
-            iva_valor: number;
-            retencion_valor: number;
-            valor_neto: number;
+        const payload = {
+            proyecto_id: input.proyecto_id,
+            cliente_id: input.cliente_id,
+            valor_venta_neto: input.valor_venta_neto,
+            iva_porcentaje: ivaPorcentaje,
+            iva_valor: ivaValor,
+            total_con_iva: totalConIva,
+            line_of_business: input.line_of_business || null,
+            estado_oc: input.estado_oc || 'oc_recibida',
+            numero_oc: input.numero_oc || null,
+            numero_factura: input.numero_factura || null,
+            fecha_factura: input.fecha_factura || null,
+            plazo_pago_dias: input.plazo_pago_dias || 30,
+            fecha_cobro_estimada: input.fecha_cobro_estimada || null,
+            comercial_id: input.comercial_id || null,
+            porcentaje_comision: input.porcentaje_comision || 0,
+            valor_comision: valorComision,
+            valor_pagado: 0,
+            estado_pago: 'pendiente',
+            notas_internas: input.notas_internas || null,
         };
-    },
 
-    /**
-     * @deprecated Usar createSale con RPC para cálculos automáticos
-     */
-    async createSaleLegacy(venta: Omit<Venta, 'id' | 'created_at' | 'updated_at'>) {
+        console.log("💾 Insertando venta:", payload);
+
         const { data, error } = await supabase
             .from('ventas')
-            .insert(venta)
+            .insert(payload)
             .select()
             .single();
 
-        if (error) throw error;
+        if (error) {
+            console.error("❌ Error al crear venta:", error);
+            throw error;
+        }
+
+        console.log("✅ Venta creada:", data);
         return data as Venta;
     },
 
@@ -97,58 +106,32 @@ export const salesService = {
     },
 
     /**
-     * Registra un pago con bloqueo FOR UPDATE para evitar race conditions
-     * Usa: registrar_pago_venta RPC function
-     * Valida con Zod antes de enviar
+     * Registra un pago para una venta
+     * Calcula automáticamente el estado (pendiente, parcial, pagado)
      */
-    async recordPayment(input: {
-        venta_id: string;
-        monto: number;
-        metodo_pago: 'efectivo' | 'transferencia' | 'tarjeta' | 'cheque' | 'otro';
-        referencia?: string;
-        notas?: string;
-    }) {
-        // Validar con Zod
-        validateOrThrow(RegistrarPagoSchema, input);
-
-        const { data, error } = await supabase.rpc('registrar_pago_venta', {
-            p_venta_id: input.venta_id,
-            p_monto_pago: input.monto,
-            p_metodo_pago: input.metodo_pago,
-            p_referencia: input.referencia || null,
-            p_notas: input.notas || null,
-        });
-
-        if (error) throw error;
-        return data as {
-            success: boolean;
-            venta_id: string;
-            monto_pagado: number;
-            total_pagado: number;
-            estado_pago: string;
-            saldo_pendiente: number;
-        };
-    },
-
-    /**
-     * @deprecated Usar recordPayment con RPC para operación atómica
-     */
-    async recordPaymentLegacy(id: string, valorPagado: number, fechaPago: string) {
-        const { data: currentSales } = await supabase
+    async recordPayment(id: string, valorPagado: number, fechaPago: string) {
+        // Obtener la venta actual para calcular el total
+        const { data: currentSale, error: fetchError } = await supabase
             .from('ventas')
-            .select('valor_venta_neto, iva_valor')
+            .select('valor_venta_neto, iva_valor, valor_pagado')
             .eq('id', id)
             .single();
 
-        const total = (currentSales?.valor_venta_neto || 0) + (currentSales?.iva_valor || 0);
+        if (fetchError) throw fetchError;
 
-        let status: PaymentStatus = 'parcial';
-        if (valorPagado >= total) {
+        const total = (currentSale?.valor_venta_neto || 0) + (currentSale?.iva_valor || 0);
+        const nuevoValorPagado = (currentSale?.valor_pagado || 0) + valorPagado;
+
+        // Determinar estado de pago
+        let status: PaymentStatus = 'pendiente';
+        if (nuevoValorPagado >= total) {
             status = 'pagado';
+        } else if (nuevoValorPagado > 0) {
+            status = 'parcial';
         }
 
         return this.updateSale(id, {
-            valor_pagado: valorPagado,
+            valor_pagado: nuevoValorPagado,
             fecha_pago_real: fechaPago,
             estado_pago: status
         });

@@ -8,7 +8,7 @@ import { Input } from '@/shared/components/ui/input';
 import { Badge } from '@/shared/components/ui/badge';
 import { Button } from '@/shared/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/shared/components/ui/select';
-import { Search, Filter, Building2, Mail, Phone, MapPin, FileText, MoreHorizontal, Pencil, Trash2 } from 'lucide-react';
+import { Search, Filter, Building2, Mail, Phone, MapPin, FileText, MoreHorizontal, Pencil, Trash2, ExternalLink, FileCheck, AlertCircle } from 'lucide-react';
 import { cn } from '@/shared/lib/utils';
 import {
     DropdownMenu,
@@ -229,7 +229,7 @@ export function ProvidersTable({ onEdit, onDelete }: ProvidersTableProps) {
                                 <th className="px-6 py-5 text-left text-xs font-black text-gray-400 uppercase tracking-wider">Tipo</th>
                                 <th className="px-6 py-5 text-left text-xs font-black text-gray-400 uppercase tracking-wider">Documento</th>
                                 <th className="px-6 py-5 text-left text-xs font-black text-gray-400 uppercase tracking-wider">Contacto</th>
-                                <th className="px-6 py-5 text-left text-xs font-black text-gray-400 uppercase tracking-wider">Categoría</th>
+                                <th className="px-6 py-5 text-left text-xs font-black text-gray-400 uppercase tracking-wider">Docs Cargados</th>
                                 <th className="px-6 py-5 text-left text-xs font-black text-gray-400 uppercase tracking-wider">Estado Onboarding</th>
                                 <th className="px-6 py-5 text-right text-xs font-black text-gray-400 uppercase tracking-wider">Acciones</th>
                             </tr>
@@ -299,16 +299,68 @@ export function ProvidersTable({ onEdit, onDelete }: ProvidersTableProps) {
                                             </div>
                                         </TableCell>
                                         <TableCell>
-                                            <div className="flex gap-1 flex-wrap">
-                                                {provider.is_provider && (
-                                                    <Badge className="bg-blue-100 text-blue-700 hover:bg-blue-200">
-                                                        Proveedor
-                                                    </Badge>
-                                                )}
-                                                {provider.is_client && (
-                                                    <Badge className="bg-emerald-100 text-emerald-700 hover:bg-emerald-200">
-                                                        Cliente
-                                                    </Badge>
+                                            {/* Documentos Cargados */}
+                                            <div className="flex items-center gap-2">
+                                                {(provider.rut_url || provider.cedula_url || provider.cert_bancaria_url || provider.camara_comercio_url) ? (
+                                                    <div className="flex flex-wrap gap-1.5">
+                                                        {provider.rut_url && (
+                                                            <a
+                                                                href={provider.rut_url}
+                                                                target="_blank"
+                                                                rel="noopener noreferrer"
+                                                                className="inline-flex items-center gap-1 px-2 py-1 bg-green-50 text-green-700 rounded-lg text-[10px] font-bold hover:bg-green-100 transition-colors"
+                                                                title="Ver RUT"
+                                                            >
+                                                                <FileCheck className="w-3 h-3" />
+                                                                RUT
+                                                                <ExternalLink className="w-2.5 h-2.5" />
+                                                            </a>
+                                                        )}
+                                                        {provider.cedula_url && (
+                                                            <a
+                                                                href={provider.cedula_url}
+                                                                target="_blank"
+                                                                rel="noopener noreferrer"
+                                                                className="inline-flex items-center gap-1 px-2 py-1 bg-green-50 text-green-700 rounded-lg text-[10px] font-bold hover:bg-green-100 transition-colors"
+                                                                title="Ver Cédula"
+                                                            >
+                                                                <FileCheck className="w-3 h-3" />
+                                                                Cédula
+                                                                <ExternalLink className="w-2.5 h-2.5" />
+                                                            </a>
+                                                        )}
+                                                        {provider.cert_bancaria_url && (
+                                                            <a
+                                                                href={provider.cert_bancaria_url}
+                                                                target="_blank"
+                                                                rel="noopener noreferrer"
+                                                                className="inline-flex items-center gap-1 px-2 py-1 bg-green-50 text-green-700 rounded-lg text-[10px] font-bold hover:bg-green-100 transition-colors"
+                                                                title="Ver Certificación Bancaria"
+                                                            >
+                                                                <FileCheck className="w-3 h-3" />
+                                                                Bancaria
+                                                                <ExternalLink className="w-2.5 h-2.5" />
+                                                            </a>
+                                                        )}
+                                                        {provider.camara_comercio_url && (
+                                                            <a
+                                                                href={provider.camara_comercio_url}
+                                                                target="_blank"
+                                                                rel="noopener noreferrer"
+                                                                className="inline-flex items-center gap-1 px-2 py-1 bg-green-50 text-green-700 rounded-lg text-[10px] font-bold hover:bg-green-100 transition-colors"
+                                                                title="Ver Cámara de Comercio"
+                                                            >
+                                                                <FileCheck className="w-3 h-3" />
+                                                                C.Com
+                                                                <ExternalLink className="w-2.5 h-2.5" />
+                                                            </a>
+                                                        )}
+                                                    </div>
+                                                ) : (
+                                                    <div className="flex items-center gap-1.5 text-orange-500">
+                                                        <AlertCircle className="w-4 h-4" />
+                                                        <span className="text-[10px] font-bold">Sin documentos</span>
+                                                    </div>
                                                 )}
                                             </div>
                                         </TableCell>
@@ -334,15 +386,6 @@ export function ProvidersTable({ onEdit, onDelete }: ProvidersTableProps) {
                                                     </SelectContent>
                                                 </Select>
                                             </div>
-                                        </TableCell>
-                                        <TableCell>
-                                            {provider.onboarding_notes ? (
-                                                <p className="text-xs text-slate-600 font-medium line-clamp-2 max-w-[200px]" title={provider.onboarding_notes}>
-                                                    {provider.onboarding_notes}
-                                                </p>
-                                            ) : (
-                                                <span className="text-[10px] text-slate-300 italic">Sin observaciones</span>
-                                            )}
                                         </TableCell>
                                         <TableCell align="right">
                                             <DropdownMenu>

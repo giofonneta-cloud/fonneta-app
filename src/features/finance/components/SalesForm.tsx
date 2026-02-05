@@ -11,8 +11,9 @@ import { Button } from '@/shared/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/shared/components/ui/select';
 import { Separator } from '@/shared/components/ui/separator';
 import { Textarea } from '@/shared/components/ui/textarea';
-import { DollarSign, FileText, BadgeCheck, Users, Calendar } from 'lucide-react';
+import { DollarSign, FileText, BadgeCheck, Users, Calendar, UserCircle } from 'lucide-react';
 import { salesService } from '../services/salesService';
+import { comercialesService, Comercial } from '../services/comercialesService';
 import { providerService } from '@/features/providers/services/providerService';
 import { Provider } from '@/features/providers/types/provider.types';
 import { projectService } from '@/features/projects/services/projectService';
@@ -32,6 +33,7 @@ const salesFormSchema = z.object({
     fecha_factura: z.string().optional(),
     plazo_pago_dias: z.coerce.number().default(30),
     tiene_comision: z.boolean().default(false),
+    comercial_id: z.string().optional(),
     porcentaje_comision: z.coerce.number().min(0).max(100).default(10),
     notas_internas: z.string().optional(),
 });
@@ -48,10 +50,12 @@ export function SalesForm({ onSuccess, initialProjectId, initialClientId }: Sale
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [clients, setClients] = useState<Provider[]>([]);
     const [projects, setProjects] = useState<Project[]>([]);
+    const [comerciales, setComerciales] = useState<Comercial[]>([]);
 
     useEffect(() => {
         providerService.getClients().then(setClients).catch(console.error);
         projectService.getProjects().then(setProjects).catch(console.error);
+        comercialesService.getComerciales().then(setComerciales).catch(console.error);
     }, []);
 
     const form = useForm<SalesFormValues>({
@@ -70,6 +74,7 @@ export function SalesForm({ onSuccess, initialProjectId, initialClientId }: Sale
             fecha_factura: '',
             plazo_pago_dias: 30,
             tiene_comision: false,
+            comercial_id: '',
             porcentaje_comision: 10,
             notas_internas: '',
         },
@@ -105,40 +110,36 @@ export function SalesForm({ onSuccess, initialProjectId, initialClientId }: Sale
     const onSubmit = async (values: SalesFormValues) => {
         setIsSubmitting(true);
         try {
-            // Recalculate date for DB format (YYYY-MM-DD)
-            let fechaCobroISO = null;
-            if (fechaFactura) {
-                const parts = fechaFactura.split('-');
+            // Calcular fecha de cobro estimada
+            let fechaCobroEstimadaISO: string | undefined;
+            if (values.fecha_factura) {
+                const parts = values.fecha_factura.split('-');
                 const date = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
-                date.setDate(date.getDate() + plazoDias);
-                fechaCobroISO = date.toISOString().split('T')[0];
+                date.setDate(date.getDate() + values.plazo_pago_dias);
+                fechaCobroEstimadaISO = date.toISOString().split('T')[0];
             }
 
-            // Remove non-DB fields
-            const { marca_id, producto_id, tiene_comision, ...validValues } = values;
-
-            // Sanitize payload: valid UUIDs, numbers, and nulls for empty strings
-            const cleanPayload = Object.fromEntries(
-                Object.entries(validValues).map(([key, value]) => {
-                    if (value === '') return [key, null]; // Empty string -> null
-                    return [key, value];
-                })
-            );
-
-            const finalPayload = {
-                ...cleanPayload,
-                iva_valor: ivaValor,
-                total_con_iva: totalConIva,
-                porcentaje_comision: porcentajeComision,
-                valor_comision: valorComision,
-                valor_pagado: 0,
-                estado_pago: 'pendiente',
-                fecha_cobro_estimada: fechaCobroISO || null // Explicit null
+            // Mapear campos directamente a la tabla ventas
+            const payload = {
+                proyecto_id: values.proyecto_id,
+                cliente_id: values.cliente_id,
+                valor_venta_neto: values.valor_venta_neto,
+                iva_porcentaje: values.iva_porcentaje,
+                line_of_business: values.line_of_business,
+                estado_oc: values.estado_oc,
+                numero_oc: values.numero_oc || undefined,
+                numero_factura: values.numero_factura || undefined,
+                fecha_factura: values.fecha_factura || undefined,
+                plazo_pago_dias: values.plazo_pago_dias,
+                fecha_cobro_estimada: fechaCobroEstimadaISO,
+                comercial_id: values.tiene_comision && values.comercial_id ? values.comercial_id : undefined,
+                porcentaje_comision: values.tiene_comision ? values.porcentaje_comision : 0,
+                notas_internas: values.notas_internas || undefined,
             };
 
-            console.log("🚀 Enviando payload a Supabase:", finalPayload);
+            console.log("🚀 Enviando payload a Supabase:", payload);
 
-            await salesService.createSale(finalPayload as any);
+            await salesService.createSale(payload);
 
             alert("Venta registrada exitosamente");
             form.reset();
@@ -407,7 +408,7 @@ export function SalesForm({ onSuccess, initialProjectId, initialClientId }: Sale
                                 <BadgeCheck className="w-4 h-4 text-orange-500" />
                                 <h3 className="text-sm font-bold text-slate-700 uppercase tracking-wider">Comisiones</h3>
                             </div>
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 p-6 bg-orange-50/20 rounded-xl border border-orange-100/50 items-end">
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 p-6 bg-orange-50/20 rounded-xl border border-orange-100/50 items-end">
                                 <FormField
                                     control={form.control}
                                     name="tiene_comision"
@@ -432,6 +433,49 @@ export function SalesForm({ onSuccess, initialProjectId, initialClientId }: Sale
 
                                 {form.watch('tiene_comision') && (
                                     <>
+                                        <FormField
+                                            control={form.control}
+                                            name="comercial_id"
+                                            render={({ field }) => (
+                                                <FormItem>
+                                                    <FormLabel className="text-xs font-bold text-slate-500 flex items-center gap-1">
+                                                        <UserCircle className="w-3 h-3" />
+                                                        Comercial
+                                                    </FormLabel>
+                                                    <Select
+                                                        onValueChange={(value) => {
+                                                            field.onChange(value);
+                                                            // Auto-fill percentage from comercial default
+                                                            const comercial = comerciales.find(c => c.id === value);
+                                                            if (comercial) {
+                                                                form.setValue('porcentaje_comision', comercial.porcentaje_comision_default);
+                                                            }
+                                                        }}
+                                                        defaultValue={field.value}
+                                                    >
+                                                        <FormControl>
+                                                            <SelectTrigger className="bg-white border-orange-200 focus:ring-orange-500">
+                                                                <SelectValue placeholder="Seleccionar comercial" />
+                                                            </SelectTrigger>
+                                                        </FormControl>
+                                                        <SelectContent>
+                                                            {comerciales.length === 0 ? (
+                                                                <SelectItem value="_none" disabled>
+                                                                    No hay comerciales registrados
+                                                                </SelectItem>
+                                                            ) : (
+                                                                comerciales.map((comercial) => (
+                                                                    <SelectItem key={comercial.id} value={comercial.id}>
+                                                                        {comercial.nombre} ({comercial.porcentaje_comision_default}%)
+                                                                    </SelectItem>
+                                                                ))
+                                                            )}
+                                                        </SelectContent>
+                                                    </Select>
+                                                    <FormMessage />
+                                                </FormItem>
+                                            )}
+                                        />
                                         <FormField
                                             control={form.control}
                                             name="porcentaje_comision"

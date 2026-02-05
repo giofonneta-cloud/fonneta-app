@@ -105,7 +105,7 @@ export function AdminDashboard() {
                 <div>
                     <h1 className="text-3xl font-black text-gray-900 tracking-tight flex items-center gap-3">
                         <Building2 className="w-8 h-8 text-blue-600 bg-blue-50 p-1.5 rounded-xl" />
-                        Centro de Control
+                        Proveedores Centro de Control 
                     </h1>
                 </div>
                 <div className="flex items-center gap-2">

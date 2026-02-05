@@ -5,6 +5,16 @@ import Link from 'next/link';
 export function QuickActionsCard() {
     const actions = [
         {
+            label: 'Gestionar Comerciales',
+            href: '/dashboard/admin/comerciales',
+            icon: (
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                </svg>
+            ),
+            color: 'emerald',
+        },
+        {
             label: 'Nuevo Usuario',
             href: '/dashboard/admin/users/new',
             icon: (
@@ -22,7 +32,7 @@ export function QuickActionsCard() {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                 </svg>
             ),
-            color: 'emerald',
+            color: 'cyan',
         },
         {
             label: 'Configurar Módulos',
@@ -50,6 +60,7 @@ export function QuickActionsCard() {
     const colorClasses: Record<string, string> = {
         indigo: 'bg-indigo-50 text-indigo-600 hover:bg-indigo-100 border-indigo-200',
         emerald: 'bg-emerald-50 text-emerald-600 hover:bg-emerald-100 border-emerald-200',
+        cyan: 'bg-cyan-50 text-cyan-600 hover:bg-cyan-100 border-cyan-200',
         amber: 'bg-amber-50 text-amber-600 hover:bg-amber-100 border-amber-200',
         gray: 'bg-gray-50 text-gray-600 hover:bg-gray-100 border-gray-200',
     };
