@@ -1,8 +1,26 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getDriveService } from '@/lib/google-drive/driveService';
 
 export async function POST(request: NextRequest) {
     try {
+        // Verificar variables de entorno ANTES de procesar
+        if (!process.env.GOOGLE_SERVICE_ACCOUNT_KEY) {
+            console.error('Missing GOOGLE_SERVICE_ACCOUNT_KEY env variable');
+            return NextResponse.json(
+                { error: 'Configuración del servidor incompleta: GOOGLE_SERVICE_ACCOUNT_KEY faltante. Contacte al administrador.' },
+                { status: 500 }
+            );
+        }
+        if (!process.env.GOOGLE_DRIVE_ROOT_FOLDER_ID) {
+            console.error('Missing GOOGLE_DRIVE_ROOT_FOLDER_ID env variable');
+            return NextResponse.json(
+                { error: 'Configuración del servidor incompleta: GOOGLE_DRIVE_ROOT_FOLDER_ID faltante. Contacte al administrador.' },
+                { status: 500 }
+            );
+        }
+
+        // Importar dinámicamente para evitar crash si faltan env vars
+        const { getDriveService } = await import('@/lib/google-drive/driveService');
+
         const formData = await request.formData();
         
         const providerId = formData.get('providerId') as string;

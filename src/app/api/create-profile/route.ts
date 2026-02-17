@@ -1,20 +1,36 @@
 import { createClient } from '@supabase/supabase-js';
 import { NextRequest, NextResponse } from 'next/server';
 
-// Create a Supabase client with SERVICE ROLE key (bypasses RLS)
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!, // This key has full access
-  {
-    auth: {
-      autoRefreshToken: false,
-      persistSession: false
-    }
-  }
-);
-
 export async function POST(request: NextRequest) {
   try {
+    // Verificar variables de entorno ANTES de procesar
+    if (!process.env.NEXT_PUBLIC_SUPABASE_URL) {
+      console.error('Missing NEXT_PUBLIC_SUPABASE_URL env variable');
+      return NextResponse.json(
+        { error: 'Configuración del servidor incompleta: SUPABASE_URL faltante. Contacte al administrador.' },
+        { status: 500 }
+      );
+    }
+    if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
+      console.error('Missing SUPABASE_SERVICE_ROLE_KEY env variable');
+      return NextResponse.json(
+        { error: 'Configuración del servidor incompleta: SERVICE_ROLE_KEY faltante. Contacte al administrador.' },
+        { status: 500 }
+      );
+    }
+
+    // Create Supabase client with SERVICE ROLE key (bypasses RLS)
+    const supabaseAdmin = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL,
+      process.env.SUPABASE_SERVICE_ROLE_KEY,
+      {
+        auth: {
+          autoRefreshToken: false,
+          persistSession: false
+        }
+      }
+    );
+
     const { userId, email, fullName, role } = await request.json();
 
     // Validate inputs

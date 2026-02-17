@@ -142,20 +142,32 @@ export function ProviderOnboarding() {
 
             // 2. Crear perfil usando API route con service role
             // Esto evita TODOS los problemas de RLS y triggers
-            const profileResponse = await fetch('/api/create-profile', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    userId: authData.user.id,
-                    email: formData.contact_email,
-                    fullName: formData.contact_name,
-                    role: 'proveedor'
-                })
-            });
+            let profileResponse;
+            try {
+                profileResponse = await fetch('/api/create-profile', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        userId: authData.user.id,
+                        email: formData.contact_email,
+                        fullName: formData.contact_name,
+                        role: 'proveedor'
+                    })
+                });
+            } catch (networkError) {
+                console.error('Network error creating profile:', networkError);
+                throw new Error('Error de red al crear perfil. Verifica tu conexión a internet.');
+            }
 
             if (!profileResponse.ok) {
-                const errorData = await profileResponse.json();
-                throw new Error(`Error creando perfil: ${errorData.error || 'Unknown error'}`);
+                let errorMessage = 'Error creando perfil';
+                try {
+                    const errorData = await profileResponse.json();
+                    errorMessage = `Error creando perfil: ${errorData.error || 'Unknown error'}`;
+                } catch {
+                    errorMessage = `Error del servidor (${profileResponse.status}) creando perfil`;
+                }
+                throw new Error(errorMessage);
             }
 
             const profileData = await profileResponse.json();
@@ -198,14 +210,26 @@ export function ProviderOnboarding() {
                 formData.append('providerNIT', providerNIT);
                 formData.append('documentType', documentType);
 
-                const response = await fetch('/api/providers/upload-document', {
-                    method: 'POST',
-                    body: formData,
-                });
+                let response;
+                try {
+                    response = await fetch('/api/providers/upload-document', {
+                        method: 'POST',
+                        body: formData,
+                    });
+                } catch (networkError) {
+                    console.error('Network error uploading document:', networkError);
+                    throw new Error(`Error de red al subir ${documentType}. Verifica tu conexión a internet.`);
+                }
 
                 if (!response.ok) {
-                    const error = await response.json();
-                    throw new Error(error.error || 'Error al subir documento');
+                    let errorMessage = `Error al subir ${documentType}`;
+                    try {
+                        const error = await response.json();
+                        errorMessage = error.error || errorMessage;
+                    } catch {
+                        errorMessage = `Error del servidor (${response.status}) al subir ${documentType}`;
+                    }
+                    throw new Error(errorMessage);
                 }
 
                 const result = await response.json();
