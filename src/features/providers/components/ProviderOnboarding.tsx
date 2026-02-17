@@ -125,6 +125,7 @@ export function ProviderOnboarding() {
                 email: formData.contact_email,
                 password: formData.password,
                 options: {
+                    emailRedirectTo: `${window.location.origin}/login`,
                     data: {
                         full_name: formData.contact_name,
                         role: 'proveedor'
