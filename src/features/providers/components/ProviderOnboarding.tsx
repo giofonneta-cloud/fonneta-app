@@ -304,7 +304,7 @@ export function ProviderOnboarding() {
                         <StepIndicator icon={User} active={step === 'contact'} completed={step === 'finish'} label="Contacto" />
                     </div>
                     <div className="text-right hidden sm:block">
-                        <h2 className="text-xl font-black text-gray-900 tracking-tight">Registro de Proveedor</h2>
+                        <h2 className="text-xl font-black text-gray-900 tracking-tight">Registro de Cliente/Proveedor</h2>
                         <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">Fonnetapp Setup</p>
                     </div>
                 </div>

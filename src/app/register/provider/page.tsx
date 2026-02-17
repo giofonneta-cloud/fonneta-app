@@ -8,8 +8,8 @@ export default function RegisterProviderPage() {
         <div className="w-20 h-20 mb-4">
           <img src="/logo.png" alt="Fonnetapp Logo" className="w-full h-full object-contain" />
         </div>
-        <h1 className="text-2xl font-black text-slate-900 tracking-tight">Registro de Proveedores</h1>
-        <p className="text-slate-500 font-medium">Únete a la red de proveedores de Fonneta</p>
+        <h1 className="text-2xl font-black text-slate-900 tracking-tight">Registro de Clientes y Proveedores</h1>
+        <p className="text-slate-500 font-medium">Únete a la red de Fonneta</p>
       </div>
       
       <ProviderOnboarding />
