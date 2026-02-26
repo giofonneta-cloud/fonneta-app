@@ -221,13 +221,6 @@ export function ProviderInvoiceForm() {
                 </p>
             </div>
 
-            {/* Error Alert */}
-            {error && (
-                <div className="bg-red-50 border border-red-100 p-4 rounded-xl flex items-center gap-3 text-red-600">
-                    <span className="font-medium text-sm">{error}</span>
-                </div>
-            )}
-
             {/* Form */}
             <form onSubmit={handleSubmit} className="bg-white rounded-2xl border border-gray-100 p-8 space-y-8">
                 {/* Tipo de Factura */}
@@ -526,6 +519,13 @@ export function ProviderInvoiceForm() {
                         </div>
                     </div>
                 </div>
+
+                {/* Error Alert - Al fondo visible para el usuario */}
+                {error && (
+                    <div className="bg-red-50 border border-red-200 p-4 rounded-xl flex items-center gap-3 text-red-600">
+                        <span className="font-bold text-sm">{error}</span>
+                    </div>
+                )}
 
                 {/* Actions */}
                 <div className="flex justify-end gap-4 pt-6 border-t border-gray-100">
