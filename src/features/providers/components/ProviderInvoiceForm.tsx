@@ -63,8 +63,8 @@ export function ProviderInvoiceForm() {
         }
 
         // Validaciones
-        if (!formData.invoice_number || !formData.amount || !formData.concept) {
-            setError('Por favor completa todos los campos obligatorios');
+        if (!formData.invoice_number || !formData.valor_neto || !formData.concept) {
+            setError('Por favor completa todos los campos obligatorios (Número, Valor Neto y Concepto)');
             return;
         }
 
