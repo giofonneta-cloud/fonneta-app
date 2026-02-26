@@ -5,9 +5,10 @@ import { providerInvoiceService } from '../services/providerInvoiceService';
 import { ProviderInvoice, InvoiceStatus } from '../types/provider.types';
 import { projectService } from '@/features/projects/services/projectService';
 import { Project } from '@/features/projects/types/project.types';
-import { 
-    Loader2, FileText, Download, CheckCircle, XCircle, Clock, 
-    DollarSign, Filter, Search, RotateCcw, Eye, MessageSquare, TrendingUp 
+import {
+    Loader2, FileText, Download, CheckCircle, XCircle, Clock,
+    DollarSign, Filter, Search, RotateCcw, Eye, MessageSquare, TrendingUp,
+    ExternalLink, FileCheck, ShieldCheck, Truck
 } from 'lucide-react';
 
 const STATUS_CONFIG = {
@@ -300,6 +301,110 @@ export function AdminInvoicesView() {
                                 <div className="p-6 bg-gray-50 rounded-3xl border border-gray-100">
                                     <div className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Número de Soporte</div>
                                     <div className="text-3xl font-black text-gray-900 italic">#{selectedInvoice.invoice_number}</div>
+                                </div>
+                            </div>
+
+                            {/* Documentos Adjuntos */}
+                            <div className="space-y-4">
+                                <label className="text-xs font-black text-gray-400 uppercase tracking-widest flex items-center gap-2">
+                                    <FileText className="w-4 h-4" /> Documentos Adjuntos
+                                </label>
+                                <div className="grid grid-cols-2 gap-3">
+                                    {/* Factura / Cuenta de Cobro */}
+                                    <a
+                                        href={selectedInvoice.document_url || '#'}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className={`p-4 rounded-2xl border flex items-center gap-3 transition-all ${
+                                            selectedInvoice.document_url
+                                                ? 'bg-blue-50 border-blue-200 hover:bg-blue-100 cursor-pointer'
+                                                : 'bg-gray-50 border-gray-200 opacity-50 cursor-not-allowed'
+                                        }`}
+                                        onClick={(e) => !selectedInvoice.document_url && e.preventDefault()}
+                                    >
+                                        <div className={`p-2 rounded-xl ${selectedInvoice.document_url ? 'bg-blue-500' : 'bg-gray-300'}`}>
+                                            <FileText className="w-5 h-5 text-white" />
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                            <div className="font-bold text-gray-900 text-sm truncate">Factura / Cuenta</div>
+                                            <div className="text-[10px] font-bold text-gray-400 uppercase">
+                                                {selectedInvoice.document_url ? 'Ver documento' : 'No adjunto'}
+                                            </div>
+                                        </div>
+                                        {selectedInvoice.document_url && <ExternalLink className="w-4 h-4 text-blue-500" />}
+                                    </a>
+
+                                    {/* Orden de Compra */}
+                                    <a
+                                        href={selectedInvoice.orden_compra_url || '#'}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className={`p-4 rounded-2xl border flex items-center gap-3 transition-all ${
+                                            selectedInvoice.orden_compra_url
+                                                ? 'bg-purple-50 border-purple-200 hover:bg-purple-100 cursor-pointer'
+                                                : 'bg-gray-50 border-gray-200 opacity-50 cursor-not-allowed'
+                                        }`}
+                                        onClick={(e) => !selectedInvoice.orden_compra_url && e.preventDefault()}
+                                    >
+                                        <div className={`p-2 rounded-xl ${selectedInvoice.orden_compra_url ? 'bg-purple-500' : 'bg-gray-300'}`}>
+                                            <Truck className="w-5 h-5 text-white" />
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                            <div className="font-bold text-gray-900 text-sm truncate">Orden de Compra</div>
+                                            <div className="text-[10px] font-bold text-gray-400 uppercase">
+                                                {selectedInvoice.orden_compra_url ? 'Ver documento' : 'No adjunto'}
+                                            </div>
+                                        </div>
+                                        {selectedInvoice.orden_compra_url && <ExternalLink className="w-4 h-4 text-purple-500" />}
+                                    </a>
+
+                                    {/* Seguridad Social */}
+                                    <a
+                                        href={selectedInvoice.seguridad_social_url || '#'}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className={`p-4 rounded-2xl border flex items-center gap-3 transition-all ${
+                                            selectedInvoice.seguridad_social_url
+                                                ? 'bg-green-50 border-green-200 hover:bg-green-100 cursor-pointer'
+                                                : 'bg-gray-50 border-gray-200 opacity-50 cursor-not-allowed'
+                                        }`}
+                                        onClick={(e) => !selectedInvoice.seguridad_social_url && e.preventDefault()}
+                                    >
+                                        <div className={`p-2 rounded-xl ${selectedInvoice.seguridad_social_url ? 'bg-green-500' : 'bg-gray-300'}`}>
+                                            <ShieldCheck className="w-5 h-5 text-white" />
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                            <div className="font-bold text-gray-900 text-sm truncate">Seguridad Social</div>
+                                            <div className="text-[10px] font-bold text-gray-400 uppercase">
+                                                {selectedInvoice.seguridad_social_url ? 'Ver documento' : 'No adjunto'}
+                                            </div>
+                                        </div>
+                                        {selectedInvoice.seguridad_social_url && <ExternalLink className="w-4 h-4 text-green-500" />}
+                                    </a>
+
+                                    {/* Release Document */}
+                                    <a
+                                        href={selectedInvoice.release_url || '#'}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className={`p-4 rounded-2xl border flex items-center gap-3 transition-all ${
+                                            selectedInvoice.release_url
+                                                ? 'bg-orange-50 border-orange-200 hover:bg-orange-100 cursor-pointer'
+                                                : 'bg-gray-50 border-gray-200 opacity-50 cursor-not-allowed'
+                                        }`}
+                                        onClick={(e) => !selectedInvoice.release_url && e.preventDefault()}
+                                    >
+                                        <div className={`p-2 rounded-xl ${selectedInvoice.release_url ? 'bg-orange-500' : 'bg-gray-300'}`}>
+                                            <FileCheck className="w-5 h-5 text-white" />
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                            <div className="font-bold text-gray-900 text-sm truncate">Release Document</div>
+                                            <div className="text-[10px] font-bold text-gray-400 uppercase">
+                                                {selectedInvoice.release_url ? 'Ver documento' : 'No adjunto'}
+                                            </div>
+                                        </div>
+                                        {selectedInvoice.release_url && <ExternalLink className="w-4 h-4 text-orange-500" />}
+                                    </a>
                                 </div>
                             </div>
 
