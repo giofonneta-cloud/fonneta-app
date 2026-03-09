@@ -10,11 +10,22 @@ export async function login(formData: FormData) {
     const identifier = (formData.get('identifier') as string)?.trim()
     const password = formData.get('password') as string
 
-    // Si el identificador contiene '@' es un email (equipo interno).
-    // Si no, es un NIT/Número de Documento → construimos email sintético de proveedor.
-    const email = identifier.includes('@')
-        ? identifier
-        : `${identifier}@fonneta.com`
+    // Si el identificador contiene '@' es un email.
+    // Si no, es un NIT/Número de Documento → Buscamos su email real de forma segura.
+    let email = identifier
+    if (!identifier.includes('@')) {
+        const { data: realEmail, error: rpcError } = await supabase.rpc('get_user_email_by_document', {
+            p_document_number: identifier
+        })
+
+        if (realEmail) {
+            email = realEmail
+        } else {
+            // Fallback para no romper cuentas de prueba antiguas, 
+            // aunque fallará si el usuario no existe.
+            email = `${identifier}@fonneta.com`
+        }
+    }
 
     const { data, error } = await supabase.auth.signInWithPassword({
         email,
