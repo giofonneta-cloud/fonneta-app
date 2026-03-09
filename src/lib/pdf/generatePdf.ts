@@ -13,11 +13,13 @@ export async function generatePdfFromHtml(html: string): Promise<Buffer> {
   let headless: boolean | 'shell' = true;
 
   if (isProduction) {
-    // Vercel serverless — use @sparticuz/chromium
-    const chromium = (await import('@sparticuz/chromium')).default;
-    executablePath = await chromium.executablePath();
+    // Vercel serverless — use @sparticuz/chromium-min
+    const chromium = (await import('@sparticuz/chromium-min')).default;
+    executablePath = await chromium.executablePath(
+      'https://github.com/Sparticuz/chromium/releases/download/v135.0.0/chromium-v135.0.0-pack.tar'
+    );
     args = chromium.args;
-    headless = 'shell';
+    headless = true;
   } else {
     // Local dev — use system Chrome
     executablePath = getLocalChromePath();
