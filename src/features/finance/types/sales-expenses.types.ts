@@ -32,6 +32,7 @@ export interface Venta {
     valor_comision?: number;
     responsable_comision_id?: string;
     notas_internas?: string;
+    cost_center?: string;
     created_at: string;
     updated_at: string;
 }
@@ -67,6 +68,7 @@ export interface GastoExtendido {
     comprobante_pago_url?: string;
     metodo_pago?: string;
     observaciones?: string;
+    cost_center?: string;
     entregables?: GastoEntregable[];
     created_at: string;
     updated_at: string;

@@ -28,6 +28,7 @@ export interface Project {
     product_name?: string;
     period?: string;
     pm_name_text?: string; // Campo auxiliar para display
+    cost_center?: string;
 }
 
 export interface ProjectFilters {

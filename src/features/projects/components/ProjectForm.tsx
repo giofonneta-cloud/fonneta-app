@@ -27,6 +27,7 @@ export function ProjectForm({ onClose, onSubmit }: ProjectFormProps) {
         product_name: '',
         budget_income_currency: 'COP',
         budget_expense_currency: 'COP',
+        cost_center: '',
     });
 
     const [clients, setClients] = useState<any[]>([]);
@@ -107,6 +108,7 @@ export function ProjectForm({ onClose, onSubmit }: ProjectFormProps) {
                 start_date: new Date().toISOString(),
                 deadline: null,
                 pm_id: null,
+                cost_center: formData.cost_center,
             });
             onClose();
         } catch (error: any) {
@@ -175,6 +177,28 @@ export function ProjectForm({ onClose, onSubmit }: ProjectFormProps) {
                                     </div>
 
                                     <div className="space-y-2">
+                                        <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest pl-1">Centro de Costo</label>
+                                        <div className="relative">
+                                            <select
+                                                required
+                                                className="w-full pl-4 pr-10 py-3 bg-gray-50 border border-gray-100 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all font-bold text-gray-800 appearance-none cursor-pointer hover:bg-white"
+                                                value={formData.cost_center}
+                                                onChange={e => setFormData({ ...formData, cost_center: e.target.value })}
+                                            >
+                                                <option value="">SELECCIONAR...</option>
+                                                <option value="FUSCIA">FUSCIA</option>
+                                                <option value="SOHO">SOHO</option>
+                                                <option value="MONICA J">MONICA J</option>
+                                                <option value="FONNETA">FONNETA</option>
+                                                <option value="CLUB INDOMITAS">CLUB INDOMITAS</option>
+                                            </select>
+                                            <div className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none">
+                                                <LayoutGrid className="w-4 h-4" />
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div className="space-y-2">
                                         <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest pl-1">Marca</label>
                                         <input
                                             type="text"
@@ -186,7 +210,7 @@ export function ProjectForm({ onClose, onSubmit }: ProjectFormProps) {
                                         />
                                     </div>
                                     
-                                    <div className="md:col-span-2 space-y-2">
+                                    <div className="space-y-2 md:col-span-2">
                                         <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest pl-1">Producto / Campaña</label>
                                         <input
                                             type="text"
@@ -383,7 +407,7 @@ export function ProjectForm({ onClose, onSubmit }: ProjectFormProps) {
                     </button>
                     <button
                         onClick={handleSubmit}
-                        disabled={isSubmitting || !formData.line_of_business || !formData.client_id}
+                        disabled={isSubmitting || !formData.line_of_business || !formData.client_id || !formData.cost_center}
                         className="bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white px-8 py-3 rounded-xl font-bold text-sm transition-all shadow-lg shadow-blue-200 hover:shadow-xl hover:translate-y-[-1px] active:translate-y-0 flex items-center justify-center gap-2 uppercase tracking-wide"
                     >
                         {isSubmitting ? <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <Save className="w-5 h-5" />}

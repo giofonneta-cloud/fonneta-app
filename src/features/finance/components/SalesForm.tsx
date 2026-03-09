@@ -18,6 +18,7 @@ import { providerService } from '@/features/providers/services/providerService';
 import { Provider } from '@/features/providers/types/provider.types';
 import { projectService } from '@/features/projects/services/projectService';
 import { Project } from '@/features/projects/types/project.types';
+import { Venta } from '../types/sales-expenses.types';
 
 const salesFormSchema = z.object({
     cliente_id: z.string().min(1, "Selecciona un cliente"),
@@ -36,17 +37,22 @@ const salesFormSchema = z.object({
     comercial_id: z.string().optional(),
     porcentaje_comision: z.coerce.number().min(0).max(100).default(10),
     notas_internas: z.string().optional(),
+    cost_center: z.string().optional(),
 });
 
 type SalesFormValues = z.infer<typeof salesFormSchema>;
 
 interface SalesFormProps {
     onSuccess?: () => void;
+    onCancel?: () => void;
     initialProjectId?: string;
     initialClientId?: string;
+    initialData?: Venta;
+    initialValorNeto?: number;
 }
 
-export function SalesForm({ onSuccess, initialProjectId, initialClientId }: SalesFormProps) {
+export function SalesForm({ onSuccess, onCancel, initialProjectId, initialClientId, initialData, initialValorNeto }: SalesFormProps) {
+    const isEditing = !!initialData;
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [clients, setClients] = useState<Provider[]>([]);
     const [projects, setProjects] = useState<Project[]>([]);
@@ -58,15 +64,35 @@ export function SalesForm({ onSuccess, initialProjectId, initialClientId }: Sale
         comercialesService.getComerciales().then(setComerciales).catch(console.error);
     }, []);
 
+    const hasComision = !!(initialData?.porcentaje_comision && initialData.porcentaje_comision > 0);
+
     const form = useForm<SalesFormValues>({
         resolver: zodResolver(salesFormSchema) as any,
-        defaultValues: {
+        defaultValues: initialData ? {
+            cliente_id: initialData.cliente_id || '',
+            line_of_business: initialData.line_of_business || '',
+            proyecto_id: initialData.proyecto_id || '',
+            marca_id: '',
+            producto_id: '',
+            valor_venta_neto: initialData.valor_venta_neto || 0,
+            iva_porcentaje: initialData.iva_porcentaje || 19,
+            estado_oc: initialData.estado_oc || 'oc_recibida',
+            numero_oc: initialData.numero_oc || '',
+            numero_factura: initialData.numero_factura || '',
+            fecha_factura: initialData.fecha_factura || '',
+            plazo_pago_dias: initialData.plazo_pago_dias || 30,
+            tiene_comision: hasComision,
+            comercial_id: (initialData as any).comercial_id || '',
+            porcentaje_comision: initialData.porcentaje_comision || 10,
+            notas_internas: initialData.notas_internas || '',
+            cost_center: initialData.cost_center || '',
+        } : {
             cliente_id: initialClientId || '',
             line_of_business: '',
             proyecto_id: initialProjectId || '',
             marca_id: '',
             producto_id: '',
-            valor_venta_neto: 0,
+            valor_venta_neto: initialValorNeto || 0,
             iva_porcentaje: 19,
             estado_oc: 'oc_recibida',
             numero_oc: '',
@@ -77,6 +103,7 @@ export function SalesForm({ onSuccess, initialProjectId, initialClientId }: Sale
             comercial_id: '',
             porcentaje_comision: 10,
             notas_internas: '',
+            cost_center: '',
         },
     });
 
@@ -135,13 +162,27 @@ export function SalesForm({ onSuccess, initialProjectId, initialClientId }: Sale
                 comercial_id: values.tiene_comision && values.comercial_id ? values.comercial_id : undefined,
                 porcentaje_comision: values.tiene_comision ? values.porcentaje_comision : 0,
                 notas_internas: values.notas_internas || undefined,
+                cost_center: values.cost_center || undefined,
             };
 
             console.log("🚀 Enviando payload a Supabase:", payload);
 
-            await salesService.createSale(payload);
-
-            alert("Venta registrada exitosamente");
+            if (isEditing && initialData) {
+                const ivaPct = payload.iva_porcentaje ?? 19;
+                const ivaVal = payload.valor_venta_neto * (ivaPct / 100);
+                await salesService.updateSale(initialData.id, {
+                    ...payload,
+                    iva_valor: ivaVal,
+                    total_con_iva: payload.valor_venta_neto + ivaVal,
+                    valor_comision: (payload.porcentaje_comision ?? 0) > 0
+                        ? payload.valor_venta_neto * ((payload.porcentaje_comision ?? 0) / 100)
+                        : 0,
+                } as any);
+                alert("Venta actualizada exitosamente");
+            } else {
+                await salesService.createSale(payload);
+                alert("Venta registrada exitosamente");
+            }
             form.reset();
             if (onSuccess) onSuccess();
         } catch (error: any) {
@@ -169,8 +210,15 @@ export function SalesForm({ onSuccess, initialProjectId, initialClientId }: Sale
                         <DollarSign className="w-5 h-5 text-white" />
                     </div>
                     <div>
-                        <CardTitle className="text-xl font-bold text-slate-800">Nueva Venta</CardTitle>
-                        <p className="text-xs text-slate-500 font-medium">Registra los ingresos asociados a un proyecto institucional</p>
+                        <CardTitle className="text-xl font-bold text-slate-800">
+                            {isEditing ? 'Editar Venta' : 'Nueva Venta'}
+                            {isEditing && initialData?.numero_factura && (
+                                <span className="ml-2 text-sm font-mono font-normal text-slate-400">#{initialData.numero_factura}</span>
+                            )}
+                        </CardTitle>
+                        <p className="text-xs text-slate-500 font-medium">
+                            {isEditing ? 'Modifica los datos de esta venta' : 'Registra los ingresos asociados a un proyecto institucional'}
+                        </p>
                     </div>
                 </div>
             </CardHeader>
@@ -253,6 +301,30 @@ export function SalesForm({ onSuccess, initialProjectId, initialClientId }: Sale
                                                             {project.name}
                                                         </SelectItem>
                                                     ))}
+                                                </SelectContent>
+                                            </Select>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
+                                <FormField
+                                    control={form.control}
+                                    name="cost_center"
+                                    render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel className="text-xs font-bold text-slate-500">Centro de Costo</FormLabel>
+                                            <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                                <FormControl>
+                                                    <SelectTrigger className="bg-white border-slate-200 focus:ring-blue-500">
+                                                        <SelectValue placeholder="Selecciona centro de costo" />
+                                                    </SelectTrigger>
+                                                </FormControl>
+                                                <SelectContent>
+                                                    <SelectItem value="FUSCIA">FUSCIA</SelectItem>
+                                                    <SelectItem value="SOHO">SOHO</SelectItem>
+                                                    <SelectItem value="MONICA J">MONICA J</SelectItem>
+                                                    <SelectItem value="FONNETA">FONNETA</SelectItem>
+                                                    <SelectItem value="CLUB INDOMITAS">CLUB INDOMITAS</SelectItem>
                                                 </SelectContent>
                                             </Select>
                                             <FormMessage />
@@ -522,11 +594,11 @@ export function SalesForm({ onSuccess, initialProjectId, initialClientId }: Sale
                         />
 
                         <div className="flex justify-end items-center gap-4 pt-4">
-                            <Button type="button" variant="outline" className="px-8 border-slate-200 hover:bg-slate-50">
+                            <Button type="button" variant="outline" className="px-8 border-slate-200 hover:bg-slate-50" onClick={() => (onCancel ?? onSuccess)?.()}>
                                 Cancelar
                             </Button>
                             <Button type="submit" className="px-10 bg-blue-600 hover:bg-blue-700 text-white font-bold py-6 h-auto transition-transform active:scale-95" disabled={isSubmitting}>
-                                {isSubmitting ? "Guardando..." : "Guardar Registro de Venta"}
+                                {isSubmitting ? "Guardando..." : isEditing ? "Guardar Cambios" : "Guardar Registro de Venta"}
                             </Button>
                         </div>
                     </form>

@@ -5,6 +5,7 @@ import { providerInvoiceService } from '../services/providerInvoiceService';
 import { ProviderInvoice, InvoiceStatus } from '../types/provider.types';
 import { projectService } from '@/features/projects/services/projectService';
 import { Project } from '@/features/projects/types/project.types';
+import { EXPENSE_CATEGORIES } from '@/shared/constants/expenses';
 import {
     Loader2, FileText, Download, CheckCircle, XCircle, Clock,
     DollarSign, Filter, Search, RotateCcw, Eye, MessageSquare, TrendingUp,
@@ -43,6 +44,7 @@ export function AdminInvoicesView() {
         payment_date: '',
         project_id: '',
         categoria: '',
+        cost_center: '',
         plazo_pago: 60
     });
 
@@ -58,6 +60,7 @@ export function AdminInvoicesView() {
                 payment_date: selectedInvoice.payment_date || '',
                 project_id: selectedInvoice.project_id || '',
                 categoria: selectedInvoice.categoria || '',
+                cost_center: selectedInvoice.cost_center || '',
                 plazo_pago: selectedInvoice.plazo_pago || 60
             });
         }
@@ -96,7 +99,8 @@ export function AdminInvoicesView() {
                 updateData.payment_date || undefined,
                 updateData.project_id || undefined,
                 updateData.categoria || undefined,
-                updateData.plazo_pago
+                updateData.plazo_pago,
+                updateData.cost_center || undefined
             );
             await loadInvoices();
             setSelectedInvoice(null);
@@ -435,19 +439,33 @@ export function AdminInvoicesView() {
                                         onChange={(e) => setUpdateData({ ...updateData, categoria: e.target.value })}
                                     >
                                         <option value="">Seleccionar Categoría...</option>
-                                        <optgroup label="Gastos Proyectos">
-                                            <option value="transporte_aereo">Transporte - Aéreo</option>
-                                            <option value="produccion_freelancers">Producción - Freelancers</option>
-                                            <option value="personal_periodistas">Personal - Periodistas</option>
-                                            <option value="servicios_tic">Servicios TIC</option>
-                                            <option value="logistica">Logística</option>
-                                            <option value="publicidad_redes">Publicidad - Redes</option>
-                                        </optgroup>
-                                        <optgroup label="Gastos Fijos">
-                                            <option value="fijo_servicios">Servicios TIC (Fijo)</option>
-                                            <option value="fijo_logistica">Logística (Fijo)</option>
-                                        </optgroup>
+                                        {EXPENSE_CATEGORIES.map(group => (
+                                            <optgroup key={group.label} label={group.label}>
+                                                {group.options.map(opt => (
+                                                    <option key={opt.value} value={opt.value}>
+                                                        {opt.label}
+                                                    </option>
+                                                ))}
+                                            </optgroup>
+                                        ))}
                                     </select>
+                                </div>
+                                <div className="space-y-3">
+                                    <label className="text-xs font-black text-gray-400 uppercase tracking-widest flex items-center gap-2">
+                                         <ShieldCheck className="w-4 h-4" /> Centro de Costo
+                                     </label>
+                                     <select
+                                         className="w-full px-6 py-4 bg-gray-50 border border-transparent rounded-[1.5rem] focus:bg-white focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all font-bold appearance-none"
+                                         value={updateData.cost_center}
+                                         onChange={(e) => setUpdateData({ ...updateData, cost_center: e.target.value })}
+                                     >
+                                         <option value="">Seleccionar Centro...</option>
+                                         <option value="FUSCIA">FUSCIA</option>
+                                         <option value="SOHO">SOHO</option>
+                                         <option value="MONICA J">MONICA J</option>
+                                         <option value="FONNETA">FONNETA</option>
+                                         <option value="CLUB INDOMITAS">CLUB INDOMITAS</option>
+                                     </select>
                                 </div>
                             </div>
 

@@ -1,0 +1,52 @@
+export const EXPENSE_CATEGORIES = [
+    {
+        label: "Gastos Proyectos",
+        options: [
+            { value: "transporte_aereo", label: "Transporte - Aéreo" },
+            { value: "transporte_terrestre", label: "Transporte - Terrestre" },
+            { value: "transporte_maritimo", label: "Transporte - Fluvial y Marítimo" },
+            { value: "transporte_carga", label: "Transporte de carga y mensajería" },
+            { value: "transporte_equipaje", label: "Excesos de equipaje" },
+            { value: "impuestos", label: "Impuestos aeroportuarios" },
+            { value: "visas", label: "Visas" },
+            { value: "seguros", label: "Seguros" },
+            { value: "alojamiento", label: "Alojamiento" },
+            { value: "viaticos", label: "Viáticos" },
+            { value: "alimentacion", label: "Alimentación" },
+            { value: "produccion_freelancers", label: "Producción - Freelancers (Foto, Video, Periodista)" },
+            { value: "produccion_modelos", label: "Producción - Modelos" },
+            { value: "produccion_maquillaje", label: "Producción - Maquillaje Peinado" },
+            { value: "produccion_vestuario", label: "Producción - Vestuario" },
+            { value: "produccion_mobiliario", label: "Producción - Mobiliario" },
+            { value: "personal_coordinador", label: "Personal - Coordinador revista" },
+            { value: "personal_arte", label: "Personal - Director arte revista" },
+            { value: "personal_editor", label: "Personal - Editor general revista" },
+            { value: "personal_ilustrador", label: "Personal - Ilustrador" },
+            { value: "personal_estilo", label: "Personal - Corrector estilo" },
+            { value: "personal_periodistas", label: "Personal - Periodistas" },
+            { value: "servicios_tic", label: "Servicios TIC" },
+            { value: "logistica", label: "Logística" },
+            { value: "salud", label: "Servicios Salud e insumos" },
+            { value: "publicidad_redes", label: "Publicidad - Pauta redes" },
+            { value: "publicidad_impresa", label: "Publicidad - Pauta Impresa" },
+            { value: "diseno", label: "Diseño" },
+            { value: "imprenta", label: "Imprenta / Impresión" },
+            { value: "comision", label: "Comisión x venta" },
+            { value: "reintegros", label: "Reintegros" },
+            { value: "bodegaje", label: "Bodegaje" },
+            { value: "nomina", label: "Nomina Fonneta" },
+        ]
+    },
+    {
+        label: "Gastos Fijos",
+        options: [
+            { value: "fijo_transporte", label: "Transporte" },
+            { value: "fijo_seguros", label: "Seguros" },
+            { value: "fijo_alojamiento", label: "Alojamiento" },
+            { value: "fijo_viaticos", label: "Viáticos" },
+            { value: "fijo_alimentacion", label: "Alimentación" },
+            { value: "fijo_servicios", label: "Servicios TIC" },
+            { value: "fijo_logistica", label: "Logística" },
+        ]
+    }
+];

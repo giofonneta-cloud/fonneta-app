@@ -121,11 +121,12 @@ export function ProviderOnboarding() {
             }
 
             // 1. Crear usuario en Supabase Auth
+            // Usamos email sintético basado en NIT para que el proveedor acceda con su número de documento
+            const authEmail = `${formData.document_number}@fonneta.com`;
             const { data: authData, error: authError } = await supabase.auth.signUp({
-                email: formData.contact_email,
+                email: authEmail,
                 password: formData.password,
                 options: {
-                    emailRedirectTo: `${window.location.origin}/login`,
                     data: {
                         full_name: formData.contact_name,
                         role: 'proveedor'
@@ -284,7 +285,7 @@ export function ProviderOnboarding() {
                        (err.code === '23505' && errorMessage.includes('document_number'))) {
                 errorMessage = 'Ya existe una empresa registrada con este Número de Documento / NIT.';
             } else if (errorMessage.includes('User already registered')) {
-                errorMessage = 'Este correo electrónico ya está registrado. Por favor inicia sesión.';
+                errorMessage = 'Este NIT/Número de Documento ya tiene una cuenta registrada. Por favor inicia sesión.';
             }
 
             setError(errorMessage || 'Error al procesar el registro. Inténtalo de nuevo.');
@@ -360,10 +361,14 @@ export function ProviderOnboarding() {
                                     <input
                                         type="text"
                                         className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all font-medium"
-                                        placeholder="Ej. 900.123.456-7"
+                                        placeholder="Ej. 1013597153"
                                         value={formData.document_number}
                                         onChange={(e) => setFormData({ ...formData, document_number: e.target.value })}
                                     />
+                                    <p className="text-xs text-blue-600 font-semibold flex items-center gap-1 mt-1">
+                                        <span>🔑</span>
+                                        Este número será tu <span className="font-black">usuario de acceso</span> al portal
+                                    </p>
                                 </div>
                                 <div className="space-y-2 md:col-span-2">
                                     <label className="text-sm font-bold text-gray-700 text-purple-600">Ubicación</label>
@@ -506,9 +511,11 @@ export function ProviderOnboarding() {
                                             <User className="w-5 h-5 text-blue-500" />
                                             <label className="text-sm font-bold text-blue-700">Credenciales de Acceso al Portal</label>
                                         </div>
-                                        <p className="text-xs text-blue-600 mb-4">
-                                            El email de contacto <span className="font-bold">{formData.contact_email || 'ingresado arriba'}</span> será tu usuario para acceder al portal.
-                                        </p>
+                                        <div className="bg-white border border-blue-200 rounded-xl p-4 mb-4">
+                                            <p className="text-xs text-blue-500 font-bold uppercase tracking-widest mb-1">Tu usuario de acceso será:</p>
+                                            <p className="text-lg font-black text-blue-900">{formData.document_number || 'Tu Número de Documento / NIT'}</p>
+                                            <p className="text-xs text-blue-400 mt-1">Ingresa este número + tu contraseña para entrar al portal</p>
+                                        </div>
                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                             <div className="space-y-1">
                                                 <label className="text-[10px] font-black uppercase text-blue-400">Contraseña *</label>
@@ -650,38 +657,21 @@ export function ProviderOnboarding() {
                                         <User className="w-4 h-4" />
                                         Tus Credenciales de Acceso
                                     </h4>
-                                    <div className="space-y-2 text-sm">
-                                        <div>
-                                            <span className="text-blue-500 font-medium">Usuario:</span>
-                                            <p className="text-blue-900 font-bold">{formData.contact_email}</p>
+                                    <div className="space-y-3 text-sm">
+                                        <div className="bg-white rounded-lg p-3 border border-blue-200">
+                                            <span className="text-blue-400 font-bold text-xs uppercase tracking-widest">Usuario (NIT / N° Documento)</span>
+                                            <p className="text-blue-900 font-black text-lg mt-1">{formData.document_number}</p>
                                         </div>
-                                        <div>
-                                            <span className="text-blue-500 font-medium">Contraseña:</span>
-                                            <p className="text-blue-900 font-bold">La que acabas de crear</p>
+                                        <div className="bg-white rounded-lg p-3 border border-blue-200">
+                                            <span className="text-blue-400 font-bold text-xs uppercase tracking-widest">Contraseña</span>
+                                            <p className="text-blue-900 font-bold mt-1">La que acabas de crear</p>
                                         </div>
                                     </div>
                                 </div>
 
                                 <p className="text-gray-500 font-medium text-sm">
-                                    Tu cuenta ha sido creada exitosamente. Nuestro equipo administrativo validará tu información y podrás acceder al portal de proveedores.
+                                    Tu cuenta ha sido creada exitosamente. Nuestro equipo administrativo validará tu información y te notificará al correo <span className="font-bold text-gray-700">{formData.contact_email}</span> cuando puedas acceder al portal.
                                 </p>
-
-                                <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4 text-left">
-                                    <div className="flex items-start gap-3">
-                                        <Mail className="w-5 h-5 text-yellow-600 mt-0.5 flex-shrink-0" />
-                                        <div className="space-y-1">
-                                            <p className="text-sm font-bold text-yellow-900">
-                                                📧 Verifica tu correo electrónico
-                                            </p>
-                                            <p className="text-xs text-yellow-700">
-                                                Revisa tu bandeja de entrada en <span className="font-bold">{formData.contact_email}</span>
-                                            </p>
-                                            <p className="text-xs text-yellow-600 font-medium">
-                                                ⚠️ Si no lo encuentras, <span className="font-bold">revisa tu carpeta de SPAM o correo no deseado</span>
-                                            </p>
-                                        </div>
-                                    </div>
-                                </div>
                             </div>
 
                             <button

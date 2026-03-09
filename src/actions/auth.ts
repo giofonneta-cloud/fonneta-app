@@ -7,9 +7,18 @@ import { createClient } from '@/lib/supabase/server'
 export async function login(formData: FormData) {
     const supabase = await createClient()
 
+    const identifier = (formData.get('identifier') as string)?.trim()
+    const password = formData.get('password') as string
+
+    // Si el identificador contiene '@' es un email (equipo interno).
+    // Si no, es un NIT/Número de Documento → construimos email sintético de proveedor.
+    const email = identifier.includes('@')
+        ? identifier
+        : `${identifier}@fonneta.com`
+
     const { data, error } = await supabase.auth.signInWithPassword({
-        email: formData.get('email') as string,
-        password: formData.get('password') as string,
+        email,
+        password,
     })
 
     if (error) {
@@ -60,7 +69,7 @@ export async function resetPassword(formData: FormData) {
     const email = formData.get('email') as string
 
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/update-password`,
+        redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/login/update-password`,
     })
 
     if (error) {

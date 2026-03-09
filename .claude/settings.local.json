@@ -1,0 +1,35 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__playwright__browser_navigate",
+      "mcp__playwright__browser_fill_form",
+      "mcp__playwright__browser_select_option",
+      "mcp__playwright__browser_click",
+      "mcp__playwright__browser_file_upload",
+      "mcp__playwright__browser_snapshot",
+      "Bash(dir:*)",
+      "Bash(copy:*)",
+      "mcp__playwright__browser_type",
+      "mcp__playwright__browser_wait_for",
+      "mcp__playwright__browser_take_screenshot",
+      "mcp__playwright__browser_close",
+      "mcp__supabase__execute_sql",
+      "Bash(git restore:*)",
+      "Bash(git add:*)",
+      "Bash(git commit -m \"$\\(cat <<''EOF''\nchore: Restore PRP-001 portal autoservicio proveedores\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
+      "Bash(git push:*)",
+      "Bash(git commit:*)",
+      "Bash(npm run build:*)",
+      "mcp__next-devtools__nextjs_docs",
+      "mcp__supabase__list_tables",
+      "Bash(npx tsx:*)",
+      "mcp__next-devtools__nextjs_index",
+      "mcp__next-devtools__nextjs_call",
+      "mcp__supabase__list_migrations",
+      "mcp__supabase__apply_migration",
+      "Bash(npm run typecheck:*)",
+      "mcp__playwright__browser_handle_dialog",
+      "mcp__supabase__get_logs"
+    ]
+  }
+}

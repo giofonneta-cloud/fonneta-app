@@ -100,6 +100,18 @@ export const expensesService = {
         return data as GastoEntregable;
     },
 
+    async updateGasto(id: string, updates: Partial<GastoExtendido>) {
+        const { data, error } = await supabase
+            .from('gastos')
+            .update({ ...updates, updated_at: new Date().toISOString() })
+            .eq('id', id)
+            .select()
+            .single();
+
+        if (error) throw error;
+        return data as GastoExtendido;
+    },
+
     async getMarcas(clienteId?: string) {
         let query = supabase.from('marcas').select('*');
         if (clienteId) query = query.eq('cliente_id', clienteId);

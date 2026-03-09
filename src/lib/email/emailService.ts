@@ -1,10 +1,17 @@
 import * as nodemailer from 'nodemailer';
 
+export interface EmailAttachment {
+  filename: string;
+  content: Buffer;
+  contentType?: string;
+}
+
 export interface EmailOptions {
   to: string | string[];
   subject: string;
   html: string;
   text?: string;
+  attachments?: EmailAttachment[];
 }
 
 export class EmailService {
@@ -46,6 +53,11 @@ export class EmailService {
         subject: options.subject,
         text: options.text,
         html: options.html,
+        attachments: options.attachments?.map((a) => ({
+          filename: a.filename,
+          content: a.content,
+          contentType: a.contentType,
+        })),
       });
     } catch (error) {
       console.error('Error sending email:', error);
@@ -407,6 +419,70 @@ export class EmailService {
       subject: `[${radicado}] Tu factura ${invoiceNumber} cambió a estado: ${newStatus}`,
       html,
       text: `Hola ${providerName}, el estado de tu factura ${invoiceNumber} (Radicado: ${radicado}) ha cambiado a: ${newStatus}.${adminNotes ? ` Comentarios: ${adminNotes}` : ''}`,
+    });
+  }
+
+  /**
+   * Enviar orden de compra al proveedor
+   */
+  async sendPurchaseOrder(
+    recipientEmail: string,
+    recipientName: string,
+    poNumber: string,
+    total: number,
+    documentUrl?: string,
+    attachments?: EmailAttachment[]
+  ): Promise<void> {
+    const formattedTotal = new Intl.NumberFormat('es-CO', {
+      style: 'currency',
+      currency: 'COP',
+      maximumFractionDigits: 0,
+    }).format(total);
+
+    const html = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2 style="color: #1d4ed8;">Orden de Compra ${poNumber}</h2>
+        <p>Estimado(a) <strong>${recipientName}</strong>,</p>
+        <p>Le informamos que Fonneta Comunicaciones S.A.S. ha emitido la siguiente orden de compra a su nombre:</p>
+
+        <div style="background-color: #dbeafe; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #1d4ed8;">
+          <p style="margin: 0 0 10px 0; font-size: 18px; font-weight: bold; color: #1e40af;">
+            OC: ${poNumber}
+          </p>
+          <p style="margin: 0; font-size: 16px; color: #1e40af;">
+            Total: ${formattedTotal}
+          </p>
+        </div>
+
+        <p style="margin-top: 16px; font-size: 14px; color: #374151;">
+          Encontrara la orden de compra adjunta a este correo en formato PDF.
+        </p>
+
+        ${documentUrl ? `
+        <p>
+          <a href="${documentUrl}"
+             style="display: inline-block; background-color: #1d4ed8; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; margin-top: 10px;">
+            Ver en Google Drive
+          </a>
+        </p>
+        ` : ''}
+
+        <p style="margin-top: 20px;">Por favor confirme la recepcion de esta orden respondiendo a este correo.</p>
+
+        <hr style="border: 1px solid #e5e7eb; margin: 20px 0;">
+        <p style="color: #6b7280; font-size: 12px;">
+          Fonneta Comunicaciones S.A.S. &middot; NIT 901.362.051-7<br>
+          Calle 93 No. 14-17 Of. 501, Bogota D.C. &middot; Tel: (601) 744 7677
+        </p>
+      </div>
+    `;
+
+    await this.sendEmail({
+      to: recipientEmail,
+      subject: `Orden de Compra ${poNumber} - Fonneta Comunicaciones`,
+      html,
+      text: `Estimado(a) ${recipientName}, Fonneta Comunicaciones S.A.S. ha emitido la orden de compra ${poNumber} por un total de ${formattedTotal}. La orden de compra se encuentra adjunta en formato PDF. ${documentUrl ? `Tambien puede verla en: ${documentUrl}` : ''} Por favor confirme la recepcion.`,
+      attachments,
     });
   }
 }

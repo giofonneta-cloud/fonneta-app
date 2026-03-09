@@ -3,6 +3,7 @@ import { useProjectTasks } from '../hooks/useProjectTasks';
 import { TaskStats } from './TaskStats';
 import { ProjectTaskList } from './ProjectTaskList';
 import { ProjectComments } from './ProjectComments';
+import { ProjectQuoteTab } from './ProjectQuoteTab';
 import { Button } from '@/shared/components/ui/button';
 import { DollarSign, Receipt, PlusCircle, ArrowRightLeft, MoreHorizontal, Pencil, Palette, Move, Copy, Archive, Trash, Star, Link as LinkIcon } from 'lucide-react';
 import {
@@ -25,7 +26,7 @@ interface ProjectDetailPanelProps {
   onClose: () => void;
 }
 
-type TabType = 'overview' | 'tasks' | 'comments';
+type TabType = 'overview' | 'quote' | 'tasks' | 'comments';
 
 /**
  * Project Detail Panel
@@ -35,6 +36,7 @@ export function ProjectDetailPanel({ project, isOpen, onClose }: ProjectDetailPa
   const [activeTab, setActiveTab] = useState<TabType>('overview');
   const [showSalesForm, setShowSalesForm] = useState(false);
   const [showExpenseForm, setShowExpenseForm] = useState(false);
+  const [quoteInitialValues, setQuoteInitialValues] = useState<{ valorVentaNeto?: number; totalConIva?: number } | null>(null);
 
   // Load project tasks and comments
   const {
@@ -83,6 +85,15 @@ export function ProjectDetailPanel({ project, isOpen, onClose }: ProjectDetailPa
       icon: (
         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+        </svg>
+      ),
+    },
+    {
+      id: 'quote',
+      label: 'Cotización',
+      icon: (
+        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 11h.01M12 11h.01M15 11h.01M4 19h16a2 2 0 002-2V7a2 2 0 00-2-2H4a2 2 0 00-2 2v10a2 2 0 002 2z" />
         </svg>
       ),
     },
@@ -267,6 +278,16 @@ export function ProjectDetailPanel({ project, isOpen, onClose }: ProjectDetailPa
             </div>
           )}
 
+          {activeTab === 'quote' && (
+            <ProjectQuoteTab
+              project={project}
+              onConvertToSale={(totals) => {
+                setQuoteInitialValues({ valorVentaNeto: totals.subtotal, totalConIva: totals.total });
+                setShowSalesForm(true);
+              }}
+            />
+          )}
+
           {activeTab === 'tasks' && (
             <div>
               {tasksLoading && tasks.length === 0 ? (
@@ -297,14 +318,15 @@ export function ProjectDetailPanel({ project, isOpen, onClose }: ProjectDetailPa
         </div>
 
         {/* Finance Form Dialogs */}
-        <Dialog open={showSalesForm} onOpenChange={setShowSalesForm}>
+        <Dialog open={showSalesForm} onOpenChange={(open) => { setShowSalesForm(open); if (!open) setQuoteInitialValues(null); }}>
           <DialogContent className="max-w-4xl p-0 bg-transparent border-none shadow-none">
             <DialogTitle className="sr-only">Registrar Venta</DialogTitle>
             <div className="overflow-y-auto max-h-[90vh]">
-              <SalesForm 
-                onSuccess={() => setShowSalesForm(false)} 
+              <SalesForm
+                onSuccess={() => { setShowSalesForm(false); setQuoteInitialValues(null); }}
                 initialProjectId={project.id}
                 initialClientId={project.client_id ?? undefined}
+                initialValorNeto={quoteInitialValues?.valorVentaNeto}
               />
             </div>
           </DialogContent>

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -12,66 +12,16 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Separator } from '@/shared/components/ui/separator';
 import { Textarea } from '@/shared/components/ui/textarea';
 import { Checkbox } from '@/shared/components/ui/checkbox';
-import { Receipt, Building2, Link, FileCheck, Package, Plus, Trash2, Calendar, Mail, DollarSign, Wallet } from 'lucide-react';
+import { Receipt, Building2, Link, FileCheck, Package, Plus, Trash2, Calendar, Mail, DollarSign, Wallet, Search } from 'lucide-react';
 import { expensesService } from '../services/expensesService';
 import { providerService } from '@/features/providers/services/providerService';
 import { projectService } from '@/features/projects/services/projectService';
 import { useAuthStore } from '@/features/auth/store/authStore';
 import { Provider } from '@/features/providers/types/provider.types';
 import { Project } from '@/features/projects/types/project.types';
+import { EXPENSE_CATEGORIES } from '@/shared/constants/expenses';
+import { GastoExtendido } from '../types/sales-expenses.types';
 
-const EXPENSE_CATEGORIES = [
-    {
-        label: "Gastos Proyectos",
-        options: [
-            { value: "transporte_aereo", label: "Transporte - Aéreo" },
-            { value: "transporte_terrestre", label: "Transporte - Terrestre" },
-            { value: "transporte_maritimo", label: "Transporte - Fluvial y Marítimo" },
-            { value: "transporte_carga", label: "Transporte de carga y mensajería" },
-            { value: "transporte_equipaje", label: "Excesos de equipaje" },
-            { value: "impuestos", label: "Impuestos aeroportuarios" },
-            { value: "visas", label: "Visas" },
-            { value: "seguros", label: "Seguros" },
-            { value: "alojamiento", label: "Alojamiento" },
-            { value: "viaticos", label: "Viáticos" },
-            { value: "alimentacion", label: "Alimentación" },
-            { value: "produccion_freelancers", label: "Producción - Freelancers (Foto, Video, Periodista)" },
-            { value: "produccion_modelos", label: "Producción - Modelos" },
-            { value: "produccion_maquillaje", label: "Producción - Maquillaje Peinado" },
-            { value: "produccion_vestuario", label: "Producción - Vestuario" },
-            { value: "produccion_mobiliario", label: "Producción - Mobiliario" },
-            { value: "personal_coordinador", label: "Personal - Coordinador revista" },
-            { value: "personal_arte", label: "Personal - Director arte revista" },
-            { value: "personal_editor", label: "Personal - Editor general revista" },
-            { value: "personal_ilustrador", label: "Personal - Ilustrador" },
-            { value: "personal_estilo", label: "Personal - Corrector estilo" },
-            { value: "personal_periodistas", label: "Personal - Periodistas" },
-            { value: "servicios_tic", label: "Servicios TIC" },
-            { value: "logistica", label: "Logística" },
-            { value: "salud", label: "Servicios Salud e insumos" },
-            { value: "publicidad_redes", label: "Publicidad - Pauta redes" },
-            { value: "publicidad_impresa", label: "Publicidad - Pauta Impresa" },
-            { value: "diseno", label: "Diseño" },
-            { value: "imprenta", label: "Imprenta / Impresión" },
-            { value: "comision", label: "Comisión x venta" },
-            { value: "reintegros", label: "Reintegros" },
-            { value: "bodegaje", label: "Bodegaje" },
-            { value: "nomina", label: "Nomina Fonneta" },
-        ]
-    },
-    {
-        label: "Gastos Fijos",
-        options: [
-            { value: "fijo_transporte", label: "Transporte" },
-            { value: "fijo_seguros", label: "Seguros" },
-            { value: "fijo_alojamiento", label: "Alojamiento" },
-            { value: "fijo_viaticos", label: "Viáticos" },
-            { value: "fijo_alimentacion", label: "Alimentación" },
-            { value: "fijo_servicios", label: "Servicios TIC" },
-            { value: "fijo_logistica", label: "Logística" },
-        ]
-    }
-];
 
 const PAY_METHODS = [
     { value: "transferencia", label: "TRANSFERENCIA" },
@@ -88,7 +38,9 @@ const expenseFormSchema = z.object({
     valor_neto: z.coerce.number().positive("Debe ser mayor a 0"),
     tiene_iva: z.boolean().default(true),
     iva_porcentaje: z.coerce.number().default(19),
+    otros_impuestos: z.coerce.number().default(0),
     categoria: z.string().min(1, "Categoría requerida"),
+    cost_center: z.string().min(1, "Centro de costo requerido"),
     codigo_oc: z.string().optional(),
     codigo_release: z.string().optional(),
     numero_factura_proveedor: z.string().optional(),
@@ -96,7 +48,7 @@ const expenseFormSchema = z.object({
     plazo_pago: z.string().default('0'),
     fecha_limite_pago: z.string().optional(),
     estado_pago: z.enum(['pendiente', 'pagado']),
-    forma_pago: z.string().optional(),
+    metodo_pago: z.string().optional(),
     documentos_faltantes: z.array(z.string()).default([]),
     observaciones: z.string().optional(),
     entregables: z.array(z.object({
@@ -110,14 +62,18 @@ type ExpenseFormValues = z.infer<typeof expenseFormSchema>;
 
 interface ExpenseFormProps {
     onSuccess?: () => void;
+    onCancel?: () => void;
     initialProjectId?: string;
     initialClientId?: string;
+    initialData?: GastoExtendido;
 }
 
-export function ExpenseForm({ onSuccess, initialProjectId, initialClientId }: ExpenseFormProps) {
+export function ExpenseForm({ onSuccess, onCancel, initialProjectId, initialClientId, initialData }: ExpenseFormProps) {
+    const isEditing = !!initialData;
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [providers, setProviders] = useState<Provider[]>([]);
     const [projects, setProjects] = useState<Project[]>([]);
+    const [providerSearch, setProviderSearch] = useState('');
 
     useEffect(() => {
         // Fetch providers (is_provider=true) and projects
@@ -125,9 +81,42 @@ export function ExpenseForm({ onSuccess, initialProjectId, initialClientId }: Ex
         projectService.getProjects().then(setProjects).catch(console.error);
     }, []);
 
+    // Filtrar proveedores por búsqueda
+    const filteredProviders = useMemo(() => {
+        if (!providerSearch.trim()) return providers;
+        const search = providerSearch.toLowerCase();
+        return providers.filter(p =>
+            p.business_name?.toLowerCase().includes(search) ||
+            p.contact_name?.toLowerCase().includes(search) ||
+            p.document_number?.toLowerCase().includes(search)
+        );
+    }, [providers, providerSearch]);
+
     const form = useForm<ExpenseFormValues>({
         resolver: zodResolver(expenseFormSchema) as any,
-        defaultValues: {
+        defaultValues: initialData ? {
+            proveedor_id: initialData.proveedor_id || '',
+            proyecto_id: initialData.proyecto_id || '',
+            marca_id: '',
+            producto_id: '',
+            valor_neto: initialData.valor_neto || 0,
+            tiene_iva: (initialData.iva_porcentaje ?? 0) > 0,
+            iva_porcentaje: initialData.iva_porcentaje || 19,
+            otros_impuestos: 0,
+            categoria: initialData.categoria || '',
+            cost_center: (initialData as any).cost_center || '',
+            codigo_oc: initialData.codigo_oc || '',
+            codigo_release: initialData.codigo_release || '',
+            numero_factura_proveedor: initialData.numero_factura_proveedor || '',
+            fecha_radicado: initialData.fecha_radicado || '',
+            plazo_pago: '0',
+            fecha_limite_pago: initialData.fecha_limite_pago || '',
+            estado_pago: initialData.estado_pago === 'solicite_documentos' ? 'pendiente' : (initialData.estado_pago as 'pendiente' | 'pagado'),
+            metodo_pago: initialData.metodo_pago || '',
+            documentos_faltantes: initialData.documentos_faltantes || [],
+            observaciones: initialData.observaciones || '',
+            entregables: [],
+        } : {
             proveedor_id: initialClientId || '',
             proyecto_id: initialProjectId || '',
             marca_id: '',
@@ -135,7 +124,9 @@ export function ExpenseForm({ onSuccess, initialProjectId, initialClientId }: Ex
             valor_neto: 0,
             tiene_iva: true,
             iva_porcentaje: 19,
+            otros_impuestos: 0,
             categoria: '',
+            cost_center: '',
             codigo_oc: '',
             codigo_release: '',
             numero_factura_proveedor: '',
@@ -143,7 +134,7 @@ export function ExpenseForm({ onSuccess, initialProjectId, initialClientId }: Ex
             plazo_pago: '0',
             fecha_limite_pago: '',
             estado_pago: 'pendiente',
-            forma_pago: '',
+            metodo_pago: '',
             documentos_faltantes: [],
             observaciones: '',
             entregables: [],
@@ -160,7 +151,8 @@ export function ExpenseForm({ onSuccess, initialProjectId, initialClientId }: Ex
     const tieneIva = form.watch('tiene_iva');
     const ivaPorcentaje = tieneIva ? (Number(form.watch('iva_porcentaje')) || 0) : 0;
     const ivaValor = valorNeto * (ivaPorcentaje / 100);
-    const totalConIva = valorNeto + ivaValor;
+    const otrosImpuestos = Number(form.watch('otros_impuestos')) || 0;
+    const totalConIva = valorNeto + ivaValor + otrosImpuestos;
     const estadoPago = form.watch('estado_pago');
     const fechaRadicado = form.watch('fecha_radicado');
     const plazoPago = form.watch('plazo_pago');
@@ -190,46 +182,58 @@ export function ExpenseForm({ onSuccess, initialProjectId, initialClientId }: Ex
                 }
             }
 
-            // Isolate entregables from main payload
-            const { entregables, ...gastoData } = values;
+            // Isolate entregables and non-DB fields from main payload
+            const { entregables, tiene_iva, plazo_pago, ...gastoData } = values;
 
-            // Sanitize payload (convert empty strings to null)
+            // Campos válidos en la tabla gastos
+            const validDbFields = [
+                'proveedor_id', 'proyecto_id', 'marca_id', 'producto_id',
+                'valor_neto', 'iva_porcentaje', 'otros_impuestos', 'categoria',
+                'codigo_oc', 'codigo_release', 'numero_factura_proveedor',
+                'fecha_radicado', 'fecha_limite_pago', 'estado_pago',
+                'metodo_pago', 'documentos_faltantes', 'observaciones', 'cost_center'
+            ];
+
+            // Sanitize payload (convert empty strings to null, filter only valid fields)
             const cleanGastoData = Object.fromEntries(
-                Object.entries(gastoData).map(([key, value]) => {
-                    if (value === '') return [key, null];
-                    return [key, value];
-                })
+                Object.entries(gastoData)
+                    .filter(([key]) => validDbFields.includes(key))
+                    .map(([key, value]) => {
+                        if (value === '') return [key, null];
+                        return [key, value];
+                    })
             );
 
             const finalPayload = {
                 ...cleanGastoData,
                 iva_valor: ivaValor,
+                otros_impuestos: otrosImpuestos,
                 total_con_iva: totalConIva,
-                // Campo ficticio para demostrar la lógica si existiera en la BD o en un campo de observaciones
-                observaciones: requiresApproval 
+                observaciones: requiresApproval
                     ? `[AUTO-ALERTA] Monto supera límite de ${profile?.full_name}. ${values.observaciones || ''}`
                     : values.observaciones
             };
 
-            console.log("🚀 Enviando Gasto a Supabase:", finalPayload);
+            if (isEditing && initialData) {
+                await expensesService.updateGasto(initialData.id, finalPayload as any);
+                alert("Gasto actualizado exitosamente");
+            } else {
+                // 1. Create Gasto
+                const createdGasto = await expensesService.createGasto(finalPayload as any);
 
-            // 1. Create Gasto
-            const createdGasto = await expensesService.createGasto(finalPayload as any);
-
-            // 2. Create Entregables if any
-            if (entregables && entregables.length > 0 && createdGasto?.id) {
-                console.log("📝 Guardando entregables...", entregables);
-                await Promise.all(entregables.map(entregable =>
-                    expensesService.addEntregable({
-                        ...entregable,
-                        gasto_id: createdGasto.id
-                    } as any)
-                ));
+                // 2. Create Entregables if any
+                if (entregables && entregables.length > 0 && createdGasto?.id) {
+                    await Promise.all(entregables.map(entregable =>
+                        expensesService.addEntregable({
+                            ...entregable,
+                            gasto_id: createdGasto.id
+                        } as any)
+                    ));
+                }
+                alert(requiresApproval
+                    ? "Gasto registrado con éxito. Nota: Requiere aprobación superior por superar el límite."
+                    : "Gasto registrado exitosamente");
             }
-
-            alert(requiresApproval 
-                ? "Gasto registrado con éxito. Nota: Requiere aprobación superior por superar el límite." 
-                : "Gasto registrado exitosamente");
                 
             form.reset();
             if (onSuccess) onSuccess();
@@ -256,8 +260,15 @@ export function ExpenseForm({ onSuccess, initialProjectId, initialClientId }: Ex
                         <Receipt className="w-5 h-5 text-emerald-400" />
                     </div>
                     <div>
-                        <CardTitle className="text-xl font-bold">Nuevo Gasto a Proveedor</CardTitle>
-                        <p className="text-xs text-slate-400 font-medium">Gestiona contrataciones, facturas y pagos institucionales</p>
+                        <CardTitle className="text-xl font-bold">
+                            {isEditing ? 'Editar Gasto' : 'Nuevo Gasto a Proveedor'}
+                            {isEditing && initialData?.numero_factura_proveedor && (
+                                <span className="ml-2 text-sm font-mono font-normal text-slate-400">#{initialData.numero_factura_proveedor}</span>
+                            )}
+                        </CardTitle>
+                        <p className="text-xs text-slate-400 font-medium">
+                            {isEditing ? 'Modifica los datos de este gasto' : 'Gestiona contrataciones, facturas y pagos institucionales'}
+                        </p>
                     </div>
                 </div>
             </CardHeader>
@@ -287,11 +298,33 @@ export function ExpenseForm({ onSuccess, initialProjectId, initialClientId }: Ex
                                                         </SelectTrigger>
                                                     </FormControl>
                                                     <SelectContent>
-                                                        {providers.map((p) => (
-                                                            <SelectItem key={p.id} value={p.id}>
-                                                                {p.business_name}
-                                                            </SelectItem>
-                                                        ))}
+                                                        <div className="sticky top-0 p-2 bg-white border-b">
+                                                            <div className="relative">
+                                                                <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                                                                <input
+                                                                    type="text"
+                                                                    placeholder="Buscar por nombre, NIT..."
+                                                                    className="w-full pl-8 pr-3 py-2 text-sm border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                                                    value={providerSearch}
+                                                                    onChange={(e) => setProviderSearch(e.target.value)}
+                                                                    onClick={(e) => e.stopPropagation()}
+                                                                />
+                                                            </div>
+                                                        </div>
+                                                        {filteredProviders.length === 0 ? (
+                                                            <div className="py-4 px-2 text-center text-sm text-slate-500">
+                                                                No se encontraron proveedores
+                                                            </div>
+                                                        ) : (
+                                                            filteredProviders.map((p) => (
+                                                                <SelectItem key={p.id} value={p.id}>
+                                                                    <div className="flex flex-col">
+                                                                        <span className="font-medium">{p.business_name}</span>
+                                                                        {p.document_number && <span className="text-[10px] text-slate-400">NIT: {p.document_number}</span>}
+                                                                    </div>
+                                                                </SelectItem>
+                                                            ))
+                                                        )}
                                                     </SelectContent>
                                                 </Select>
                                             </FormControl>
@@ -384,8 +417,22 @@ export function ExpenseForm({ onSuccess, initialProjectId, initialClientId }: Ex
                                             </div>
                                         )}
                                     </div>
+                                    <FormField
+                                        control={form.control}
+                                        name="otros_impuestos"
+                                        render={({ field }) => (
+                                            <FormItem className="col-span-2">
+                                                <FormLabel className="text-xs font-bold text-slate-500">Otros Impuestos (COP)</FormLabel>
+                                                <FormControl>
+                                                    <Input {...field} type="number" placeholder="0" className="bg-white" />
+                                                </FormControl>
+                                                <FormDescription className="text-[10px]">Retenciones, ICA, otros tributos aplicables</FormDescription>
+                                                <FormMessage />
+                                            </FormItem>
+                                        )}
+                                    />
                                     <div className="p-3 bg-emerald-50 border border-emerald-100 rounded-lg col-span-2">
-                                        <span className="text-[10px] font-bold text-emerald-600 block uppercase">Total con IVA</span>
+                                        <span className="text-[10px] font-bold text-emerald-600 block uppercase">Total (Neto + IVA + Otros)</span>
                                         <span className="text-sm font-black text-emerald-700">{totalConIva.toLocaleString('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 })}</span>
                                     </div>
                                     <FormField
@@ -409,6 +456,26 @@ export function ExpenseForm({ onSuccess, initialProjectId, initialClientId }: Ex
                                                                 ))}
                                                             </React.Fragment>
                                                         ))}
+                                                    </SelectContent>
+                                                </Select>
+                                                <FormMessage />
+                                            </FormItem>
+                                        )}
+                                    />
+                                    <FormField
+                                        control={form.control}
+                                        name="cost_center"
+                                        render={({ field }) => (
+                                            <FormItem className="col-span-2">
+                                                <FormLabel className="text-xs font-bold text-slate-500">Centro de Costo</FormLabel>
+                                                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                                    <FormControl><SelectTrigger><SelectValue placeholder="Selecciona..." /></SelectTrigger></FormControl>
+                                                    <SelectContent>
+                                                        <SelectItem value="FUSCIA">FUSCIA</SelectItem>
+                                                        <SelectItem value="SOHO">SOHO</SelectItem>
+                                                        <SelectItem value="MONICA J">MONICA J</SelectItem>
+                                                        <SelectItem value="FONNETA">FONNETA</SelectItem>
+                                                        <SelectItem value="CLUB INDOMITAS">CLUB INDOMITAS</SelectItem>
                                                     </SelectContent>
                                                 </Select>
                                                 <FormMessage />
@@ -525,7 +592,7 @@ export function ExpenseForm({ onSuccess, initialProjectId, initialClientId }: Ex
                                 
                                 <FormField
                                     control={form.control}
-                                    name="forma_pago"
+                                    name="metodo_pago"
                                     render={({ field }) => (
                                         <FormItem className="space-y-4">
                                             <div className="flex items-center gap-2">
@@ -601,9 +668,9 @@ export function ExpenseForm({ onSuccess, initialProjectId, initialClientId }: Ex
                         </section>
 
                         <div className="flex justify-end items-center gap-4 pt-8">
-                            <Button type="button" variant="outline" className="px-8 border-slate-200" onClick={() => onSuccess?.()}>Cancelar</Button>
+                            <Button type="button" variant="outline" className="px-8 border-slate-200" onClick={() => (onCancel ?? onSuccess)?.()}>Cancelar</Button>
                             <Button type="submit" className="px-12 bg-slate-900 hover:bg-black text-white font-bold h-12 transition-all active:scale-95" disabled={isSubmitting}>
-                                {isSubmitting ? "Guardando..." : "Guardar Gasto y Notificar"}
+                                {isSubmitting ? "Guardando..." : isEditing ? "Guardar Cambios" : "Guardar Gasto y Notificar"}
                             </Button>
                         </div>
                     </form>

@@ -30,6 +30,7 @@ export const providerInvoiceService = {
                 orden_compra_url: input.orden_compra_url || null,
                 seguridad_social_url: input.seguridad_social_url || null,
                 release_url: input.release_url || null,
+                cost_center: input.cost_center || null,
                 status: 'pendiente'
             }])
             .select()
@@ -116,13 +117,15 @@ export const providerInvoiceService = {
         paymentDate?: string,
         projectId?: string | null,
         categoria?: string | null,
-        plazoPago?: number
+        plazoPago?: number,
+        costCenter?: string | null
     ) {
         const updateData: Partial<ProviderInvoice> = {
             status,
             admin_notes: adminNotes || null,
             project_id: projectId || null,
             categoria: categoria || null,
+            cost_center: costCenter || null,
             plazo_pago: plazoPago ?? 60,
             updated_at: new Date().toISOString()
         };
@@ -214,6 +217,7 @@ export const providerInvoiceService = {
                     // Calcular fecha límite de pago basado en plazo_pago
                     fecha_limite_pago: new Date(Date.now() + (updatedInvoice.plazo_pago || 60) * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
                     estado_pago: 'pendiente',
+                    cost_center: updatedInvoice.cost_center || null,
                     observaciones: `[AUTO] Generado desde Radicado ${updatedInvoice.radicado_number}. ${updatedInvoice.admin_notes || ''}`
                 } as any);
 

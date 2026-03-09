@@ -23,14 +23,15 @@ export function LoginForm() {
     return (
         <form action={handleSubmit} className="space-y-4">
             <div>
-                <label htmlFor="email" className="block text-sm font-medium">
-                    Email
+                <label htmlFor="identifier" className="block text-sm font-medium">
+                    Email o NIT / Número de Documento
                 </label>
                 <input
-                    id="email"
-                    name="email"
-                    type="email"
+                    id="identifier"
+                    name="identifier"
+                    type="text"
                     required
+                    placeholder="correo@empresa.com o 900123456"
                     className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
                 />
             </div>

@@ -1,306 +1,186 @@
 'use client';
 
-import React, { useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/shared/components/ui/card';
-import { Button } from '@/shared/components/ui/button';
-import { Badge } from '@/shared/components/ui/badge';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/shared/components/ui/select';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/shared/components/ui/tabs';
-import {
-    BarChart3,
-    Download,
-    Filter,
-    Search,
-    TrendingUp,
-    TrendingDown,
-    PieChart as PieChartIcon,
-    Table as TableIcon,
-    FileSpreadsheet,
-    FileJson,
-    ArrowUpRight,
-    ArrowDownRight,
-    Target
-} from 'lucide-react';
-import { Input } from '@/shared/components/ui/input';
+import { useState, useEffect } from 'react';
+import { PieChart as PieChartIcon } from 'lucide-react';
 import { salesService } from '../services/salesService';
 import { expensesService } from '../services/expensesService';
-
 import {
-    BarChart,
-    Bar,
-    XAxis,
-    YAxis,
-    CartesianGrid,
-    Tooltip,
-    ResponsiveContainer,
-    Cell,
-    PieChart,
-    Pie
+    BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
+    ResponsiveContainer, Legend,
 } from 'recharts';
 
-export function FinanceReportCenter() {
-    const [period, setPeriod] = useState('2026-Q1');
-    const [stats, setStats] = useState({ income: 0, expenses: 0, projectData: [] as any[] });
+interface Props {
+    period: string;
+}
 
-    // Helper to check if date falls in period
-    const isInPeriod = (dateStr: string, periodStr: string) => {
-        if (periodStr === 'all') return true;
-        
-        const date = new Date(dateStr);
-        const year = date.getFullYear();
-        const month = date.getMonth() + 1; // 1-12
+// Parsea año y mes directamente del string para evitar bugs de zona horaria
+function getYearMonth(dateStr: string): { year: number; month: number } | null {
+    if (!dateStr) return null;
+    const part = dateStr.split('T')[0];
+    const [y, m] = part.split('-').map(Number);
+    if (!y || !m) return null;
+    return { year: y, month: m };
+}
 
-        if (periodStr.startsWith('2026-Q')) {
-            if (year !== 2026) return false;
-            const quarter = parseInt(periodStr.split('-Q')[1]);
-            const qStartMonth = (quarter - 1) * 3 + 1;
-            const qEndMonth = qStartMonth + 2;
-            return month >= qStartMonth && month <= qEndMonth;
-        }
+function isInPeriod(dateStr: string, periodStr: string): boolean {
+    if (periodStr === 'all') return true;
+    const ym = getYearMonth(dateStr);
+    if (!ym) return false;
+    const { year, month } = ym;
 
-        if (periodStr.startsWith('2026-')) {
-            // Format: 2026-01, 2026-02, etc.
-            if (year !== 2026) return false;
-            const targetMonth = parseInt(periodStr.split('-')[1]);
-            return month === targetMonth;
-        }
+    if (periodStr.startsWith('2026-Q')) {
+        if (year !== 2026) return false;
+        const q = parseInt(periodStr.split('-Q')[1]);
+        const start = (q - 1) * 3 + 1;
+        return month >= start && month <= start + 2;
+    }
+    const [py, pm] = periodStr.split('-').map(Number);
+    return year === py && month === pm;
+}
 
-        return false;
-    };
+const fmt = (n: number) =>
+    n.toLocaleString('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 });
 
-    React.useEffect(() => {
-        const loadData = async () => {
+const CustomTooltip = ({ active, payload, label }: any) => {
+    if (!active || !payload?.length) return null;
+    return (
+        <div className="bg-white border border-slate-100 rounded-xl shadow-xl p-4 text-sm min-w-[180px]">
+            <p className="font-black text-slate-700 mb-2 text-xs uppercase tracking-widest truncate">{label}</p>
+            {payload.map((p: any) => (
+                <div key={p.dataKey} className="flex items-center justify-between gap-4">
+                    <div className="flex items-center gap-1.5">
+                        <span className="w-2 h-2 rounded-full inline-block" style={{ background: p.color }} />
+                        <span className="text-xs font-medium text-slate-500">{p.name}</span>
+                    </div>
+                    <span className="text-xs font-black" style={{ color: p.color }}>{fmt(p.value)}</span>
+                </div>
+            ))}
+        </div>
+    );
+};
+
+interface ProjectRow {
+    name: string;
+    ingresos: number;
+    gastos: number;
+    utilidad: number;
+}
+
+export function FinanceReportCenter({ period }: Props) {
+    const [data, setData] = useState<ProjectRow[]>([]);
+    const [totalIncome, setTotalIncome] = useState(0);
+    const [totalExp, setTotalExp] = useState(0);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        const load = async () => {
+            setLoading(true);
             try {
                 const [sales, expenses] = await Promise.all([
                     salesService.getAllSales(),
-                    expensesService.getAllExpenses()
+                    expensesService.getAllExpenses(),
                 ]);
 
-                // Filter data based on period
-                const filteredSales = sales.filter(s => isInPeriod(s.fecha_factura || s.created_at, period));
-                const filteredExpenses = expenses.filter(e => isInPeriod(e.fecha_radicado || e.created_at, period));
+                const fs = sales.filter(s => isInPeriod(s.fecha_factura || s.created_at, period));
+                const fe = expenses.filter(e => isInPeriod(e.fecha_radicado || e.created_at, period));
 
-                const totalIncome = filteredSales.reduce((acc, curr) => acc + (Number(curr.valor_venta_neto) || 0), 0);
-                const totalExpenses = filteredExpenses.reduce((acc, curr) => acc + (Number(curr.valor_neto) || 0), 0);
+                const income = fs.reduce((a, s) => a + (Number(s.valor_venta_neto) || 0), 0);
+                const exp = fe.reduce((a, e) => a + (Number(e.valor_neto) || 0), 0);
+                setTotalIncome(income);
+                setTotalExp(exp);
 
-                // Agrupar por proyecto para el gráfico
-                const projectsMap: Record<string, { name: string, income: number, expense: number }> = {};
-                
-                filteredSales.forEach(s => {
-                    const name = s.proyecto?.name || 'Varios';
-                    if (!projectsMap[name]) projectsMap[name] = { name, income: 0, expense: 0 };
-                    projectsMap[name].income += Number(s.valor_venta_neto) || 0;
+                const map: Record<string, ProjectRow> = {};
+                fs.forEach(s => {
+                    const name = s.proyecto?.name || 'Sin proyecto';
+                    if (!map[name]) map[name] = { name, ingresos: 0, gastos: 0, utilidad: 0 };
+                    map[name].ingresos += Number(s.valor_venta_neto) || 0;
+                });
+                fe.forEach(e => {
+                    const name = 'Proyecto ' + (e.proyecto_id?.substring(0, 6) ?? 'N/A');
+                    if (!map[name]) map[name] = { name, ingresos: 0, gastos: 0, utilidad: 0 };
+                    map[name].gastos += Number(e.valor_neto) || 0;
                 });
 
-                filteredExpenses.forEach(e => {
-                    // Nota: Asumiendo que e tiene proyecto_id y necesitamos su nombre. 
-                    // En una implementación real se haría un join o fetch previo.
-                    const name = 'Proyecto ' + (e.proyecto_id?.substring(0, 4) || 'Desconocido');
-                    if (!projectsMap[name]) projectsMap[name] = { name, income: 0, expense: 0 };
-                    projectsMap[name].expense += Number(e.valor_neto) || 0;
-                });
+                const rows = Object.values(map)
+                    .map(r => ({ ...r, utilidad: r.ingresos - r.gastos }))
+                    .sort((a, b) => b.ingresos - a.ingresos)
+                    .slice(0, 7);
 
-                const projectData = Object.values(projectsMap).map(p => ({
-                    ...p,
-                    profit: p.income - p.expense
-                })).sort((a, b) => b.income - a.income).slice(0, 7);
-
-                setStats({ income: totalIncome, expenses: totalExpenses, projectData });
-            } catch (e) {
-                console.error("Error loading finance stats", e);
+                setData(rows);
+            } catch (err) {
+                console.error('Error loading chart', err);
+            } finally {
+                setLoading(false);
             }
         };
-        loadData();
+        load();
     }, [period]);
 
-    const netIncome = stats.income - stats.expenses;
-    const margin = stats.income > 0 ? (netIncome / stats.income) * 100 : 0;
-
-    const fmt = (n: number) => n.toLocaleString('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 });
-
-    const kpis = [
-        { label: 'Ingresos Totales', value: fmt(stats.income), trend: '+12.5%', isUp: true, color: 'emerald' },
-        { label: 'Gastos Totales', value: fmt(stats.expenses), trend: '+4.2%', isUp: false, color: 'rose' },
-        { label: 'Utilidad Neta', value: fmt(netIncome), trend: '+8.1%', isUp: true, color: 'blue' },
-        { label: 'Margen de Utilidad', value: `${margin.toFixed(1)}%`, trend: '+2.4%', isUp: true, color: 'orange' },
-    ];
+    const net = totalIncome - totalExp;
 
     return (
-        <div className="space-y-8 p-1">
-            {/* Header section */}
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
-                <div>
-                    <h2 className="text-2xl font-black text-slate-800 tracking-tight">Centro de Reportes Financieros</h2>
-                    <p className="text-sm text-slate-500 font-medium">Análisis en tiempo real de rentabilidad, ventas y costos</p>
-                </div>
-                <div className="flex items-center gap-3">
-                    <Select value={period} onValueChange={setPeriod}>
-                        <SelectTrigger className="w-[180px] bg-slate-50 border-none font-bold text-slate-600">
-                            <SelectValue placeholder="Periodo" />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="all">Todo el tiempo</SelectItem>
-                            <SelectItem value="2026-Q1">Q1 - 2026</SelectItem>
-                            <SelectItem value="2026-Q2">Q2 - 2026</SelectItem>
-                            <SelectItem value="2026-Q3">Q3 - 2026</SelectItem>
-                            <SelectItem value="2026-Q4">Q4 - 2026</SelectItem>
-                            <SelectItem value="2026-01">Enero 2026</SelectItem>
-                            <SelectItem value="2026-02">Febrero 2026</SelectItem>
-                            <SelectItem value="2026-03">Marzo 2026</SelectItem>
-                            <SelectItem value="2026-04">Abril 2026</SelectItem>
-                            <SelectItem value="2026-05">Mayo 2026</SelectItem>
-                            <SelectItem value="2026-06">Junio 2026</SelectItem>
-                            <SelectItem value="2026-07">Julio 2026</SelectItem>
-                            <SelectItem value="2026-08">Agosto 2026</SelectItem>
-                            <SelectItem value="2026-09">Septiembre 2026</SelectItem>
-                            <SelectItem value="2026-10">Octubre 2026</SelectItem>
-                            <SelectItem value="2026-11">Noviembre 2026</SelectItem>
-                            <SelectItem value="2026-12">Diciembre 2026</SelectItem>
-                        </SelectContent>
-                    </Select>
-                    <Button variant="outline" size="icon" className="border-slate-200">
-                        <Filter className="w-4 h-4 text-slate-500" />
-                    </Button>
-                    <Button className="bg-blue-600 hover:bg-blue-700 text-white font-bold gap-2">
-                        <Download className="w-4 h-4" />
-                        Exportar
-                    </Button>
-                </div>
+        <div className="space-y-6">
+            <div>
+                <h3 className="text-base font-bold text-slate-800">Ingresos vs Gastos por Proyecto</h3>
+                <p className="text-xs text-slate-400 mt-0.5">Comparativa de rentabilidad en el periodo seleccionado</p>
             </div>
 
-            {/* KPIs Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                {kpis.map((kpi, idx) => (
-                    <Card key={idx} className="border-none shadow-xl bg-white overflow-hidden group hover:scale-[1.02] transition-transform duration-300">
-                        <CardContent className="p-6">
-                            <div className="flex justify-between items-start mb-4">
-                                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{kpi.label}</span>
-                                <div className={`p-2 rounded-lg bg-${kpi.color}-50 text-${kpi.color}-600 group-hover:rotate-12 transition-transform`}>
-                                    {kpi.isUp ? <TrendingUp className="w-4 h-4" /> : <TrendingDown className="w-4 h-4" />}
-                                </div>
-                            </div>
-                            <h4 className="text-3xl font-black text-slate-900 tracking-tighter mb-1">{kpi.value}</h4>
-                            <div className="flex items-center gap-2">
-                                <span className={`flex items-center text-xs font-bold ${kpi.isUp ? 'text-emerald-500' : 'text-rose-500'}`}>
-                                    {kpi.isUp ? <ArrowUpRight className="w-3 h-3 mr-1" /> : <ArrowDownRight className="w-3 h-3 mr-1" />}
-                                    {kpi.trend}
-                                </span>
-                                <span className="text-[10px] text-slate-400 font-medium italic text-nowrap">vs mes anterior</span>
-                            </div>
-                        </CardContent>
-                    </Card>
-                ))}
-            </div>
+            {loading ? (
+                <div className="h-[360px] flex items-center justify-center">
+                    <div className="text-sm text-slate-400 animate-pulse">Cargando datos...</div>
+                </div>
+            ) : data.length === 0 ? (
+                <div className="h-[360px] flex flex-col items-center justify-center gap-3 text-slate-400">
+                    <PieChartIcon className="w-12 h-12 opacity-20" />
+                    <p className="text-sm font-medium">Sin datos para el periodo seleccionado</p>
+                    <p className="text-xs text-slate-300">Registra ventas o gastos para ver el análisis</p>
+                </div>
+            ) : (
+                <div className="h-[360px]">
+                    <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={data} barGap={4} barCategoryGap="32%">
+                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                            <XAxis
+                                dataKey="name"
+                                axisLine={false}
+                                tickLine={false}
+                                tick={{ fill: '#94a3b8', fontSize: 10, fontWeight: 700 }}
+                                dy={8}
+                            />
+                            <YAxis
+                                axisLine={false}
+                                tickLine={false}
+                                tick={{ fill: '#94a3b8', fontSize: 10, fontWeight: 700 }}
+                                tickFormatter={v => `$${(v / 1_000_000).toFixed(0)}M`}
+                                width={52}
+                            />
+                            <Tooltip content={<CustomTooltip />} cursor={{ fill: '#f8fafc', radius: 4 }} />
+                            <Legend
+                                wrapperStyle={{ fontSize: 11, fontWeight: 700, paddingTop: 16 }}
+                                formatter={val => <span className="text-slate-600">{val}</span>}
+                            />
+                            <Bar dataKey="ingresos" name="Ingresos" fill="#10b981" radius={[6, 6, 0, 0]} />
+                            <Bar dataKey="gastos" name="Gastos" fill="#f43f5e" radius={[6, 6, 0, 0]} />
+                        </BarChart>
+                    </ResponsiveContainer>
+                </div>
+            )}
 
-            {/* Main Content Area */}
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-                {/* Chart Section */}
-                <Card className="lg:col-span-8 border-slate-200 shadow-sm overflow-hidden min-h-[500px]">
-                    <CardHeader className="bg-slate-50/50 border-b p-6">
-                        <div className="flex items-center justify-between">
-                            <div className="flex gap-4">
-                                <CardTitle className="text-lg font-bold">Distribución de Rentabilidad</CardTitle>
-                                <Tabs defaultValue="bars">
-                                    <TabsList className="h-8 bg-white border border-slate-100">
-                                        <TabsTrigger value="bars" className="h-6 px-3"><BarChart3 className="w-3 h-3" /></TabsTrigger>
-                                        <TabsTrigger value="pie" className="h-6 px-3"><PieChartIcon className="w-3 h-3" /></TabsTrigger>
-                                        <TabsTrigger value="table" className="h-6 px-3"><TableIcon className="w-3 h-3" /></TabsTrigger>
-                                    </TabsList>
-                                </Tabs>
-                            </div>
-                            <Button variant="ghost" size="sm" className="text-xs font-bold text-blue-600 gap-1"> Ver detalle completo </Button>
+            {/* Summary strip */}
+            {!loading && (
+                <div className="grid grid-cols-3 gap-4 pt-4 border-t border-slate-100">
+                    {[
+                        { label: 'Ingresos periodo', value: fmt(totalIncome), color: 'text-emerald-600' },
+                        { label: 'Gastos periodo', value: fmt(totalExp), color: 'text-rose-500' },
+                        { label: 'Utilidad neta', value: fmt(net), color: net >= 0 ? 'text-blue-600' : 'text-rose-600' },
+                    ].map((s, i) => (
+                        <div key={i} className="text-center">
+                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{s.label}</p>
+                            <p className={`text-sm font-black mt-1 ${s.color}`}>{s.value}</p>
                         </div>
-                    </CardHeader>
-                    <CardContent className="p-10 pt-16">
-                        <div className="h-[350px] w-full">
-                            <ResponsiveContainer width="100%" height="100%">
-                                <BarChart data={stats.projectData}>
-                                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                                    <XAxis 
-                                        dataKey="name" 
-                                        axisLine={false} 
-                                        tickLine={false} 
-                                        tick={{ fill: '#94a3b8', fontSize: 10, fontWeight: 700 }}
-                                        dy={10}
-                                    />
-                                    <YAxis 
-                                        axisLine={false} 
-                                        tickLine={false} 
-                                        tick={{ fill: '#94a3b8', fontSize: 10, fontWeight: 700 }}
-                                        tickFormatter={(v) => `$${v/1000}k`}
-                                    />
-                                    <Tooltip 
-                                        contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.1)' }}
-                                        cursor={{ fill: '#f8fafc' }}
-                                    />
-                                    <Bar dataKey="income" name="Ingresos" fill="#3b82f6" radius={[6, 6, 0, 0]} barSize={40} />
-                                    <Bar dataKey="expense" name="Egresos" fill="#f43f5e" radius={[6, 6, 0, 0]} barSize={40} />
-                                </BarChart>
-                            </ResponsiveContainer>
-                        </div>
-                    </CardContent>
-                </Card>
-
-                {/* Right Sidebar - Reports & Quick Actions */}
-                <div className="lg:col-span-4 space-y-8">
-                    {/* Exports List */}
-                    <Card className="border-slate-200 shadow-sm overflow-hidden">
-                        <CardHeader className="p-6 pb-2">
-                            <CardTitle className="text-sm font-bold flex items-center gap-2">
-                                <Download className="w-4 h-4 text-blue-500" />
-                                Exportaciones Disponibles
-                            </CardTitle>
-                        </CardHeader>
-                        <CardContent className="p-0">
-                            <div className="divide-y border-t mt-4">
-                                {[
-                                    { title: 'Ventas por Línea', icon: FileSpreadsheet, color: 'emerald' },
-                                    { title: 'Ejecución de Gastos', icon: FileSpreadsheet, color: 'blue' },
-                                    { title: 'Ranking Rentabilidad', icon: PieChartIcon, color: 'orange' },
-                                    { title: 'Cartera Pendiente', icon: Target, color: 'rose' },
-                                    { title: 'Data JSON API', icon: FileJson, color: 'slate' },
-                                ].map((report, i) => (
-                                    <button
-                                        key={i}
-                                        className="w-full p-4 flex items-center justify-between hover:bg-slate-50 transition-colors text-left"
-                                    >
-                                        <div className="flex items-center gap-3">
-                                            <div className={`p-2 rounded bg-${report.color}-50 text-${report.color}-600`}>
-                                                <report.icon className="w-4 h-4" />
-                                            </div>
-                                            <span className="text-xs font-bold text-slate-700">{report.title}</span>
-                                        </div>
-                                        <ArrowDownRight className="w-3 h-3 text-slate-300" />
-                                    </button>
-                                ))}
-                            </div>
-                        </CardContent>
-                    </Card>
-
-                    {/* Progress Card */}
-                    <Card className="bg-gradient-to-br from-blue-600 to-indigo-700 text-white border-none shadow-lg">
-                        <CardHeader className="p-6">
-                            <div className="flex justify-between items-center mb-4">
-                                <Badge className="bg-white/20 hover:bg-white/30 text-white border-none text-[8px] uppercase tracking-widest font-black">
-                                    Meta Trimestral
-                                </Badge>
-                                <Target className="w-5 h-5 opacity-50" />
-                            </div>
-                            <CardTitle className="text-2xl font-black mb-1">$5.000M COP</CardTitle>
-                            <CardDescription className="text-blue-100 text-xs font-medium">Faltan $1.750M para el objetivo</CardDescription>
-                        </CardHeader>
-                        <CardContent className="p-6 pt-0 space-y-4">
-                            <div className="h-2 w-full bg-white/20 rounded-full overflow-hidden">
-                                <div className="h-full w-[65%] bg-emerald-400 rounded-full shadow-[0_0_10px_rgba(52,211,153,0.5)]"></div>
-                            </div>
-                            <div className="flex justify-between text-[10px] uppercase font-black tracking-tighter opacity-80">
-                                <span>65% Completado</span>
-                                <span>Q1 v/s Q4 +15%</span>
-                            </div>
-                        </CardContent>
-                    </Card>
+                    ))}
                 </div>
-            </div>
+            )}
         </div>
     );
 }

@@ -1,112 +1,168 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Venta } from '../types/sales-expenses.types';
 import { salesService } from '../services/salesService';
-import { Card, CardContent, CardHeader, CardTitle } from '@/shared/components/ui/card';
 import { Input } from '@/shared/components/ui/input';
-import { Search, Filter } from 'lucide-react';
 import { Badge } from '@/shared/components/ui/badge';
+import { Button } from '@/shared/components/ui/button';
+import { Search, AlertCircle, Pencil } from 'lucide-react';
 
-export function SalesList() {
+const fmt = (n: number) =>
+    n.toLocaleString('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 });
+
+function estadoBadge(estado: string) {
+    if (estado === 'pagado')
+        return <Badge className="bg-emerald-100 text-emerald-700 hover:bg-emerald-200 border-none text-[10px] font-bold">Pagado</Badge>;
+    if (estado === 'parcial')
+        return <Badge className="bg-blue-100 text-blue-700 hover:bg-blue-200 border-none text-[10px] font-bold">Parcial</Badge>;
+    return <Badge className="bg-amber-100 text-amber-700 hover:bg-amber-200 border-none text-[10px] font-bold">Pendiente</Badge>;
+}
+
+function formatDate(d?: string) {
+    if (!d) return '—';
+    return new Date(d + 'T12:00:00').toLocaleDateString('es-CO', {
+        day: '2-digit', month: 'short', year: 'numeric',
+    });
+}
+
+interface Props {
+    onEdit?: (sale: Venta) => void;
+}
+
+export function SalesList({ onEdit }: Props) {
     const [sales, setSales] = useState<Venta[]>([]);
-    const [searchTerm, setSearchTerm] = useState('');
+    const [search, setSearch] = useState('');
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        loadSales();
+        salesService.getAllSales()
+            .then(data => setSales(data))
+            .catch(err => console.error('Error loading sales', err))
+            .finally(() => setLoading(false));
     }, []);
 
-    const loadSales = async () => {
-        try {
-            const data = await salesService.getAllSales();
-            setSales(data);
-        } catch (error) {
-            console.error("Error loading sales", error);
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const filteredSales = sales.filter(sale =>
-        (sale.cliente?.business_name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (sale.proyecto?.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (sale.numero_factura || '').toLowerCase().includes(searchTerm.toLowerCase())
+    const filtered = sales.filter(s =>
+        (s.cliente?.business_name ?? '').toLowerCase().includes(search.toLowerCase()) ||
+        (s.proyecto?.name ?? '').toLowerCase().includes(search.toLowerCase()) ||
+        (s.numero_factura ?? '').toLowerCase().includes(search.toLowerCase())
     );
 
     return (
-        <Card className="mt-8 border-slate-200 shadow-lg">
-            <CardHeader className="bg-slate-50 border-b p-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="space-y-4">
+            {/* Toolbar */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div>
-                    <CardTitle className="text-xl font-bold text-slate-800">Historial de Ventas</CardTitle>
-                    <p className="text-xs text-slate-500 font-medium">Registro detallado de transacciones</p>
+                    <h3 className="text-base font-bold text-slate-800">Registro de Ventas</h3>
+                    <p className="text-xs text-slate-400 font-medium mt-0.5">
+                        {loading ? 'Cargando...' : `${filtered.length} registros`}
+                    </p>
                 </div>
-                <div className="relative w-full md:w-72">
+                <div className="relative w-full sm:w-72">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                     <Input
                         placeholder="Buscar por cliente, proyecto o factura..."
-                        className="pl-9 bg-white"
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
+                        className="pl-9 bg-slate-50 border-slate-200 text-sm h-9"
+                        value={search}
+                        onChange={e => setSearch(e.target.value)}
                     />
                 </div>
-            </CardHeader>
-            <CardContent className="p-0">
-                <div className="overflow-x-auto">
-                    <table className="w-full text-sm text-left">
-                        <thead className="text-xs text-slate-500 uppercase bg-slate-50 border-b">
+            </div>
+
+            {/* Table */}
+            <div className="overflow-x-auto rounded-xl border border-slate-100">
+                <table className="w-full text-sm text-left">
+                    <thead className="text-[10px] text-slate-500 uppercase bg-slate-50 border-b border-slate-100">
+                        <tr>
+                            <th className="px-4 py-3 font-black tracking-widest">Fecha</th>
+                            <th className="px-4 py-3 font-black tracking-widest">Factura</th>
+                            <th className="px-4 py-3 font-black tracking-widest">Cliente</th>
+                            <th className="px-4 py-3 font-black tracking-widest">Proyecto</th>
+                            <th className="px-4 py-3 font-black tracking-widest text-right">Valor Neto</th>
+                            <th className="px-4 py-3 font-black tracking-widest text-right">Total + IVA</th>
+                            <th className="px-4 py-3 font-black tracking-widest text-center">Estado</th>
+                            <th className="px-4 py-3 font-black tracking-widest text-center">Editar</th>
+                        </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-50">
+                        {loading ? (
+                            Array.from({ length: 5 }).map((_, i) => (
+                                <tr key={i}>
+                                    {Array.from({ length: 8 }).map((__, j) => (
+                                        <td key={j} className="px-4 py-4">
+                                            <div className="h-3 bg-slate-100 rounded animate-pulse w-full" />
+                                        </td>
+                                    ))}
+                                </tr>
+                            ))
+                        ) : filtered.length === 0 ? (
                             <tr>
-                                <th className="px-6 py-3 font-semibold">Fecha</th>
-                                <th className="px-6 py-3 font-semibold">Factura</th>
-                                <th className="px-6 py-3 font-semibold">Cliente</th>
-                                <th className="px-6 py-3 font-semibold">Proyecto</th>
-                                <th className="px-6 py-3 font-semibold text-right">Valor Neto</th>
-                                <th className="px-6 py-3 font-semibold text-right">Total IVA Incl.</th>
-                                <th className="px-6 py-3 font-semibold text-center">Estado</th>
+                                <td colSpan={8} className="py-16 text-center">
+                                    <AlertCircle className="w-8 h-8 text-slate-200 mx-auto mb-2" />
+                                    <p className="text-sm text-slate-400 font-medium">
+                                        {search ? 'Sin resultados' : 'No hay ventas registradas'}
+                                    </p>
+                                </td>
                             </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-100">
-                            {loading ? (
-                                <tr><td colSpan={7} className="p-8 text-center text-slate-500">Cargando ventas...</td></tr>
-                            ) : filteredSales.length === 0 ? (
-                                <tr><td colSpan={7} className="p-8 text-center text-slate-500">No hay ventas registradas</td></tr>
-                            ) : (
-                                filteredSales.map((sale) => (
-                                    <tr key={sale.id} className="hover:bg-slate-50/50 transition-colors">
-                                        <td className="px-6 py-4 font-medium text-slate-700">
-                                            {sale.fecha_factura || new Date(sale.created_at).toLocaleDateString()}
-                                        </td>
-                                        <td className="px-6 py-4 text-slate-600 font-mono text-xs">
-                                            {sale.numero_factura || 'N/A'}
-                                        </td>
-                                        <td className="px-6 py-4 font-medium text-blue-600">
-                                            {sale.cliente?.business_name || 'Sin cliente'}
-                                        </td>
-                                        <td className="px-6 py-4 text-slate-600">
-                                            {sale.proyecto?.name || 'Sin proyecto'}
-                                        </td>
-                                        <td className="px-6 py-4 text-right font-mono text-slate-700">
-                                            {sale.valor_venta_neto.toLocaleString('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 })}
-                                        </td>
-                                        <td className="px-6 py-4 text-right font-bold text-emerald-600">
-                                            {sale.total_con_iva.toLocaleString('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 })}
-                                        </td>
-                                        <td className="px-6 py-4 text-center">
-                                            <Badge variant="secondary" className={
-                                                sale.estado_pago === 'pagado' ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200' :
-                                                    sale.estado_pago === 'parcial' ? 'bg-blue-100 text-blue-700 hover:bg-blue-200' :
-                                                        'bg-amber-100 text-amber-700 hover:bg-amber-200'
-                                            }>
-                                                {sale.estado_pago}
-                                            </Badge>
-                                        </td>
-                                    </tr>
-                                ))
-                            )}
-                        </tbody>
-                    </table>
+                        ) : (
+                            filtered.map(sale => (
+                                <tr key={sale.id} className="hover:bg-slate-50/60 transition-colors">
+                                    <td className="px-4 py-3.5 text-slate-600 font-medium text-xs">
+                                        {formatDate(sale.fecha_factura ?? sale.created_at)}
+                                    </td>
+                                    <td className="px-4 py-3.5 font-mono text-slate-700 text-xs font-bold">
+                                        {sale.numero_factura || <span className="text-slate-300">—</span>}
+                                    </td>
+                                    <td className="px-4 py-3.5 font-semibold text-blue-600 text-xs">
+                                        {sale.cliente?.business_name || 'Sin cliente'}
+                                    </td>
+                                    <td className="px-4 py-3.5 text-slate-600 text-xs">
+                                        {sale.proyecto?.name || <span className="text-slate-300">—</span>}
+                                    </td>
+                                    <td className="px-4 py-3.5 text-right font-mono text-slate-700 text-xs">
+                                        {fmt(sale.valor_venta_neto)}
+                                    </td>
+                                    <td className="px-4 py-3.5 text-right font-mono font-bold text-emerald-600 text-xs">
+                                        {fmt(sale.total_con_iva)}
+                                    </td>
+                                    <td className="px-4 py-3.5 text-center">
+                                        {estadoBadge(sale.estado_pago)}
+                                    </td>
+                                    <td className="px-4 py-3.5 text-center">
+                                        <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            onClick={() => onEdit?.(sale)}
+                                            className="h-7 w-7 p-0 text-slate-400 hover:text-blue-600 hover:bg-blue-50"
+                                        >
+                                            <Pencil className="w-3.5 h-3.5" />
+                                        </Button>
+                                    </td>
+                                </tr>
+                            ))
+                        )}
+                    </tbody>
+                </table>
+            </div>
+
+            {/* Footer */}
+            {!loading && filtered.length > 0 && (
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-2 pt-2 border-t border-slate-100">
+                    <p className="text-xs text-slate-400">{filtered.length} registro{filtered.length !== 1 ? 's' : ''}</p>
+                    <div className="flex gap-6 text-xs">
+                        <span className="text-slate-500">
+                            Neto: <span className="font-black text-slate-800">
+                                {fmt(filtered.reduce((a, s) => a + (Number(s.valor_venta_neto) || 0), 0))}
+                            </span>
+                        </span>
+                        <span className="text-slate-500">
+                            Total + IVA: <span className="font-black text-emerald-600">
+                                {fmt(filtered.reduce((a, s) => a + (Number(s.total_con_iva) || 0), 0))}
+                            </span>
+                        </span>
+                    </div>
                 </div>
-            </CardContent>
-        </Card>
+            )}
+        </div>
     );
 }

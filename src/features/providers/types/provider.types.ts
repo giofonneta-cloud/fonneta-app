@@ -95,6 +95,7 @@ export interface ProviderInvoice {
     project_id: string | null;
     expense_id: string | null; // ID del gasto creado
     categoria: string | null; // Categoría de gasto
+    cost_center: string | null; // Centro de costo (FUSCIA, SOHO, etc)
     payment_date: string | null;
     admin_notes: string | null;
     created_at: string;
@@ -118,6 +119,7 @@ export interface CreateInvoiceInput {
     orden_compra_url?: string;
     seguridad_social_url?: string;
     release_url?: string;
+    cost_center?: string;
 }
 
 export interface UpdateInvoiceInput {
@@ -140,6 +142,7 @@ export interface UpdateInvoiceInput {
     project_id?: string | null;
     expense_id?: string | null;
     categoria?: string | null;
+    cost_center?: string | null;
     payment_date?: string | null;
     admin_notes?: string | null;
 }
