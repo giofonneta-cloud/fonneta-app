@@ -1,3 +1,5 @@
+export const maxDuration = 60; // Permitir hasta 60s en Vercel (Chromium es lento)
+
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { getEmailService } from '@/lib/email/emailService';
