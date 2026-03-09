@@ -25,6 +25,7 @@ export function PurchaseOrderPreview({ po, onClose, onEdit, onSent }: PurchaseOr
   const [sending, setSending] = useState(false);
   const [sendError, setSendError] = useState<string | null>(null);
   const [attachments, setAttachments] = useState<File[]>([]);
+  const [ccEmail, setCcEmail] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const items = po.items ?? [];
@@ -56,6 +57,14 @@ export function PurchaseOrderPreview({ po, onClose, onEdit, onSent }: PurchaseOr
       return;
     }
 
+    // Validar el tamaño total de los adjuntos (Max 20MB para envíos de correo)
+    const MAX_MB = 20;
+    const totalSize = attachments.reduce((sum, file) => sum + file.size, 0);
+    if (totalSize > MAX_MB * 1024 * 1024) {
+      setSendError(`El tamaño total de los adjuntos excede los ${MAX_MB}MB permitidos por los servidores de correo.`);
+      return;
+    }
+
     setSending(true);
     setSendError(null);
 
@@ -65,6 +74,7 @@ export function PurchaseOrderPreview({ po, onClose, onEdit, onSent }: PurchaseOr
       if (attachments.length > 0) {
         const formData = new FormData();
         formData.append('purchaseOrderId', po.id);
+        if (ccEmail.trim()) formData.append('ccEmail', ccEmail.trim());
         attachments.forEach((file) => formData.append('attachments', file));
         res = await fetch('/api/purchase-orders/send', {
           method: 'POST',
@@ -74,13 +84,26 @@ export function PurchaseOrderPreview({ po, onClose, onEdit, onSent }: PurchaseOr
         res = await fetch('/api/purchase-orders/send', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ purchaseOrderId: po.id }),
+          body: JSON.stringify({ purchaseOrderId: po.id, ...(ccEmail.trim() ? { ccEmail: ccEmail.trim() } : {}) }),
         });
       }
 
       if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error || 'Error al enviar la orden de compra');
+        // Handle 413 Request Entity Too Large or non-JSON responses
+        if (res.status === 413) {
+          throw new Error('Los archivos adjuntos son demasiado pesados para el servidor.');
+        }
+
+        let errorMsg = 'Error al enviar la orden de compra';
+        try {
+          const data = await res.json();
+          errorMsg = data.error || errorMsg;
+        } catch (parseErr) {
+          // If the server returned HTML or plain text (not JSON)
+          const text = await res.text();
+          if (text) errorMsg = text.substring(0, 100); // Limit length of raw text
+        }
+        throw new Error(errorMsg);
       }
 
       onSent();
@@ -257,48 +280,63 @@ export function PurchaseOrderPreview({ po, onClose, onEdit, onSent }: PurchaseOr
           </div>
         </div>
 
-        {/* Attachments — for draft and enviada */}
+        {/* Attachments + CC — for draft and enviada */}
         {(po.status === 'borrador' || po.status === 'enviada') && (
-          <div className="mx-6 mb-2">
-            <div className="flex items-center gap-2 mb-2">
-              <Paperclip className="w-4 h-4 text-gray-400" />
-              <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Adjuntos</span>
-              <button
-                type="button"
-                onClick={() => fileInputRef.current?.click()}
-                className="ml-auto text-xs text-blue-600 hover:text-blue-700 font-medium"
-              >
-                + Agregar archivo
-              </button>
+          <div className="mx-6 mb-2 space-y-3">
+            {/* CC email */}
+            <div className="flex items-center gap-2">
+              <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">CC:</label>
               <input
-                ref={fileInputRef}
-                type="file"
-                multiple
-                className="hidden"
-                onChange={handleAddFiles}
-                accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg"
+                type="email"
+                value={ccEmail}
+                onChange={(e) => setCcEmail(e.target.value)}
+                placeholder="correo@ejemplo.com (opcional)"
+                className="flex-1 text-sm border border-gray-200 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder-gray-400"
               />
             </div>
-            {attachments.length > 0 ? (
-              <div className="space-y-1">
-                {attachments.map((file, idx) => (
-                  <div key={idx} className="flex items-center justify-between bg-gray-50 rounded-lg px-3 py-1.5 text-xs">
-                    <span className="text-gray-700 truncate max-w-[300px]">{file.name}</span>
-                    <div className="flex items-center gap-2">
-                      <span className="text-gray-400">{(file.size / 1024).toFixed(0)} KB</span>
-                      <button
-                        onClick={() => handleRemoveFile(idx)}
-                        className="p-0.5 text-gray-400 hover:text-red-500 transition-colors"
-                      >
-                        <Trash2 className="w-3 h-3" />
-                      </button>
-                    </div>
-                  </div>
-                ))}
+
+            {/* Attachments */}
+            <div>
+              <div className="flex items-center gap-2 mb-2">
+                <Paperclip className="w-4 h-4 text-gray-400" />
+                <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Adjuntos</span>
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="ml-auto text-xs text-blue-600 hover:text-blue-700 font-medium"
+                >
+                  + Agregar archivo
+                </button>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  multiple
+                  className="hidden"
+                  onChange={handleAddFiles}
+                  accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg"
+                />
               </div>
-            ) : (
-              <p className="text-xs text-gray-400">Sin archivos adjuntos. Puedes agregar PDFs, documentos o imagenes.</p>
-            )}
+              {attachments.length > 0 ? (
+                <div className="space-y-1">
+                  {attachments.map((file, idx) => (
+                    <div key={idx} className="flex items-center justify-between bg-gray-50 rounded-lg px-3 py-1.5 text-xs">
+                      <span className="text-gray-700 truncate max-w-[300px]">{file.name}</span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-gray-400">{(file.size / 1024).toFixed(0)} KB</span>
+                        <button
+                          onClick={() => handleRemoveFile(idx)}
+                          className="p-0.5 text-gray-400 hover:text-red-500 transition-colors"
+                        >
+                          <Trash2 className="w-3 h-3" />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-xs text-gray-400">Sin archivos adjuntos. Puedes agregar PDFs, documentos o imagenes.</p>
+              )}
+            </div>
           </div>
         )}
 
@@ -496,6 +534,61 @@ function buildPrintHTML(po: PurchaseOrder, items: PurchaseOrderItem[]): string {
 
     <div class="footer">
       Fonneta Comunicaciones S.A.S. &middot; Orden de Compra ${po.po_number} &middot; ${date}
+    </div>
+  </div>
+
+  <!-- Página 2: Términos y Condiciones + Instrucciones de Facturación -->
+  <div class="page" style="page-break-before: always; font-size:9px; line-height:1.5; color:#111827;">
+    <div style="text-align:center; margin-bottom:10px; padding-bottom:8px; border-bottom:2px solid #1d4ed8;">
+      <div style="font-size:11px; font-weight:800; color:#1d4ed8; text-transform:uppercase; letter-spacing:0.06em;">Términos y Condiciones Generales — Orden de Compra</div>
+      <div style="font-size:9px; color:#6b7280; margin-top:2px;">Fonneta Comunicaciones S.A.S. &middot; NIT 901.362.051-7</div>
+    </div>
+    <p style="margin-bottom:6px; color:#374151;">Las presentes Condiciones Generales serán aplicables a todas las Órdenes de Compra expedidas por <strong>Fonneta Comunicaciones S.A.S.</strong></p>
+
+    <div style="column-count:2; column-gap:16px; column-rule:1px solid #e5e7eb;">
+      <p style="margin:0 0 4px;"><strong style="color:#1d4ed8;">1. Definiciones.</strong> (i) <em>La Compañía:</em> Fonneta Comunicaciones S.A.S., persona jurídica contratante. (ii) <em>Proveedor:</em> persona natural o jurídica identificada como tal en la Orden de Compra. (iii) <em>Bienes:</em> elementos a adquirir según lo descrito en la OC y aceptado por la Compañía. (iv) <em>Servicios:</em> prestación a cargo del Proveedor según lo descrito en la OC y aceptado por la Compañía. (v) <em>Orden de Compra:</em> documento suscrito por representante autorizado de la Compañía, al cual se incorporan estas Condiciones Generales y la oferta del Proveedor.</p>
+
+      <p style="margin:0 0 4px;"><strong style="color:#1d4ed8;">2. Entrega de Bienes o Servicios.</strong> El Proveedor deberá entregar o prestar los Bienes o Servicios en las condiciones y especificaciones técnicas establecidas en la Orden de Compra, siendo de obligatorio cumplimiento al momento de su aceptación.</p>
+
+      <p style="margin:0 0 4px;"><strong style="color:#1d4ed8;">3. Precio y forma de pago.</strong> El valor es el expresamente establecido en la OC. La Compañía aplicará las retenciones o deducciones de ley. El pago está sujeto a la correcta y oportuna presentación de las facturas debidamente aprobadas por el representante de la Compañía.</p>
+
+      <p style="margin:0 0 4px;"><strong style="color:#1d4ed8;">4. Proveedor independiente.</strong> El Proveedor obra como contratista independiente, no como empleado, agente o representante de la Compañía. Actuará con plena autonomía profesional, técnica y administrativa.</p>
+
+      <p style="margin:0 0 4px;"><strong style="color:#1d4ed8;">5. Cesión y subcontratación.</strong> El Proveedor no podrá ceder ni subcontratar total o parcialmente la ejecución de la OC sin autorización previa y escrita de la Compañía.</p>
+
+      <p style="margin:0 0 4px;"><strong style="color:#1d4ed8;">6. Propiedad intelectual.</strong> Todos los derechos patrimoniales de autor, imagen o conexos derivados de obras, fonogramas, videogramas o transmisiones elaboradas en cumplimiento de esta OC (EL MATERIAL) son transferidos a la Compañía desde su creación. La Compañía tendrá derechos exclusivos de reproducción, distribución, transformación, comunicación pública, licenciamiento e importación/exportación a nivel mundial y por toda la vigencia de la protección. El Proveedor garantiza que posee todas las autorizaciones necesarias sobre obras preexistentes o propiedad industrial que incorpore, manteniendo a la Compañía indemne frente a cualquier reclamación de terceros.</p>
+
+      <p style="margin:0 0 4px;"><strong style="color:#1d4ed8;">7. Terminación.</strong> La OC termina por vencimiento del término o cumplimiento de su objeto. La Compañía podrá terminarla unilateralmente con 15 días de preaviso escrito, o de manera inmediata si el Proveedor: (a) suministra datos falsos; (b) es objeto de condena o investigación penal; (c) incurre en insolvencia; (d) incumple las obligaciones de la OC o la ley; (e) realiza actos ilícitos que afecten el buen nombre de la Compañía.</p>
+
+      <p style="margin:0 0 4px;"><strong style="color:#1d4ed8;">8. Indemnidad.</strong> Los daños causados por el Proveedor, su personal o subcontratistas a terceros o a la Compañía serán reconocidos y pagados por el Proveedor. Este se obliga a resarcir, defender y amparar a la Compañía de cualquier responsabilidad derivada de la OC, autorizando la retención de pagos pendientes para cubrir dichos valores.</p>
+
+      <p style="margin:0 0 4px;"><strong style="color:#1d4ed8;">9. Obligaciones del Proveedor.</strong> El Proveedor se compromete a: (a) Cumplir oportuna y eficientemente el objeto contratado. (b) Garantizar el cumplimiento de la normativa vigente. (c) Responder por fallas, faltantes y daños derivados de la prestación del servicio. (d) Asumir la defensa legal y costas en procesos judiciales originados en la ejecución de la OC. (e) Habeas data: autoriza a Fonneta Comunicaciones S.A.S. para consultar y reportar información en bases de datos de riesgo financiero, crediticio, LAFT y tratamiento de datos personales conforme a la política de la Compañía. (f) Declara bajo la gravedad de juramento que los recursos vinculados a esta OC son de origen lícito y no están relacionados con lavado de activos.</p>
+
+      <p style="margin:0 0 4px;"><strong style="color:#1d4ed8;">10. Confidencialidad.</strong> Toda información técnica, jurídica, financiera, comercial o estratégica de la Compañía y sus clientes que el Proveedor conozca en virtud de esta OC es confidencial. No podrá ser revelada a terceros ni usada para fines distintos a la ejecución de la OC, salvo orden de autoridad competente.</p>
+
+      <p style="margin:0 0 4px;"><strong style="color:#1d4ed8;">11. Actividad lícita y anticorrupción.</strong> El Proveedor declara que ni él ni sus socios, representantes o vinculados tienen relación con actividades prohibidas o delictivas. Conoce y adhiere al programa de transparencia y ética empresarial (PTEE) de la Compañía y a la política para la gestión del riesgo de corrupción, soborno, fraude y extorsión.</p>
+
+      <p style="margin:0 0 4px;"><strong style="color:#1d4ed8;">12. Territorio.</strong> El único territorio y jurisdicción aplicable a esta OC es la ciudad de Bogotá D.C., Colombia. El Proveedor renuncia a cualquier otro fuero determinado por factor de territorio.</p>
+
+      <p style="margin:0 0 4px;"><strong style="color:#1d4ed8;">13. Notificaciones.</strong> (a) Línea ética y denuncias: <strong>administrativo@fonneta.com</strong> (canal con garantía de reserva). (b) Asuntos legales: <strong>administrativo@fonneta.com</strong>.</p>
+
+      <p style="margin:0 0 4px;"><strong style="color:#1d4ed8;">14. Legalidad de herramientas, licencias y software.</strong> El Proveedor declara bajo la gravedad de juramento, en los términos del artículo 95 del Código de Procedimiento Civil y las Leyes 23 de 1982, 44 de 1993 y 603 de 2000, que la totalidad de herramientas, aplicaciones, plataformas, licencias y software utilizados para la prestación de los servicios objeto de la presente Orden de Compra han sido adquiridos, instalados y utilizados en estricto cumplimiento de la legislación colombiana vigente y de la Decisión Andina 351 de 1993. En consecuencia, el Proveedor se obliga a: (a) Acreditar, cuando La Compañía lo solicite y en el plazo que esta señale, los certificados de licenciamiento, contratos de uso o cualquier documentación que soporte la legalidad de las herramientas empleadas. (b) Responder de manera exclusiva y directa por cualquier reclamación, sanción, multa, proceso penal o perjuicio derivado del uso de software sin licencia, herramientas pirateadas o cuya utilización infrinja derechos de propiedad intelectual o industrial de terceros, incluyendo el pago de costas judiciales y honorarios de abogados. (c) Mantener indemne a La Compañía frente a toda acción judicial, administrativa o extrajudicial originada en el incumplimiento de esta obligación. El incumplimiento comprobado de la presente cláusula faculta a La Compañía para terminar de manera inmediata la Orden de Compra, sin perjuicio de las acciones civiles y penales a que haya lugar conforme al Código Penal colombiano (Ley 599 de 2000, art. 271 y ss.) y demás normas concordantes.</p>
+    </div>
+
+    <div style="margin-top:10px; padding-top:8px; border-top:2px solid #1d4ed8;">
+      <div style="font-size:10px; font-weight:800; color:#1d4ed8; text-transform:uppercase; letter-spacing:0.05em; margin-bottom:6px;">Instrucciones de Facturación y Radicación</div>
+      <div style="column-count:2; column-gap:16px;">
+        <div>
+          <p style="margin:0 0 3px;"><strong>Datos de facturación:</strong> Todo documento debe ser emitido a nombre de <strong>FONNETA COMUNICACIONES SAS</strong>, NIT <strong>901.362.051-7</strong>.</p>
+          <p style="margin:0 0 3px;"><strong>Requisitos del documento (Factura o Cuenta de Cobro):</strong> Debe incluir número de OC, descripción del servicio, valor total en números y letras, información bancaria completa y firma del emisor.</p>
+          <p style="margin:0;"><strong>Documentación soporte:</strong> Certificado de aportes a seguridad social del mes del servicio. Release firmado si fue solicitado.</p>
+        </div>
+        <div>
+          <p style="margin:0 0 3px;"><strong>Canal único de radicación:</strong> Exclusivamente a través de <strong>Fonnettapp</strong>. No se aceptan documentos por otros medios ni con información incompleta.</p>
+          <p style="margin:0 0 3px;"><strong>Condiciones de pago:</strong> 30 días calendario desde la radicación exitosa en la plataforma.</p>
+          <p style="margin:0;"><strong>Contacto:</strong> <span style="color:#1d4ed8;">administrativo@fonneta.com</span></p>
+        </div>
+      </div>
     </div>
   </div>
 </body>
