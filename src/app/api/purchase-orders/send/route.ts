@@ -319,10 +319,10 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
     // 11. Respuesta exitosa
     return NextResponse.json({ success: true, documentUrl });
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error sending purchase order:', error);
     return NextResponse.json(
-      { error: 'Error interno del servidor' },
+      { error: error?.message || 'Error interno del servidor detallado' },
       { status: 500 }
     );
   }
