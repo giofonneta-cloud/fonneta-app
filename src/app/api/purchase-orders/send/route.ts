@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/server';
 import { getEmailService } from '@/lib/email/emailService';
 import type { EmailAttachment } from '@/lib/email/emailService';
 import { getDriveService } from '@/lib/google-drive/driveService';
+import { createAdminClient } from '@/lib/supabase/admin';
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
   const handlerStart = Date.now();
@@ -100,33 +101,43 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     }
 
     // 4.5. Mutex atómico: reservar sent_at ANTES de enviar
-    // Previene doble-envío si el usuario hace clic dos veces o hay reintento de red.
-    const SEND_COOLDOWN_MS = 10_000;
+    // Previene doble-envío si el usuario hace clic dos veces.
+    // Reducimos cooldown a 3s para ser más permisivos con reintentos de red.
+    const SEND_COOLDOWN_MS = 3000;
     const cooldownCutoff = new Date(Date.now() - SEND_COOLDOWN_MS).toISOString();
     const sentAtNow = new Date().toISOString();
 
-    const { data: lockData } = await supabase
+    console.log('[send-po] Attempting lock', { purchaseOrderId, status: po.status, cooldownCutoff });
+
+    const adminClient = createAdminClient();
+    const { count: lockCount, error: lockError } = await adminClient
       .from('purchase_orders')
-      .update({ sent_at: sentAtNow, updated_at: sentAtNow })
+      .update({ sent_at: sentAtNow, updated_at: sentAtNow }, { count: 'exact' })
       .eq('id', purchaseOrderId)
       .in('status', allowedStatuses)
-      .or(`sent_at.is.null,sent_at.lt.${cooldownCutoff}`)
-      .select('id, sent_at');
+      .or(`sent_at.is.null,sent_at.lt.${cooldownCutoff}`);
 
-    if (!lockData || lockData.length === 0) {
+    // Eliminamos el .select() porque PostgREST evalúa el filtro .or() 
+    // DESPUÉS del update en la cláusula RETURNING, devolviendo [] si el nuevo 
+    // sent_at ya no cumple la condición. Validamos éxito con lockCount.
+
+    if (lockError || lockCount === null || lockCount === 0) {
       const { data: currentPo } = await supabase
         .from('purchase_orders')
         .select('status, sent_at')
         .eq('id', purchaseOrderId)
         .single();
+      
       console.warn('[send-po] Lock denied', {
         purchaseOrderId,
         currentStatus: currentPo?.status,
         currentSentAt: currentPo?.sent_at,
         cooldownCutoff,
+        error: lockError
       });
+
       return NextResponse.json(
-        { error: 'La orden ya está siendo enviada. Espera unos segundos antes de reintentar.' },
+        { error: 'La orden ya está siendo enviada o se envió recientemente. Espera 3 segundos.' },
         { status: 429 }
       );
     }
@@ -138,7 +149,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     // Helper para liberar el lock si el envío falla.
     const releaseLock = async (reason: string) => {
       try {
-        await supabase
+        await adminClient
           .from('purchase_orders')
           .update({ sent_at: previousSentAt, updated_at: new Date().toISOString() })
           .eq('id', purchaseOrderId);
@@ -222,7 +233,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     }
 
     // 8. Marcar OC como enviada (sent_at ya fue establecido en el paso 4.5)
-    const { error: updateError } = await supabase
+    const { error: updateError } = await adminClient
       .from('purchase_orders')
       .update({
         status: 'enviada',
