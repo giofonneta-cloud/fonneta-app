@@ -10,17 +10,16 @@ import { X, FileDown, Send, Pencil, Loader2, Paperclip, Trash2 } from 'lucide-re
  * Retorna el Blob listo para enviar como FormData o descargar.
  */
 async function generatePdfBlob(html: string): Promise<Blob> {
-  // Dynamic import — html2pdf.js solo se carga cuando se necesita
   const html2pdf = (await import('html2pdf.js')).default;
 
-  // Crear un contenedor temporal invisible para renderizar el HTML
   const container = document.createElement('div');
   container.innerHTML = html;
-  // Necesitamos que esté en el DOM para que html2canvas lo pueda leer
-  container.style.position = 'absolute';
-  container.style.left = '-9999px';
-  container.style.top = '0';
-  container.style.width = '800px'; // Ancho similar al PDF A4
+  // position:fixed en el viewport (0,0) para que Chrome lo pinte.
+  // left:-9999px hace que Chrome omita el renderizado → PDF en blanco.
+  // z-index:55 lo deja detrás del modal de la OC (z-[60]) y del backdrop,
+  // por lo que el usuario nunca lo ve aunque esté en el viewport.
+  container.style.cssText =
+    'position:fixed;top:0;left:0;width:800px;z-index:55;pointer-events:none;background:white;';
   document.body.appendChild(container);
 
   try {
@@ -33,6 +32,8 @@ async function generatePdfBlob(html: string): Promise<Blob> {
           scale: 2,
           useCORS: true,
           logging: false,
+          scrollX: 0,
+          scrollY: 0,
         },
         jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
         pagebreak: { mode: ['css', 'legacy'] },
