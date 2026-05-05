@@ -8,6 +8,7 @@ export interface EmailAttachment {
 
 export interface EmailOptions {
   to: string | string[];
+  cc?: string | string[];
   subject: string;
   html: string;
   text?: string;
@@ -20,14 +21,24 @@ export class EmailService {
   private fromName: string;
 
   constructor() {
-    if (!process.env.SMTP_HOST || !process.env.SMTP_USER || !process.env.SMTP_PASSWORD) {
-      throw new Error('SMTP configuration environment variables are required');
+    const missing: string[] = [];
+    if (!process.env.SMTP_HOST) missing.push('SMTP_HOST');
+    if (!process.env.SMTP_USER) missing.push('SMTP_USER');
+    if (!process.env.SMTP_PASSWORD) missing.push('SMTP_PASSWORD');
+    if (missing.length > 0) {
+      throw new Error(
+        `SMTP configuration missing required environment variables: ${missing.join(', ')}`
+      );
     }
+
+    const port = parseInt(process.env.SMTP_PORT || '587');
+    // secure=true para puerto 465 (SSL), false para 587 (STARTTLS)
+    const secure = port === 465;
 
     this.transporter = nodemailer.createTransport({
       host: process.env.SMTP_HOST,
-      port: parseInt(process.env.SMTP_PORT || '587'),
-      secure: false, // true for 465, false for other ports
+      port,
+      secure,
       auth: {
         user: process.env.SMTP_USER,
         pass: process.env.SMTP_PASSWORD,
@@ -36,20 +47,33 @@ export class EmailService {
         // No fallar en certificados inválidos
         rejectUnauthorized: false,
       },
+      // Timeouts explícitos para evitar bloqueos en Lambda
+      connectionTimeout: 10_000,
+      greetingTimeout: 10_000,
+      socketTimeout: 20_000,
     });
 
-    this.fromEmail = process.env.NOTIFICATION_FROM_EMAIL || process.env.SMTP_USER;
+    this.fromEmail = process.env.NOTIFICATION_FROM_EMAIL || process.env.SMTP_USER!;
     this.fromName = process.env.NOTIFICATION_FROM_NAME || 'Fonneta';
+  }
+
+  /**
+   * Verifica que la conexión SMTP funcione. Útil para health checks.
+   */
+  async verify(): Promise<boolean> {
+    return await this.transporter.verify();
   }
 
   /**
    * Enviar email genérico
    */
   async sendEmail(options: EmailOptions): Promise<void> {
+    const start = Date.now();
     try {
-      await this.transporter.sendMail({
+      const info = await this.transporter.sendMail({
         from: `"${this.fromName}" <${this.fromEmail}>`,
         to: Array.isArray(options.to) ? options.to.join(', ') : options.to,
+        ...(options.cc ? { cc: Array.isArray(options.cc) ? options.cc.join(', ') : options.cc } : {}),
         subject: options.subject,
         text: options.text,
         html: options.html,
@@ -59,9 +83,28 @@ export class EmailService {
           contentType: a.contentType,
         })),
       });
-    } catch (error) {
-      console.error('Error sending email:', error);
-      throw new Error('Failed to send email');
+      console.log('[emailService] sendMail OK', {
+        messageId: info.messageId,
+        accepted: info.accepted,
+        rejected: info.rejected,
+        ms: Date.now() - start,
+      });
+    } catch (error: any) {
+      // Preserva el error original (code, response, command de nodemailer/SMTP)
+      console.error('[emailService] sendMail FAILED', {
+        ms: Date.now() - start,
+        code: error?.code,
+        command: error?.command,
+        response: error?.response,
+        responseCode: error?.responseCode,
+        message: error?.message,
+      });
+      const err = new Error(
+        `Email send failed: ${error?.code || ''} ${error?.message || 'unknown'} ${error?.response || ''}`.trim()
+      );
+      // Preserva el error original como cause para debug
+      (err as any).cause = error;
+      throw err;
     }
   }
 
@@ -423,6 +466,44 @@ export class EmailService {
   }
 
   /**
+   * Enviar enlace de recuperación de contraseña a un proveedor
+   */
+  async sendPasswordResetProvider(
+    providerEmail: string,
+    providerName: string,
+    resetLink: string
+  ): Promise<void> {
+    const html = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2 style="color: #2563eb;">Recuperación de Contraseña</h2>
+        <p>Hola <strong>${providerName}</strong>,</p>
+        <p>Recibimos una solicitud para restablecer la contraseña de tu cuenta en el portal de Fonneta.</p>
+        <p>Haz clic en el siguiente botón para crear una nueva contraseña:</p>
+        <p style="margin: 30px 0;">
+          <a href="${resetLink}"
+             style="display: inline-block; background-color: #2563eb; color: white; padding: 14px 28px; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 16px;">
+            Restablecer Contraseña
+          </a>
+        </p>
+        <p style="color: #6b7280; font-size: 14px;">
+          Si no solicitaste este cambio, puedes ignorar este correo. El enlace expira en 1 hora.
+        </p>
+        <hr style="border: 1px solid #e5e7eb; margin: 20px 0;">
+        <p style="color: #9ca3af; font-size: 12px;">
+          Este es un mensaje automático de Fonneta. Por favor no respondas a este correo.
+        </p>
+      </div>
+    `;
+
+    await this.sendEmail({
+      to: providerEmail,
+      subject: 'Recuperación de contraseña - Portal Fonneta',
+      html,
+      text: `Hola ${providerName}, haz clic en el siguiente enlace para restablecer tu contraseña: ${resetLink}. El enlace expira en 1 hora.`,
+    });
+  }
+
+  /**
    * Enviar orden de compra al proveedor
    */
   async sendPurchaseOrder(
@@ -431,7 +512,8 @@ export class EmailService {
     poNumber: string,
     total: number,
     documentUrl?: string,
-    attachments?: EmailAttachment[]
+    attachments?: EmailAttachment[],
+    ccEmail?: string
   ): Promise<void> {
     const formattedTotal = new Intl.NumberFormat('es-CO', {
       style: 'currency',
@@ -472,13 +554,14 @@ export class EmailService {
         <hr style="border: 1px solid #e5e7eb; margin: 20px 0;">
         <p style="color: #6b7280; font-size: 12px;">
           Fonneta Comunicaciones S.A.S. &middot; NIT 901.362.051-7<br>
-          Calle 93 No. 14-17 Of. 501, Bogota D.C. &middot; Tel: (601) 744 7677
+          Carrera 6 #123A-74, Bogota D.C. &middot; Cel: 318 254 4377
         </p>
       </div>
     `;
 
     await this.sendEmail({
       to: recipientEmail,
+      ...(ccEmail ? { cc: ccEmail } : {}),
       subject: `Orden de Compra ${poNumber} - Fonneta Comunicaciones`,
       html,
       text: `Estimado(a) ${recipientName}, Fonneta Comunicaciones S.A.S. ha emitido la orden de compra ${poNumber} por un total de ${formattedTotal}. La orden de compra se encuentra adjunta en formato PDF. ${documentUrl ? `Tambien puede verla en: ${documentUrl}` : ''} Por favor confirme la recepcion.`,

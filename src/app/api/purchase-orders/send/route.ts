@@ -107,8 +107,8 @@ function generatePoHtml(po: PurchaseOrder, providerName: string): string {
       <div class="company-info" style="margin-top: 8px;">
         Fonneta Comunicaciones S.A.S.<br/>
         NIT 901.362.051-7<br/>
-        Calle 93 No. 14-17 Of. 501, Bogota D.C.<br/>
-        Tel: (601) 744 7677
+        Carrera 6 #123A-74, Bogota D.C.<br/>
+        Cel: 318 254 4377
       </div>
     </div>
     <div style="text-align: right;">
@@ -132,12 +132,15 @@ function generatePoHtml(po: PurchaseOrder, providerName: string): string {
     </div>
   </div>
 
-  ${po.authorized_by || po.cost_center || po.transport ? `
   <div class="meta-grid" style="margin-bottom: 16px;">
     ${po.authorized_by ? `<div><p class="label">Autorizado por</p><p class="value">${po.authorized_by}</p></div>` : ''}
     ${po.cost_center ? `<div><p class="label">Centro de Costo</p><p class="value">${po.cost_center}</p></div>` : ''}
     ${po.transport ? `<div><p class="label">Transporte</p><p class="value">${po.transport}</p></div>` : ''}
-  </div>` : ''}
+    <div style="grid-column: 1 / -1;">
+      <p class="label">Forma de pago</p>
+      <p class="value">30 días calendario desde la radicación exitosa en Fonnetapp</p>
+    </div>
+  </div>
 
   <table>
     <thead>
@@ -181,6 +184,61 @@ function generatePoHtml(po: PurchaseOrder, providerName: string): string {
   <div class="footer">
     <p>Este documento fue generado automaticamente por Fonneta. OC ${po.po_number}</p>
   </div>
+
+  <!-- Página 2: Términos y Condiciones + Instrucciones de Facturación -->
+  <div style="page-break-before: always; max-width:800px; margin:0 auto; padding:40px; font-size:9px; line-height:1.5; color:#111827;">
+    <div style="text-align:center; margin-bottom:10px; padding-bottom:8px; border-bottom:2px solid #1d4ed8;">
+      <div style="font-size:11px; font-weight:800; color:#1d4ed8; text-transform:uppercase; letter-spacing:0.06em;">Términos y Condiciones Generales — Orden de Compra</div>
+      <div style="font-size:9px; color:#6b7280; margin-top:2px;">Fonneta Comunicaciones S.A.S. &middot; NIT 901.362.051-7</div>
+    </div>
+    <p style="margin-bottom:6px; color:#374151;">Las presentes Condiciones Generales serán aplicables a todas las Órdenes de Compra expedidas por <strong>Fonneta Comunicaciones S.A.S.</strong></p>
+
+    <div style="column-count:2; column-gap:16px; column-rule:1px solid #e5e7eb;">
+      <p style="margin:0 0 4px;"><strong style="color:#1d4ed8;">1. Definiciones.</strong> (i) <em>La Compañía:</em> Fonneta Comunicaciones S.A.S., persona jurídica contratante. (ii) <em>Proveedor:</em> persona natural o jurídica identificada como tal en la Orden de Compra. (iii) <em>Bienes:</em> elementos a adquirir según lo descrito en la OC y aceptado por la Compañía. (iv) <em>Servicios:</em> prestación a cargo del Proveedor según lo descrito en la OC y aceptado por la Compañía. (v) <em>Orden de Compra:</em> documento suscrito por representante autorizado de la Compañía, al cual se incorporan estas Condiciones Generales y la oferta del Proveedor.</p>
+
+      <p style="margin:0 0 4px;"><strong style="color:#1d4ed8;">2. Entrega de Bienes o Servicios.</strong> El Proveedor deberá entregar o prestar los Bienes o Servicios en las condiciones y especificaciones técnicas establecidas en la Orden de Compra, siendo de obligatorio cumplimiento al momento de su aceptación.</p>
+
+      <p style="margin:0 0 4px;"><strong style="color:#1d4ed8;">3. Precio y forma de pago.</strong> El valor es el expresamente establecido en la OC. La Compañía aplicará las retenciones o deducciones de ley. El pago está sujeto a la correcta y oportuna presentación de las facturas debidamente aprobadas por el representante de la Compañía.</p>
+
+      <p style="margin:0 0 4px;"><strong style="color:#1d4ed8;">4. Proveedor independiente.</strong> El Proveedor obra como contratista independiente, no como empleado, agente o representante de la Compañía. Actuará con plena autonomía profesional, técnica y administrativa.</p>
+
+      <p style="margin:0 0 4px;"><strong style="color:#1d4ed8;">5. Cesión y subcontratación.</strong> El Proveedor no podrá ceder ni subcontratar total o parcialmente la ejecución de la OC sin autorización previa y escrita de la Compañía.</p>
+
+      <p style="margin:0 0 4px;"><strong style="color:#1d4ed8;">6. Propiedad intelectual.</strong> Todos los derechos patrimoniales de autor, imagen o conexos derivados de obras, fonogramas, videogramas o transmisiones elaboradas en cumplimiento de esta OC (EL MATERIAL) son transferidos a la Compañía desde su creación. La Compañía tendrá derechos exclusivos de reproducción, distribución, transformación, comunicación pública, licenciamiento e importación/exportación a nivel mundial y por toda la vigencia de la protección. El Proveedor garantiza que posee todas las autorizaciones necesarias sobre obras preexistentes o propiedad industrial que incorpore, manteniendo a la Compañía indemne frente a cualquier reclamación de terceros.</p>
+
+      <p style="margin:0 0 4px;"><strong style="color:#1d4ed8;">7. Terminación.</strong> La OC termina por vencimiento del término o cumplimiento de su objeto. La Compañía podrá terminarla unilateralmente con 15 días de preaviso escrito, o de manera inmediata si el Proveedor: (a) suministra datos falsos; (b) es objeto de condena o investigación penal; (c) incurre en insolvencia; (d) incumple las obligaciones de la OC o la ley; (e) realiza actos ilícitos que afecten el buen nombre de la Compañía.</p>
+
+      <p style="margin:0 0 4px;"><strong style="color:#1d4ed8;">8. Indemnidad.</strong> Los daños causados por el Proveedor, su personal o subcontratistas a terceros o a la Compañía serán reconocidos y pagados por el Proveedor. Este se obliga a resarcir, defender y amparar a la Compañía de cualquier responsabilidad derivada de la OC, autorizando la retención de pagos pendientes para cubrir dichos valores.</p>
+
+      <p style="margin:0 0 4px;"><strong style="color:#1d4ed8;">9. Obligaciones del Proveedor.</strong> El Proveedor se compromete a: (a) Cumplir oportuna y eficientemente el objeto contratado. (b) Garantizar el cumplimiento de la normativa vigente. (c) Responder por fallas, faltantes y daños derivados de la prestación del servicio. (d) Asumir la defensa legal y costas en procesos judiciales originados en la ejecución de la OC. (e) Habeas data: autoriza a Fonneta Comunicaciones S.A.S. para consultar y reportar información en bases de datos de riesgo financiero, crediticio, LAFT y tratamiento de datos personales conforme a la política de la Compañía. (f) Declara bajo la gravedad de juramento que los recursos vinculados a esta OC son de origen lícito y no están relacionados con lavado de activos.</p>
+
+      <p style="margin:0 0 4px;"><strong style="color:#1d4ed8;">10. Confidencialidad.</strong> Toda información técnica, jurídica, financiera, comercial o estratégica de la Compañía y sus clientes que el Proveedor conozca en virtud de esta OC es confidencial. No podrá ser revelada a terceros ni usada para fines distintos a la ejecución de la OC, salvo orden de autoridad competente.</p>
+
+      <p style="margin:0 0 4px;"><strong style="color:#1d4ed8;">11. Actividad lícita y anticorrupción.</strong> El Proveedor declara que ni él ni sus socios, representantes o vinculados tienen relación con actividades prohibidas o delictivas. Conoce y adhiere al programa de transparencia y ética empresarial (PTEE) de la Compañía y a la política para la gestión del riesgo de corrupción, soborno, fraude y extorsión.</p>
+
+      <p style="margin:0 0 4px;"><strong style="color:#1d4ed8;">12. Territorio.</strong> El único territorio y jurisdicción aplicable a esta OC es la ciudad de Bogotá D.C., Colombia. El Proveedor renuncia a cualquier otro fuero determinado por factor de territorio.</p>
+
+      <p style="margin:0 0 4px;"><strong style="color:#1d4ed8;">13. Notificaciones.</strong> (a) Línea ética y denuncias: <strong>administrativo@fonneta.com</strong> (canal con garantía de reserva). (b) Asuntos legales: <strong>administrativo@fonneta.com</strong>.</p>
+
+      <p style="margin:0 0 4px;"><strong style="color:#1d4ed8;">14. Legalidad de herramientas, licencias y software.</strong> El Proveedor declara bajo la gravedad de juramento, en los términos del artículo 95 del Código de Procedimiento Civil y las Leyes 23 de 1982, 44 de 1993 y 603 de 2000, que la totalidad de herramientas, aplicaciones, plataformas, licencias y software utilizados para la prestación de los servicios objeto de la presente Orden de Compra han sido adquiridos, instalados y utilizados en estricto cumplimiento de la legislación colombiana vigente y de la Decisión Andina 351 de 1993. En consecuencia, el Proveedor se obliga a: (a) Acreditar, cuando La Compañía lo solicite y en el plazo que esta señale, los certificados de licenciamiento, contratos de uso o cualquier documentación que soporte la legalidad de las herramientas empleadas. (b) Responder de manera exclusiva y directa por cualquier reclamación, sanción, multa, proceso penal o perjuicio derivado del uso de software sin licencia, herramientas pirateadas o cuya utilización infrinja derechos de propiedad intelectual o industrial de terceros, incluyendo el pago de costas judiciales y honorarios de abogados. (c) Mantener indemne a La Compañía frente a toda acción judicial, administrativa o extrajudicial originada en el incumplimiento de esta obligación. El incumplimiento comprobado de la presente cláusula faculta a La Compañía para terminar de manera inmediata la Orden de Compra, sin perjuicio de las acciones civiles y penales a que haya lugar conforme al Código Penal colombiano (Ley 599 de 2000, art. 271 y ss.) y demás normas concordantes.</p>
+    </div>
+
+    <div style="margin-top:10px; padding-top:8px; border-top:2px solid #1d4ed8;">
+      <div style="font-size:10px; font-weight:800; color:#1d4ed8; text-transform:uppercase; letter-spacing:0.05em; margin-bottom:6px;">Instrucciones de Facturación y Radicación</div>
+      <div style="column-count:2; column-gap:16px;">
+        <div>
+          <p style="margin:0 0 3px;"><strong>Datos de facturación:</strong> Todo documento debe ser emitido a nombre de <strong>FONNETA COMUNICACIONES SAS</strong>, NIT <strong>901.362.051-7</strong>.</p>
+          <p style="margin:0 0 3px;"><strong>Requisitos del documento (Factura o Cuenta de Cobro):</strong> Debe incluir número de OC, descripción del servicio, valor total en números y letras, información bancaria completa y firma del emisor.</p>
+          <p style="margin:0;"><strong>Documentación soporte:</strong> Certificado de aportes a seguridad social del mes del servicio. Release firmado si fue solicitado.</p>
+        </div>
+        <div>
+          <p style="margin:0 0 3px;"><strong>Canal único de radicación:</strong> Exclusivamente a través de <strong>Fonnetapp</strong>. No se aceptan documentos por otros medios ni con información incompleta.</p>
+          <p style="margin:0 0 3px;"><strong>Condiciones de pago:</strong> 30 días calendario desde la radicación exitosa en la plataforma.</p>
+          <p style="margin:0;"><strong>Contacto:</strong> administrativo@fonneta.com</p>
+        </div>
+      </div>
+    </div>
+  </div>
 </body>
 </html>`;
 }
@@ -202,10 +260,16 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     let purchaseOrderId: string;
     const emailAttachments: EmailAttachment[] = [];
 
+    let ccEmail: string | undefined;
+
     const contentType = request.headers.get('content-type') ?? '';
     if (contentType.includes('multipart/form-data')) {
       const formData = await request.formData();
       purchaseOrderId = formData.get('purchaseOrderId') as string;
+      const rawCc = formData.get('ccEmail');
+      if (rawCc && typeof rawCc === 'string' && rawCc.trim()) {
+        ccEmail = rawCc.trim();
+      }
 
       const files = formData.getAll('attachments') as File[];
       for (const file of files) {
@@ -219,6 +283,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     } else {
       const body = await request.json();
       purchaseOrderId = body.purchaseOrderId;
+      if (body.ccEmail && typeof body.ccEmail === 'string' && body.ccEmail.trim()) {
+        ccEmail = body.ccEmail.trim();
+      }
     }
 
     if (!purchaseOrderId) {
@@ -251,26 +318,111 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       );
     }
 
+    // 4.5. Mutex atómico: reservar sent_at ANTES de generar el PDF
+    // Previene doble-envío si el usuario hace clic dos veces o hay reintento de red.
+    // Solo permite enviar si sent_at es null o lleva más de 10 segundos (suficiente para detectar dobles clics).
+    // Si el envío falla, hacemos rollback de sent_at a null para no dejar la OC bloqueada.
+    const SEND_COOLDOWN_MS = 10_000;
+    const cooldownCutoff = new Date(Date.now() - SEND_COOLDOWN_MS).toISOString();
+    const sentAtNow = new Date().toISOString();
+
+    const { data: lockData } = await supabase
+      .from('purchase_orders')
+      .update({ sent_at: sentAtNow, updated_at: sentAtNow })
+      .eq('id', purchaseOrderId)
+      .in('status', allowedStatuses)
+      .or(`sent_at.is.null,sent_at.lt.${cooldownCutoff}`)
+      .select('id, sent_at');
+
+    if (!lockData || lockData.length === 0) {
+      // Diagnóstico: verificar si el lock falló por estado o por sent_at reciente
+      const { data: currentPo } = await supabase
+        .from('purchase_orders')
+        .select('status, sent_at')
+        .eq('id', purchaseOrderId)
+        .single();
+      console.warn('[send-po] Lock denied', {
+        purchaseOrderId,
+        currentStatus: currentPo?.status,
+        currentSentAt: currentPo?.sent_at,
+        cooldownCutoff,
+      });
+      return NextResponse.json(
+        { error: 'La orden ya está siendo enviada. Espera unos segundos antes de reintentar.' },
+        { status: 429 }
+      );
+    }
+
+    // Captura el sent_at previo para hacer rollback si algo falla
+    const previousSentAt: string | null =
+      (po as PurchaseOrder).sent_at &&
+      (po as PurchaseOrder).sent_at !== sentAtNow
+        ? (po as PurchaseOrder).sent_at
+        : null;
+
+    // Helper para liberar el lock si el envío falla.
+    const releaseLock = async (reason: string) => {
+      try {
+        await supabase
+          .from('purchase_orders')
+          .update({ sent_at: previousSentAt, updated_at: new Date().toISOString() })
+          .eq('id', purchaseOrderId);
+        console.warn('[send-po] Lock released', { purchaseOrderId, reason });
+      } catch (releaseErr) {
+        console.error('[send-po] Failed to release lock', releaseErr);
+      }
+    };
+
     const purchaseOrder = po as PurchaseOrder;
     const providerName = purchaseOrder.providers?.business_name ?? 'Proveedor';
 
     // 5. Generar HTML del documento
-    const htmlContent = generatePoHtml(purchaseOrder, providerName);
+    let htmlContent: string;
+    try {
+      htmlContent = generatePoHtml(purchaseOrder, providerName);
+    } catch (htmlErr: any) {
+      await releaseLock(`generatePoHtml: ${htmlErr?.message}`);
+      console.error('[send-po] HTML generation failed', htmlErr);
+      return NextResponse.json(
+        { error: 'Error al generar el documento HTML de la orden' },
+        { status: 500 }
+      );
+    }
 
     // 6. Generar PDF desde el HTML
-    const pdfBuffer = await generatePdfFromHtml(htmlContent);
+    let pdfBuffer: Buffer;
     const pdfFilename = `OC_${purchaseOrder.po_number}.pdf`;
+    const pdfStart = Date.now();
+    try {
+      pdfBuffer = await generatePdfFromHtml(htmlContent);
+      console.log('[send-po] PDF generated', {
+        purchaseOrderId,
+        ms: Date.now() - pdfStart,
+        size: pdfBuffer.length,
+      });
+    } catch (pdfErr: any) {
+      await releaseLock(`generatePdfFromHtml: ${pdfErr?.message}`);
+      console.error('[send-po] PDF generation failed', {
+        purchaseOrderId,
+        ms: Date.now() - pdfStart,
+        error: pdfErr,
+      });
+      return NextResponse.json(
+        { error: `Error al generar el PDF: ${pdfErr?.message ?? 'desconocido'}` },
+        { status: 500 }
+      );
+    }
 
-    // 7. Adjuntar PDF al email
-    emailAttachments.push({
-      filename: pdfFilename,
-      content: pdfBuffer,
-      contentType: 'application/pdf',
-    });
+    // 7. Adjuntar PDF al email (siempre primero; filtrar duplicados del usuario con el mismo nombre)
+    const allAttachments: EmailAttachment[] = [
+      { filename: pdfFilename, content: pdfBuffer, contentType: 'application/pdf' },
+      ...emailAttachments.filter((a) => a.filename !== pdfFilename),
+    ];
 
     // 8. Subir PDF a Google Drive (no bloqueante)
     let documentUrl: string | undefined;
     if (purchaseOrder.provider_id) {
+      const driveStart = Date.now();
       try {
         const driveService = getDriveService();
         const folders = await driveService.getOrCreateProviderFolders(
@@ -284,35 +436,67 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
           folders.documentsFolder
         );
         documentUrl = result.webViewLink;
+        console.log('[send-po] Drive upload OK', {
+          purchaseOrderId,
+          ms: Date.now() - driveStart,
+        });
       } catch (driveErr) {
-        console.error('Drive upload failed (non-blocking):', driveErr);
+        console.error('[send-po] Drive upload failed (non-blocking)', {
+          purchaseOrderId,
+          ms: Date.now() - driveStart,
+          error: driveErr,
+        });
       }
     }
 
     // 9. Enviar email al proveedor con PDF adjunto
-    const emailService = getEmailService();
-    await emailService.sendPurchaseOrder(
-      purchaseOrder.recipient_email,
-      purchaseOrder.recipient_name,
-      purchaseOrder.po_number,
-      purchaseOrder.total,
-      documentUrl,
-      emailAttachments
-    );
+    const emailStart = Date.now();
+    try {
+      const emailService = getEmailService();
+      await emailService.sendPurchaseOrder(
+        purchaseOrder.recipient_email,
+        purchaseOrder.recipient_name,
+        purchaseOrder.po_number,
+        purchaseOrder.total,
+        documentUrl,
+        allAttachments,
+        ccEmail
+      );
+      console.log('[send-po] Email sent OK', {
+        purchaseOrderId,
+        recipient: purchaseOrder.recipient_email,
+        ccEmail,
+        ms: Date.now() - emailStart,
+      });
+    } catch (emailErr: any) {
+      await releaseLock(`emailService.sendPurchaseOrder: ${emailErr?.message}`);
+      console.error('[send-po] Email send failed', {
+        purchaseOrderId,
+        recipient: purchaseOrder.recipient_email,
+        ms: Date.now() - emailStart,
+        error: emailErr,
+      });
+      return NextResponse.json(
+        { error: `Error al enviar el correo: ${emailErr?.message ?? 'desconocido'}` },
+        { status: 500 }
+      );
+    }
 
-    // 10. Marcar OC como enviada
+    // 10. Marcar OC como enviada (sent_at ya fue establecido en el paso 4.5)
     const { error: updateError } = await supabase
       .from('purchase_orders')
       .update({
         status: 'enviada',
-        sent_at: new Date().toISOString(),
         ...(documentUrl ? { document_url: documentUrl } : {}),
         updated_at: new Date().toISOString(),
       })
       .eq('id', purchaseOrderId);
 
     if (updateError) {
-      console.error('Error updating purchase order status:', updateError);
+      console.error('[send-po] Error updating PO status', {
+        purchaseOrderId,
+        error: updateError,
+      });
       return NextResponse.json(
         { error: 'Error al actualizar el estado de la orden de compra' },
         { status: 500 }
@@ -322,7 +506,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     // 11. Respuesta exitosa
     return NextResponse.json({ success: true, documentUrl });
   } catch (error: any) {
-    console.error('Error sending purchase order:', error);
+    console.error('[send-po] Unhandled error', error);
     return NextResponse.json(
       { error: error?.message || 'Error interno del servidor detallado' },
       { status: 500 }
