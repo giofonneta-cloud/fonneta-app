@@ -27,6 +27,8 @@ export function PurchaseOrderPreview({ po, onClose, onEdit, onSent }: PurchaseOr
   const [attachments, setAttachments] = useState<File[]>([]);
   const [ccEmail, setCcEmail] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
+  // Guard sincrónico contra doble-clic. setState es async y no protege en clicks rápidos consecutivos.
+  const sendingRef = useRef(false);
 
   const items = po.items ?? [];
 
@@ -41,8 +43,12 @@ export function PurchaseOrderPreview({ po, onClose, onEdit, onSent }: PurchaseOr
   };
 
   const handleAddFiles = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files) {
-      setAttachments((prev) => [...prev, ...Array.from(e.target.files!)]);
+    if (e.target.files && e.target.files.length > 0) {
+      const newFiles = Array.from(e.target.files);
+      setAttachments((prev) => {
+        const existingNames = new Set(prev.map((f) => f.name));
+        return [...prev, ...newFiles.filter((f) => !existingNames.has(f.name))];
+      });
     }
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
@@ -52,7 +58,14 @@ export function PurchaseOrderPreview({ po, onClose, onEdit, onSent }: PurchaseOr
   };
 
   const handleSend = async () => {
+    // Guard sincrónico: rechaza inmediatamente si ya hay un envío en curso.
+    // setState(true) es async, así que clicks rápidos consecutivos antes del re-render
+    // pasarían el check `disabled={sending}`. useRef se actualiza sincrónicamente.
+    if (sendingRef.current) return;
+    sendingRef.current = true;
+
     if (!po.recipient_email) {
+      sendingRef.current = false;
       setSendError('No se ha especificado el email del destinatario');
       return;
     }
@@ -61,6 +74,7 @@ export function PurchaseOrderPreview({ po, onClose, onEdit, onSent }: PurchaseOr
     const MAX_MB = 20;
     const totalSize = attachments.reduce((sum, file) => sum + file.size, 0);
     if (totalSize > MAX_MB * 1024 * 1024) {
+      sendingRef.current = false;
       setSendError(`El tamaño total de los adjuntos excede los ${MAX_MB}MB permitidos por los servidores de correo.`);
       return;
     }
@@ -111,6 +125,7 @@ export function PurchaseOrderPreview({ po, onClose, onEdit, onSent }: PurchaseOr
       setSendError(err instanceof Error ? err.message : 'Error al enviar');
     } finally {
       setSending(false);
+      sendingRef.current = false;
     }
   };
 
@@ -146,8 +161,8 @@ export function PurchaseOrderPreview({ po, onClose, onEdit, onSent }: PurchaseOr
               <div>
                 <h2 className="text-xl font-black text-blue-700">FONNETA COMUNICACIONES S.A.S.</h2>
                 <p className="text-xs text-gray-500 mt-1">NIT 901.362.051-7</p>
-                <p className="text-xs text-gray-500">Calle 93 No. 14-17 Of. 501, Bogota D.C.</p>
-                <p className="text-xs text-gray-500">Tel: (601) 744 7677</p>
+                <p className="text-xs text-gray-500">Carrera 6 #123A-74, Bogota D.C.</p>
+                <p className="text-xs text-gray-500">Cel: 318 254 4377</p>
               </div>
             </div>
             <div className="text-right">
@@ -222,6 +237,11 @@ export function PurchaseOrderPreview({ po, onClose, onEdit, onSent }: PurchaseOr
                 <span className="font-medium">{po.transport}</span>
               </div>
             )}
+            <div className="col-span-2 bg-blue-50 border border-blue-200 rounded-lg px-3 py-2 mt-1">
+              <span className="text-blue-700 font-semibold text-xs uppercase tracking-wider">Condiciones de pago: </span>
+              <span className="font-semibold text-blue-900">30 días calendario</span>
+              <span className="text-blue-700 text-xs ml-1">desde la radicación exitosa en Fonnetapp</span>
+            </div>
           </div>
 
           {po.description && (
@@ -297,9 +317,9 @@ export function PurchaseOrderPreview({ po, onClose, onEdit, onSent }: PurchaseOr
 
             {/* Attachments */}
             <div>
-              <div className="flex items-center gap-2 mb-2">
+              <div className="flex items-center gap-2 mb-1">
                 <Paperclip className="w-4 h-4 text-gray-400" />
-                <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Adjuntos</span>
+                <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Adjuntos adicionales</span>
                 <button
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
@@ -316,6 +336,9 @@ export function PurchaseOrderPreview({ po, onClose, onEdit, onSent }: PurchaseOr
                   accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg"
                 />
               </div>
+              <p className="text-xs text-green-700 bg-green-50 rounded px-2 py-1 mb-2">
+                El PDF de la OC se adjunta automaticamente. Aqui puedes agregar documentos adicionales (contratos, anexos, etc.).
+              </p>
               {attachments.length > 0 ? (
                 <div className="space-y-1">
                   {attachments.map((file, idx) => (
@@ -334,7 +357,7 @@ export function PurchaseOrderPreview({ po, onClose, onEdit, onSent }: PurchaseOr
                   ))}
                 </div>
               ) : (
-                <p className="text-xs text-gray-400">Sin archivos adjuntos. Puedes agregar PDFs, documentos o imagenes.</p>
+                <p className="text-xs text-gray-400">Sin documentos adicionales. Puedes agregar contratos, anexos u otros archivos.</p>
               )}
             </div>
           </div>
@@ -420,6 +443,7 @@ function buildPrintHTML(po: PurchaseOrder, items: PurchaseOrderItem[]): string {
     po.cost_center ? `<tr><td style="padding:4px 0; color:#6b7280;">Centro de costo:</td><td style="padding:4px 0;">${po.cost_center}</td></tr>` : '',
     po.project_name ? `<tr><td style="padding:4px 0; color:#6b7280;">Proyecto:</td><td style="padding:4px 0;">${po.project_name}</td></tr>` : '',
     po.transport ? `<tr><td style="padding:4px 0; color:#6b7280;">Transporte:</td><td style="padding:4px 0;">${po.transport}</td></tr>` : '',
+    `<tr><td style="padding:4px 0; color:#6b7280; width:140px;">Forma de pago:</td><td style="padding:4px 0; font-weight:600; color:#1d4ed8;">30 días calendario desde la radicación exitosa en Fonnetapp</td></tr>`,
   ].filter(Boolean).join('');
 
   return `<!DOCTYPE html>
@@ -463,8 +487,8 @@ function buildPrintHTML(po: PurchaseOrder, items: PurchaseOrderItem[]): string {
         <div>
           <div class="company-name">FONNETA COMUNICACIONES S.A.S.</div>
           <div class="company-info">NIT 901.362.051-7</div>
-          <div class="company-info">Calle 93 No. 14-17 Of. 501, Bogota D.C.</div>
-          <div class="company-info">Tel: (601) 744 7677</div>
+          <div class="company-info">Carrera 6 #123A-74, Bogota D.C.</div>
+          <div class="company-info">Cel: 318 254 4377</div>
         </div>
       </div>
       <div style="text-align:right;">
