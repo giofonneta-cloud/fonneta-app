@@ -13,11 +13,15 @@ export async function generatePdfFromHtml(html: string): Promise<Buffer> {
   let headless: boolean | 'shell' = true;
 
   if (isProduction) {
-    // Vercel serverless — use @sparticuz/chromium (binary bundled, no external download)
-    const chromium = (await import('@sparticuz/chromium')).default;
+    // Vercel serverless — use @sparticuz/chromium-min (binario descargado desde URL)
+    // El paquete chromium regular falla en Vercel por archivos brotli faltantes (commit 2d5a32e).
+    // chromium-min descarga el tarball en runtime desde GitHub releases.
+    const chromium = (await import('@sparticuz/chromium-min')).default;
     // Deshabilita stack de gráficos/WebGL — no lo necesitamos para PDFs y reduce tiempo de arranque
     chromium.setGraphicsMode = false;
-    executablePath = await chromium.executablePath();
+    executablePath = await chromium.executablePath(
+      'https://github.com/Sparticuz/chromium/releases/download/v135.0.0/chromium-v135.0.0-pack.tar'
+    );
     args = chromium.args;
     headless = true;
   } else {
