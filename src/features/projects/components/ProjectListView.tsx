@@ -7,6 +7,7 @@ import { ProjectTable } from './ProjectTable';
 import { ProjectForm } from './ProjectForm';
 import { ProjectDetailPanel } from './ProjectDetailPanel';
 import type { Project } from '../types/project.types';
+import { projectService } from '../services/projectService';
 import { LayoutGrid, List, Plus, Search, Filter } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -20,9 +21,10 @@ type ViewMode = 'table' | 'kanban' | 'calendar' | 'gantt';
 export function ProjectListView() {
     const [viewMode, setViewMode] = useState<ViewMode>('kanban');
     const [isFormOpen, setIsFormOpen] = useState(false);
+    const [editingProject, setEditingProject] = useState<Project | null>(null);
     const [selectedProject, setSelectedProject] = useState<Project | null>(null);
     const [isDetailPanelOpen, setIsDetailPanelOpen] = useState(false);
-    const { projects, isLoading, updateStatus, createProject, applyFilters, filters } = useProjects();
+    const { projects, isLoading, updateStatus, createProject, applyFilters, filters, refresh } = useProjects();
 
     const handleProjectClick = (project: Project) => {
         setSelectedProject(project);
@@ -31,8 +33,27 @@ export function ProjectListView() {
 
     const handleCloseDetailPanel = () => {
         setIsDetailPanelOpen(false);
-        // Wait for animation to complete before clearing project
         setTimeout(() => setSelectedProject(null), 300);
+    };
+
+    const handleEditProject = () => {
+        if (selectedProject) {
+            setEditingProject(selectedProject);
+            setIsDetailPanelOpen(false);
+        }
+    };
+
+    const handleUpdateProject = async (id: string, data: Partial<Project>) => {
+        const updated = await projectService.updateProject(id, data);
+        refresh();
+        setSelectedProject(updated);
+        setEditingProject(null);
+        setIsDetailPanelOpen(true);
+    };
+
+    const handleCloseEditForm = () => {
+        setEditingProject(null);
+        if (selectedProject) setIsDetailPanelOpen(true);
     };
 
     return (
@@ -130,11 +151,21 @@ export function ProjectListView() {
                 />
             )}
 
+            {editingProject && (
+                <ProjectForm
+                    initialData={editingProject}
+                    onClose={handleCloseEditForm}
+                    onSubmit={createProject}
+                    onUpdate={handleUpdateProject}
+                />
+            )}
+
             {/* Project Detail Panel */}
             <ProjectDetailPanel
                 project={selectedProject}
                 isOpen={isDetailPanelOpen}
                 onClose={handleCloseDetailPanel}
+                onEdit={handleEditProject}
             />
         </div>
     );

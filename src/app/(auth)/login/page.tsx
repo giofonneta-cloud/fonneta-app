@@ -9,16 +9,16 @@ export default function LoginPage() {
           <div className="w-20 h-20 mx-auto mb-6 flex items-center justify-center">
             <img src="/logo.png" alt="Fonnetapp Logo" className="w-full h-full object-contain" />
           </div>
-          <h1 className="text-3xl font-bold">Welcome back</h1>
-          <p className="mt-2 text-gray-600">Sign in to your account</p>
+          <h1 className="text-3xl font-bold">Bienvenido</h1>
+          <p className="mt-2 text-gray-600">Ingresa con tu correo electrónico y contraseña</p>
         </div>
 
         <LoginForm />
 
         <p className="text-center text-sm text-gray-600">
-          Don't have an account?{' '}
-          <Link href="/signup" className="text-blue-600 hover:underline">
-            Sign up
+          ¿Eres proveedor y no tienes acceso?{' '}
+          <Link href="/register/provider" className="text-blue-600 hover:underline">
+            Regístrate aquí
           </Link>
         </p>
       </div>

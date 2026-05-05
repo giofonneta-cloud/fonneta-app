@@ -1,9 +1,49 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useCallback } from 'react';
 import type { PurchaseOrder, PurchaseOrderItem } from '../types/purchase-order.types';
 import { PO_STATUS_LABELS, PO_STATUS_COLORS } from '../types/purchase-order.types';
 import { X, FileDown, Send, Pencil, Loader2, Paperclip, Trash2 } from 'lucide-react';
+
+/**
+ * Genera un Blob PDF desde el HTML de la OC usando html2pdf.js (client-side).
+ * Retorna el Blob listo para enviar como FormData o descargar.
+ */
+async function generatePdfBlob(html: string): Promise<Blob> {
+  // Dynamic import — html2pdf.js solo se carga cuando se necesita
+  const html2pdf = (await import('html2pdf.js')).default;
+
+  // Crear un contenedor temporal invisible para renderizar el HTML
+  const container = document.createElement('div');
+  container.innerHTML = html;
+  // Necesitamos que esté en el DOM para que html2canvas lo pueda leer
+  container.style.position = 'absolute';
+  container.style.left = '-9999px';
+  container.style.top = '0';
+  container.style.width = '800px'; // Ancho similar al PDF A4
+  document.body.appendChild(container);
+
+  try {
+    const blob: Blob = await html2pdf()
+      .set({
+        margin: [10, 10, 10, 10],
+        filename: 'oc.pdf',
+        image: { type: 'jpeg', quality: 0.95 },
+        html2canvas: {
+          scale: 2,
+          useCORS: true,
+          logging: false,
+        },
+        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+        pagebreak: { mode: ['css', 'legacy'] },
+      })
+      .from(container)
+      .outputPdf('blob');
+    return blob;
+  } finally {
+    document.body.removeChild(container);
+  }
+}
 
 interface PurchaseOrderPreviewProps {
   po: PurchaseOrder;
@@ -32,15 +72,28 @@ export function PurchaseOrderPreview({ po, onClose, onEdit, onSent }: PurchaseOr
 
   const items = po.items ?? [];
 
-  const handleDownloadPDF = () => {
-    const html = buildPrintHTML(po, items);
-    const printWindow = window.open('', '_blank', 'width=900,height=700');
-    if (printWindow) {
-      printWindow.document.write(html);
-      printWindow.document.close();
-      printWindow.onload = () => printWindow.print();
+  const [downloading, setDownloading] = useState(false);
+
+  const handleDownloadPDF = useCallback(async () => {
+    if (downloading) return;
+    setDownloading(true);
+    try {
+      const html = buildPrintHTML(po, items);
+      const blob = await generatePdfBlob(html);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `OC_${po.po_number}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('Error descargando PDF:', err);
+    } finally {
+      setDownloading(false);
     }
-  };
+  }, [po, items, downloading]);
 
   const handleAddFiles = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
@@ -59,8 +112,6 @@ export function PurchaseOrderPreview({ po, onClose, onEdit, onSent }: PurchaseOr
 
   const handleSend = async () => {
     // Guard sincrónico: rechaza inmediatamente si ya hay un envío en curso.
-    // setState(true) es async, así que clicks rápidos consecutivos antes del re-render
-    // pasarían el check `disabled={sending}`. useRef se actualiza sincrónicamente.
     if (sendingRef.current) return;
     sendingRef.current = true;
 
@@ -83,27 +134,26 @@ export function PurchaseOrderPreview({ po, onClose, onEdit, onSent }: PurchaseOr
     setSendError(null);
 
     try {
-      let res: Response;
+      // 1. Generar el PDF en el navegador
+      const html = buildPrintHTML(po, items);
+      const pdfBlob = await generatePdfBlob(html);
+      const pdfFile = new File([pdfBlob], `OC_${po.po_number}.pdf`, {
+        type: 'application/pdf',
+      });
 
-      if (attachments.length > 0) {
-        const formData = new FormData();
-        formData.append('purchaseOrderId', po.id);
-        if (ccEmail.trim()) formData.append('ccEmail', ccEmail.trim());
-        attachments.forEach((file) => formData.append('attachments', file));
-        res = await fetch('/api/purchase-orders/send', {
-          method: 'POST',
-          body: formData,
-        });
-      } else {
-        res = await fetch('/api/purchase-orders/send', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ purchaseOrderId: po.id, ...(ccEmail.trim() ? { ccEmail: ccEmail.trim() } : {}) }),
-        });
-      }
+      // 2. Enviar como FormData (siempre multipart, con PDF incluido)
+      const formData = new FormData();
+      formData.append('purchaseOrderId', po.id);
+      formData.append('pdfFile', pdfFile);
+      if (ccEmail.trim()) formData.append('ccEmail', ccEmail.trim());
+      attachments.forEach((file) => formData.append('attachments', file));
+
+      const res = await fetch('/api/purchase-orders/send', {
+        method: 'POST',
+        body: formData,
+      });
 
       if (!res.ok) {
-        // Handle 413 Request Entity Too Large or non-JSON responses
         if (res.status === 413) {
           throw new Error('Los archivos adjuntos son demasiado pesados para el servidor.');
         }
@@ -112,10 +162,9 @@ export function PurchaseOrderPreview({ po, onClose, onEdit, onSent }: PurchaseOr
         try {
           const data = await res.json();
           errorMsg = data.error || errorMsg;
-        } catch (parseErr) {
-          // If the server returned HTML or plain text (not JSON)
+        } catch {
           const text = await res.text();
-          if (text) errorMsg = text.substring(0, 100); // Limit length of raw text
+          if (text) errorMsg = text.substring(0, 100);
         }
         throw new Error(errorMsg);
       }
@@ -390,10 +439,11 @@ export function PurchaseOrderPreview({ po, onClose, onEdit, onSent }: PurchaseOr
             )}
             <button
               onClick={handleDownloadPDF}
-              className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-100 transition-colors"
+              disabled={downloading}
+              className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-100 transition-colors disabled:opacity-50"
             >
-              <FileDown className="w-4 h-4" />
-              Descargar PDF
+              {downloading ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileDown className="w-4 h-4" />}
+              {downloading ? 'Generando...' : 'Descargar PDF'}
             </button>
             {(po.status === 'borrador' || po.status === 'enviada') && (
               <button

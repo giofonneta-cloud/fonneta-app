@@ -2,32 +2,36 @@
 
 import { useState, useEffect } from 'react';
 import { Project, ProjectStatus } from '../types/project.types';
-import { X, Save, FileText, DollarSign, Image as ImageIcon, User, Plus, Check, Briefcase, LayoutGrid } from 'lucide-react';
+import { X, Save, FileText, DollarSign, Image as ImageIcon, User, Plus, Check, Briefcase, LayoutGrid, Pencil } from 'lucide-react';
 import { supabase } from '@/shared/lib/supabase';
 
 interface ProjectFormProps {
     onClose: () => void;
     onSubmit: (project: Omit<Project, 'id' | 'created_at' | 'updated_at'>) => Promise<any>;
+    initialData?: Project;
+    onUpdate?: (id: string, data: Partial<Project>) => Promise<any>;
 }
 
-export function ProjectForm({ onClose, onSubmit }: ProjectFormProps) {
+export function ProjectForm({ onClose, onSubmit, initialData, onUpdate }: ProjectFormProps) {
+    const isEditing = !!initialData;
+
     const [formData, setFormData] = useState({
-        name: '',
-        client: '',
-        client_id: null as string | null,
-        service_type: '',
-        status: 'brief' as ProjectStatus,
-        quotation_number: '',
-        items_description: '',
-        net_value: 0,
-        total_value_with_tax: 0,
-        product_image_url: '',
-        line_of_business: '',
-        brand: '',
-        product_name: '',
-        budget_income_currency: 'COP',
-        budget_expense_currency: 'COP',
-        cost_center: '',
+        name: initialData?.name || '',
+        client: initialData?.client || '',
+        client_id: initialData?.client_id || null as string | null,
+        service_type: initialData?.service_type || '',
+        status: (initialData?.status || 'brief') as ProjectStatus,
+        quotation_number: initialData?.quotation_number || '',
+        items_description: initialData?.items_description || '',
+        net_value: initialData?.net_value || 0,
+        total_value_with_tax: initialData?.total_value_with_tax || 0,
+        product_image_url: initialData?.product_image_url || '',
+        line_of_business: initialData?.line_of_business || '',
+        brand: initialData?.brand || '',
+        product_name: initialData?.product_name || '',
+        budget_income_currency: initialData?.budget_income_currency || 'COP',
+        budget_expense_currency: initialData?.budget_expense_currency || 'COP',
+        cost_center: initialData?.cost_center || '',
     });
 
     const [clients, setClients] = useState<any[]>([]);
@@ -95,26 +99,33 @@ export function ProjectForm({ onClose, onSubmit }: ProjectFormProps) {
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setIsSubmitting(true);
-        console.log("🚀 Submitting project with data:", formData);
 
         try {
             const projectName = formData.name || `${formData.line_of_business} - ${formData.brand} - ${formData.product_name}`;
 
-            await onSubmit({
-                ...formData,
-                name: projectName,
-                budget_income: formData.total_value_with_tax,
-                budget_expense: formData.net_value * 0.7,
-                start_date: new Date().toISOString(),
-                deadline: null,
-                pm_id: null,
-                cost_center: formData.cost_center,
-            });
+            if (isEditing && initialData && onUpdate) {
+                await onUpdate(initialData.id, {
+                    ...formData,
+                    name: projectName,
+                    budget_income: formData.total_value_with_tax,
+                    budget_expense: formData.net_value * 0.7,
+                    cost_center: formData.cost_center,
+                });
+            } else {
+                await onSubmit({
+                    ...formData,
+                    name: projectName,
+                    budget_income: formData.total_value_with_tax,
+                    budget_expense: formData.net_value * 0.7,
+                    start_date: new Date().toISOString(),
+                    deadline: null,
+                    pm_id: null,
+                    cost_center: formData.cost_center,
+                });
+            }
             onClose();
         } catch (error: any) {
-            console.error('❌ Error creating project:', error);
-            console.error('Error details:', JSON.stringify(error, null, 2));
-            alert(`Error al crear proyecto: ${error.message || JSON.stringify(error)}`);
+            alert(`Error al ${isEditing ? 'actualizar' : 'crear'} proyecto: ${error.message || JSON.stringify(error)}`);
         } finally {
             setIsSubmitting(false);
         }
@@ -129,11 +140,13 @@ export function ProjectForm({ onClose, onSubmit }: ProjectFormProps) {
                     <div>
                         <h2 className="text-2xl font-black text-gray-900 tracking-tight flex items-center gap-3">
                             <div className="p-2 bg-blue-600 rounded-xl text-white shadow-lg shadow-blue-200">
-                                <Plus className="w-5 h-5" />
+                                {isEditing ? <Pencil className="w-5 h-5" /> : <Plus className="w-5 h-5" />}
                             </div>
-                            Nuevo Proyecto
+                            {isEditing ? 'Editar Proyecto' : 'Nuevo Proyecto'}
                         </h2>
-                        <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mt-1 ml-12">Configuración Inicial & Presupuesto</p>
+                        <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mt-1 ml-12">
+                            {isEditing ? 'Modifica los datos del proyecto' : 'Configuración Inicial & Presupuesto'}
+                        </p>
                     </div>
                     <button onClick={onClose} className="p-2 hover:bg-white rounded-xl transition-colors text-gray-400 hover:text-gray-600 border border-transparent hover:border-gray-200">
                         <X className="w-6 h-6" />
@@ -165,6 +178,7 @@ export function ProjectForm({ onClose, onSubmit }: ProjectFormProps) {
                                                 onChange={e => setFormData({ ...formData, line_of_business: e.target.value })}
                                             >
                                                 <option value="">SELECCIONAR...</option>
+                                                <option value="GENERAL">GENERAL</option>
                                                 <option value="REVISTAS">REVISTAS</option>
                                                 <option value="EVENTOS">EVENTOS</option>
                                                 <option value="DIGITAL">DIGITAL</option>
@@ -411,7 +425,7 @@ export function ProjectForm({ onClose, onSubmit }: ProjectFormProps) {
                         className="bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white px-8 py-3 rounded-xl font-bold text-sm transition-all shadow-lg shadow-blue-200 hover:shadow-xl hover:translate-y-[-1px] active:translate-y-0 flex items-center justify-center gap-2 uppercase tracking-wide"
                     >
                         {isSubmitting ? <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <Save className="w-5 h-5" />}
-                        Crear Proyecto
+                        {isEditing ? 'Guardar Cambios' : 'Crear Proyecto'}
                     </button>
                 </div>
             </div>

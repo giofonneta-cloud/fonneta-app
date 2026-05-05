@@ -39,6 +39,7 @@ export function DashboardSidebar() {
     };
 
     const isAdmin = profile?.role === 'admin';
+    const isAdministrativo = profile?.role === 'administrativo';
 
     return (
         <aside className="w-64 h-screen bg-white border-r border-gray-100 flex flex-col fixed left-0 top-0">
@@ -65,17 +66,26 @@ export function DashboardSidebar() {
                         {item.label}
                     </Link>
                 ))}
-                {isAdmin && (
+                {(isAdmin || isAdministrativo) && (
                     <div className="mt-4 pt-4 border-t border-gray-50">
                         <div className="text-xs font-semibold text-gray-400 uppercase tracking-wider px-4 mb-2">
                             Administración
                         </div>
+                        {isAdmin && (
+                            <Link
+                                href="/dashboard/admin"
+                                className="flex items-center gap-3 px-4 py-3 text-gray-500 hover:bg-orange-50 hover:text-orange-600 rounded-xl transition-all font-bold text-sm"
+                            >
+                                <ShieldCheck className="w-5 h-5" />
+                                Panel Admin
+                            </Link>
+                        )}
                         <Link
-                            href="/dashboard/admin"
-                            className="flex items-center gap-3 px-4 py-3 text-gray-500 hover:bg-orange-50 hover:text-orange-600 rounded-xl transition-all font-bold text-sm"
+                            href="/dashboard/admin/parametros"
+                            className="flex items-center gap-3 px-4 py-3 text-gray-500 hover:bg-blue-50 hover:text-blue-600 rounded-xl transition-all font-bold text-sm"
                         >
-                            <ShieldCheck className="w-5 h-5" />
-                            Panel Admin
+                            <Settings className="w-5 h-5" />
+                            Parámetros
                         </Link>
                     </div>
                 )}

@@ -19,16 +19,8 @@ import { projectService } from '@/features/projects/services/projectService';
 import { useAuthStore } from '@/features/auth/store/authStore';
 import { Provider } from '@/features/providers/types/provider.types';
 import { Project } from '@/features/projects/types/project.types';
-import { EXPENSE_CATEGORIES } from '@/shared/constants/expenses';
 import { GastoExtendido } from '../types/sales-expenses.types';
-
-
-const PAY_METHODS = [
-    { value: "transferencia", label: "TRANSFERENCIA" },
-    { value: "tarjeta_credito", label: "TARJETA DE CRÉDITO" },
-    { value: "canje", label: "CANJE" },
-    { value: "efectivo", label: "EFECTIVO" },
-];
+import { useParametros } from '@/features/admin/hooks/useParametros';
 
 const expenseFormSchema = z.object({
     proveedor_id: z.string().min(1, "Selecciona un proveedor"),
@@ -74,6 +66,20 @@ export function ExpenseForm({ onSuccess, onCancel, initialProjectId, initialClie
     const [providers, setProviders] = useState<Provider[]>([]);
     const [projects, setProjects] = useState<Project[]>([]);
     const [providerSearch, setProviderSearch] = useState('');
+    const { opciones: categoriasGasto } = useParametros('categorias_gasto');
+    const { opciones: centrosCosto } = useParametros('centros_costo');
+    const { opciones: formasPago } = useParametros('formas_pago');
+    const { opciones: plazosPagoGastos } = useParametros('plazos_pago_gastos');
+
+    // Agrupar categorías por grupo
+    const categoriasAgrupadas = React.useMemo(() => {
+        return categoriasGasto.reduce<Record<string, typeof categoriasGasto>>((acc, cat) => {
+            const g = cat.grupo ?? 'General';
+            if (!acc[g]) acc[g] = [];
+            acc[g].push(cat);
+            return acc;
+        }, {});
+    }, [categoriasGasto]);
 
     useEffect(() => {
         // Fetch providers (is_provider=true) and projects
@@ -444,14 +450,14 @@ export function ExpenseForm({ onSuccess, onCancel, initialProjectId, initialClie
                                                 <Select onValueChange={field.onChange} defaultValue={field.value}>
                                                     <FormControl><SelectTrigger><SelectValue placeholder="Selecciona..." /></SelectTrigger></FormControl>
                                                     <SelectContent>
-                                                        {EXPENSE_CATEGORIES.map((group) => (
-                                                            <React.Fragment key={group.label}>
+                                                        {Object.entries(categoriasAgrupadas).map(([grupo, opts]) => (
+                                                            <React.Fragment key={grupo}>
                                                                 <div className="px-2 py-1.5 text-xs font-bold text-slate-400 bg-slate-50 uppercase tracking-tighter">
-                                                                    {group.label}
+                                                                    {grupo}
                                                                 </div>
-                                                                {group.options.map((opt) => (
-                                                                    <SelectItem key={opt.value} value={opt.value}>
-                                                                        {opt.label}
+                                                                {opts.map((opt) => (
+                                                                    <SelectItem key={opt.valor} value={opt.valor}>
+                                                                        {opt.etiqueta}
                                                                     </SelectItem>
                                                                 ))}
                                                             </React.Fragment>
@@ -471,11 +477,9 @@ export function ExpenseForm({ onSuccess, onCancel, initialProjectId, initialClie
                                                 <Select onValueChange={field.onChange} defaultValue={field.value}>
                                                     <FormControl><SelectTrigger><SelectValue placeholder="Selecciona..." /></SelectTrigger></FormControl>
                                                     <SelectContent>
-                                                        <SelectItem value="FUSCIA">FUSCIA</SelectItem>
-                                                        <SelectItem value="SOHO">SOHO</SelectItem>
-                                                        <SelectItem value="MONICA J">MONICA J</SelectItem>
-                                                        <SelectItem value="FONNETA">FONNETA</SelectItem>
-                                                        <SelectItem value="CLUB INDOMITAS">CLUB INDOMITAS</SelectItem>
+                                                        {centrosCosto.map(o => (
+                                                            <SelectItem key={o.valor} value={o.etiqueta}>{o.etiqueta}</SelectItem>
+                                                        ))}
                                                     </SelectContent>
                                                 </Select>
                                                 <FormMessage />
@@ -540,11 +544,9 @@ export function ExpenseForm({ onSuccess, onCancel, initialProjectId, initialClie
                                                 <Select onValueChange={field.onChange} defaultValue={field.value}>
                                                     <FormControl><SelectTrigger className="bg-white text-xs"><SelectValue placeholder="Días..." /></SelectTrigger></FormControl>
                                                     <SelectContent>
-                                                        <SelectItem value="0">Inmediato</SelectItem>
-                                                        <SelectItem value="15">15 días</SelectItem>
-                                                        <SelectItem value="30">30 días</SelectItem>
-                                                        <SelectItem value="45">45 días</SelectItem>
-                                                        <SelectItem value="60">60 días</SelectItem>
+                                                        {plazosPagoGastos.map(o => (
+                                                            <SelectItem key={o.valor} value={o.valor}>{o.etiqueta}</SelectItem>
+                                                        ))}
                                                     </SelectContent>
                                                 </Select>
                                             </FormItem>
@@ -602,10 +604,8 @@ export function ExpenseForm({ onSuccess, onCancel, initialProjectId, initialClie
                                             <Select onValueChange={field.onChange} defaultValue={field.value}>
                                                 <FormControl><SelectTrigger className="w-full md:w-[300px] bg-white"><SelectValue placeholder="Selecciona..." /></SelectTrigger></FormControl>
                                                 <SelectContent>
-                                                    {PAY_METHODS.map((method) => (
-                                                        <SelectItem key={method.value} value={method.value}>
-                                                            {method.label}
-                                                        </SelectItem>
+                                                    {formasPago.map(o => (
+                                                        <SelectItem key={o.valor} value={o.valor}>{o.etiqueta}</SelectItem>
                                                     ))}
                                                 </SelectContent>
                                             </Select>

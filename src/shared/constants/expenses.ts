@@ -47,6 +47,7 @@ export const EXPENSE_CATEGORIES = [
             { value: "fijo_alimentacion", label: "Alimentación" },
             { value: "fijo_servicios", label: "Servicios TIC" },
             { value: "fijo_logistica", label: "Logística" },
+            { value: "fijo_servicios_admin", label: "Servicios Administrativos" },
         ]
     }
 ];

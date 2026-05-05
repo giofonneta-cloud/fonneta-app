@@ -1,5 +1,5 @@
 import { supabase } from '@/shared/lib/supabase';
-import { Provider, ProviderDocument, CreateProviderInput } from '../types/provider.types';
+import { Provider, ProviderDocument, CreateProviderInput, ProviderPurchaseOrder } from '../types/provider.types';
 
 export const providerService = {
     async createProvider(input: CreateProviderInput) {
@@ -53,15 +53,37 @@ export const providerService = {
         return data as Provider[];
     },
 
-    async getProviderByUserId(userId: string) {
+    async getProviderByUserId(userId: string, userEmail?: string) {
+        // Primero buscar por user_id
         const { data, error } = await supabase
             .from('providers')
             .select('*')
             .eq('user_id', userId)
-            .single();
+            .maybeSingle();
+
+        if (data) return data as Provider;
+
+        // Fallback: buscar por contact_email (proveedores agregados manualmente)
+        if (userEmail) {
+            const { data: byEmail, error: emailError } = await supabase
+                .from('providers')
+                .select('*')
+                .eq('contact_email', userEmail)
+                .maybeSingle();
+
+            if (byEmail) {
+                // Enlazar user_id para futuros logins
+                await supabase
+                    .from('providers')
+                    .update({ user_id: userId })
+                    .eq('id', byEmail.id);
+                return byEmail as Provider;
+            }
+            if (emailError) throw emailError;
+        }
 
         if (error) throw error;
-        return data as Provider;
+        throw new Error('No se encontró un perfil de proveedor asociado a este usuario.');
     },
 
     async updateProvider(id: string, input: Partial<CreateProviderInput>) {
@@ -121,5 +143,28 @@ export const providerService = {
 
         if (error) throw error;
         return data as ProviderDocument[];
-    }
+    },
+
+    async getProviderPurchaseOrders(providerId: string): Promise<ProviderPurchaseOrder[]> {
+        const { data, error } = await supabase
+            .from('purchase_orders')
+            .select('*, purchase_order_items(*)')
+            .eq('provider_id', providerId)
+            .in('status', ['enviada', 'aceptada', 'completada', 'cancelada'])
+            .order('created_at', { ascending: false });
+
+        if (error) throw error;
+        return (data ?? []) as ProviderPurchaseOrder[];
+    },
+
+    async getPendingPurchaseOrdersCount(providerId: string): Promise<number> {
+        const { count, error } = await supabase
+            .from('purchase_orders')
+            .select('id', { count: 'exact', head: true })
+            .eq('provider_id', providerId)
+            .eq('status', 'enviada');
+
+        if (error) return 0;
+        return count ?? 0;
+    },
 };

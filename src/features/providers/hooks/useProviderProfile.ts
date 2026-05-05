@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useAuthStore } from '@/features/auth/store/authStore';
+import { createClient } from '@/lib/supabase/client';
 import { providerService } from '../services/providerService';
 import { providerInvoiceService } from '../services/providerInvoiceService';
 import { Provider } from '../types/provider.types';
@@ -11,10 +11,10 @@ interface ProviderStats {
     pending_invoices: number;
     total_invoiced_month: number;
     total_invoiced_year: number;
+    pending_purchase_orders: number;
 }
 
 export function useProviderProfile() {
-    const { profile } = useAuthStore();
     const [provider, setProvider] = useState<Provider | null>(null);
     const [stats, setStats] = useState<ProviderStats | null>(null);
     const [isLoading, setIsLoading] = useState(true);
@@ -22,17 +22,21 @@ export function useProviderProfile() {
 
     useEffect(() => {
         const fetchProviderData = async () => {
-            if (!profile?.id) {
-                setIsLoading(false);
-                return;
-            }
-
             try {
                 setIsLoading(true);
                 setError(null);
 
-                // 1. Obtener datos del proveedor
-                const providerData = await providerService.getProviderByUserId(profile.id);
+                // Obtener usuario directamente de Supabase (más confiable que authStore)
+                const supabase = createClient();
+                const { data: { user }, error: userError } = await supabase.auth.getUser();
+
+                if (userError || !user) {
+                    setIsLoading(false);
+                    return;
+                }
+
+                // 1. Obtener datos del proveedor (busca por user_id, fallback por email)
+                const providerData = await providerService.getProviderByUserId(user.id, user.email);
                 setProvider(providerData);
 
                 // 2. Obtener documentos
@@ -46,8 +50,11 @@ export function useProviderProfile() {
                     return daysUntilExpiry > 0 && daysUntilExpiry <= 30;
                 }).length;
 
-                // 3. Obtener estadísticas de facturación
-                const invoiceStats = await providerInvoiceService.getInvoiceStats(providerData.id);
+                // 3. Obtener estadísticas de facturación y OCs
+                const [invoiceStats, pendingOCs] = await Promise.all([
+                    providerInvoiceService.getInvoiceStats(providerData.id),
+                    providerService.getPendingPurchaseOrdersCount(providerData.id),
+                ]);
 
                 setStats({
                     onboarding_status: providerData.onboarding_status,
@@ -55,7 +62,8 @@ export function useProviderProfile() {
                     expiring_soon_documents: expiring_soon,
                     pending_invoices: invoiceStats.pending_count + invoiceStats.approved_count,
                     total_invoiced_month: invoiceStats.total_current_month,
-                    total_invoiced_year: invoiceStats.total_current_year
+                    total_invoiced_year: invoiceStats.total_current_year,
+                    pending_purchase_orders: pendingOCs,
                 });
 
             } catch (err: any) {
@@ -67,7 +75,7 @@ export function useProviderProfile() {
         };
 
         fetchProviderData();
-    }, [profile?.id]);
+    }, []);
 
     return { provider, stats, isLoading, error };
 }

@@ -3,40 +3,21 @@
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
+import { createClient as createAdminClient } from '@supabase/supabase-js'
+import { getEmailService } from '@/lib/email/emailService'
 
 export async function login(formData: FormData) {
     const supabase = await createClient()
 
-    const identifier = (formData.get('identifier') as string)?.trim()
+    const email = (formData.get('identifier') as string)?.trim()
     const password = formData.get('password') as string
 
-    // Si el identificador contiene '@' es un email.
-    // Si no, es un NIT/Número de Documento → Buscamos su email real de forma segura.
-    let email = identifier
-    if (!identifier.includes('@')) {
-        const { data: realEmail, error: rpcError } = await supabase.rpc('get_user_email_by_document', {
-            p_document_number: identifier
-        })
-
-        if (realEmail) {
-            email = realEmail
-        } else {
-            // Fallback para no romper cuentas de prueba antiguas, 
-            // aunque fallará si el usuario no existe.
-            email = `${identifier}@fonneta.com`
-        }
-    }
-
-    const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-    })
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password })
 
     if (error) {
-        return { error: error.message }
+        return { error: 'Correo o contraseña incorrectos.' }
     }
 
-    // Obtener rol del usuario para redirección
     const { data: profile } = await supabase
         .from('profiles')
         .select('role')
@@ -76,15 +57,52 @@ export async function signout() {
 }
 
 export async function resetPassword(formData: FormData) {
-    const supabase = await createClient()
-    const email = formData.get('email') as string
+    const email = (formData.get('email') as string)?.trim()
 
-    const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/login/update-password`,
+    if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+        return { error: 'Configuración del servidor incompleta' }
+    }
+
+    const supabaseAdmin = createAdminClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL,
+        process.env.SUPABASE_SERVICE_ROLE_KEY,
+        { auth: { autoRefreshToken: false, persistSession: false } }
+    )
+
+    // Generar link de recovery con admin API — sin rate limit de Supabase
+    const { data: linkData, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
+        type: 'recovery',
+        email,
+        options: {
+            redirectTo: `${(process.env.NEXT_PUBLIC_SITE_URL || '').replace(/\/login\/?$/, '')}/login/update-password`,
+        },
     })
 
-    if (error) {
-        return { error: error.message }
+    if (linkError || !linkData?.properties?.action_link) {
+        // No revelar si el correo existe o no (seguridad)
+        return { success: true }
+    }
+
+    // Buscar nombre del usuario para el correo
+    const { data: profile } = await supabaseAdmin
+        .from('profiles')
+        .select('full_name')
+        .eq('email', email)
+        .single()
+
+    const displayName = profile?.full_name || email
+
+    // Enviar via SMTP propio (nodemailer) — sin límite de Supabase
+    try {
+        const emailService = getEmailService()
+        await emailService.sendPasswordResetProvider(
+            email,
+            displayName,
+            linkData.properties.action_link
+        )
+    } catch (emailError) {
+        console.error('Error sending reset email:', emailError)
+        return { error: 'No se pudo enviar el correo. Por favor contacta al administrador.' }
     }
 
     return { success: true }

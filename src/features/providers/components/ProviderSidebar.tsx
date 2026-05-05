@@ -8,7 +8,8 @@ import {
     FileText,
     Receipt,
     LogOut,
-    Settings
+    Settings,
+    ShoppingCart
 } from 'lucide-react';
 
 const menuItems = [
@@ -16,6 +17,7 @@ const menuItems = [
     { icon: User, label: 'Mi Perfil', href: '/portal/profile' },
     { icon: FileText, label: 'Documentos', href: '/portal/documents' },
     { icon: Receipt, label: 'Facturación', href: '/portal/invoices' },
+    { icon: ShoppingCart, label: 'Órdenes de Compra', href: '/portal/purchase-orders' },
 ];
 
 export function ProviderSidebar() {

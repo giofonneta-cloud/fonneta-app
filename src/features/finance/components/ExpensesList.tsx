@@ -7,6 +7,7 @@ import { Input } from '@/shared/components/ui/input';
 import { Badge } from '@/shared/components/ui/badge';
 import { Button } from '@/shared/components/ui/button';
 import { Search, AlertCircle, Pencil } from 'lucide-react';
+import { useResizableColumns } from '@/shared/hooks/useResizableColumns';
 
 const fmt = (n: number) =>
     n.toLocaleString('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 });
@@ -26,6 +27,9 @@ function formatDate(d?: string) {
     });
 }
 
+// [col]: Fecha Radicado | Factura Prov. | Proveedor | Categoría | OC/Release | Valor Neto | Total+IVA | Límite Pago | Estado | Editar
+const INITIAL_WIDTHS = [130, 140, 200, 120, 130, 120, 120, 120, 100, 70];
+
 interface Props {
     onEdit?: (expense: GastoExtendido) => void;
 }
@@ -34,6 +38,7 @@ export function ExpensesList({ onEdit }: Props) {
     const [expenses, setExpenses] = useState<GastoExtendido[]>([]);
     const [search, setSearch] = useState('');
     const [loading, setLoading] = useState(true);
+    const { widths, startResize } = useResizableColumns(INITIAL_WIDTHS);
 
     useEffect(() => {
         expensesService.getAllExpenses()
@@ -47,9 +52,15 @@ export function ExpensesList({ onEdit }: Props) {
         return (
             (e.numero_factura_proveedor ?? '').toLowerCase().includes(q) ||
             (e.categoria ?? '').toLowerCase().includes(q) ||
-            (e.codigo_oc ?? '').toLowerCase().includes(q)
+            (e.codigo_oc ?? '').toLowerCase().includes(q) ||
+            (e.proveedor_nombre ?? '').toLowerCase().includes(q)
         );
     });
+
+    const headers = [
+        'Fecha Radicado', 'Factura Prov.', 'Proveedor', 'Categoría',
+        'OC / Release', 'Valor Neto', 'Total + IVA', 'Límite Pago', 'Estado', 'Editar',
+    ];
 
     return (
         <div className="space-y-4">
@@ -74,25 +85,32 @@ export function ExpensesList({ onEdit }: Props) {
 
             {/* Table */}
             <div className="overflow-x-auto rounded-xl border border-slate-100">
-                <table className="w-full text-sm text-left">
+                <table className="text-sm text-left" style={{ tableLayout: 'fixed', width: widths.reduce((a, b) => a + b, 0) }}>
+                    <colgroup>
+                        {widths.map((w, i) => <col key={i} style={{ width: w }} />)}
+                    </colgroup>
                     <thead className="text-[10px] text-slate-500 uppercase bg-slate-50 border-b border-slate-100">
                         <tr>
-                            <th className="px-4 py-3 font-black tracking-widest">Fecha Radicado</th>
-                            <th className="px-4 py-3 font-black tracking-widest">Factura Prov.</th>
-                            <th className="px-4 py-3 font-black tracking-widest">Categoría</th>
-                            <th className="px-4 py-3 font-black tracking-widest">OC / Release</th>
-                            <th className="px-4 py-3 font-black tracking-widest text-right">Valor Neto</th>
-                            <th className="px-4 py-3 font-black tracking-widest text-right">Total + IVA</th>
-                            <th className="px-4 py-3 font-black tracking-widest">Límite Pago</th>
-                            <th className="px-4 py-3 font-black tracking-widest text-center">Estado</th>
-                            <th className="px-4 py-3 font-black tracking-widest text-center">Editar</th>
+                            {headers.map((label, i) => (
+                                <th
+                                    key={i}
+                                    className="px-4 py-3 font-black tracking-widest relative select-none overflow-hidden"
+                                    style={{ width: widths[i] }}
+                                >
+                                    <span className="block truncate">{label}</span>
+                                    <div
+                                        onMouseDown={startResize(i)}
+                                        className="absolute right-0 top-0 h-full w-1.5 cursor-col-resize hover:bg-blue-400 transition-colors z-10"
+                                    />
+                                </th>
+                            ))}
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-50">
                         {loading ? (
                             Array.from({ length: 5 }).map((_, i) => (
                                 <tr key={i}>
-                                    {Array.from({ length: 9 }).map((__, j) => (
+                                    {Array.from({ length: 10 }).map((__, j) => (
                                         <td key={j} className="px-4 py-4">
                                             <div className="h-3 bg-slate-100 rounded animate-pulse w-full" />
                                         </td>
@@ -101,7 +119,7 @@ export function ExpensesList({ onEdit }: Props) {
                             ))
                         ) : filtered.length === 0 ? (
                             <tr>
-                                <td colSpan={9} className="py-16 text-center">
+                                <td colSpan={10} className="py-16 text-center">
                                     <AlertCircle className="w-8 h-8 text-slate-200 mx-auto mb-2" />
                                     <p className="text-sm text-slate-400 font-medium">
                                         {search ? 'Sin resultados' : 'No hay gastos registrados'}
@@ -111,31 +129,36 @@ export function ExpensesList({ onEdit }: Props) {
                         ) : (
                             filtered.map(e => (
                                 <tr key={e.id} className="hover:bg-slate-50/60 transition-colors">
-                                    <td className="px-4 py-3.5 text-slate-600 font-medium text-xs">
-                                        {formatDate(e.fecha_radicado)}
+                                    <td className="px-4 py-3.5 text-slate-600 font-medium text-xs overflow-hidden">
+                                        <span className="block truncate">{formatDate(e.fecha_radicado)}</span>
                                     </td>
-                                    <td className="px-4 py-3.5 font-mono text-slate-700 text-xs font-bold">
-                                        {e.numero_factura_proveedor || <span className="text-slate-300">—</span>}
+                                    <td className="px-4 py-3.5 font-mono text-slate-700 text-xs font-bold overflow-hidden">
+                                        <span className="block truncate">{e.numero_factura_proveedor || '—'}</span>
                                     </td>
-                                    <td className="px-4 py-3.5">
-                                        <span className="inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-bold bg-slate-100 text-slate-600 capitalize">
+                                    <td className="px-4 py-3.5 text-xs text-slate-700 font-medium overflow-hidden">
+                                        <span className="block truncate" title={e.proveedor_nombre ?? ''}>
+                                            {e.proveedor_nombre || <span className="text-slate-300">—</span>}
+                                        </span>
+                                    </td>
+                                    <td className="px-4 py-3.5 overflow-hidden">
+                                        <span className="inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-bold bg-slate-100 text-slate-600 capitalize truncate max-w-full">
                                             {e.categoria || '—'}
                                         </span>
                                     </td>
-                                    <td className="px-4 py-3.5 text-xs text-slate-500">
+                                    <td className="px-4 py-3.5 text-xs text-slate-500 overflow-hidden">
                                         {e.codigo_oc
-                                            ? <span className="font-mono font-semibold text-blue-600">{e.codigo_oc}</span>
+                                            ? <span className="font-mono font-semibold text-blue-600 truncate block">{e.codigo_oc}</span>
                                             : <span className="text-slate-300">—</span>}
-                                        {e.codigo_release && <span className="ml-1.5 text-slate-400">/ {e.codigo_release}</span>}
+                                        {e.codigo_release && <span className="ml-1.5 text-slate-400 truncate">/ {e.codigo_release}</span>}
                                     </td>
-                                    <td className="px-4 py-3.5 text-right font-mono text-slate-700 text-xs">
-                                        {fmt(Number(e.valor_neto) || 0)}
+                                    <td className="px-4 py-3.5 text-right font-mono text-slate-700 text-xs overflow-hidden">
+                                        <span className="block truncate">{fmt(Number(e.valor_neto) || 0)}</span>
                                     </td>
-                                    <td className="px-4 py-3.5 text-right font-mono font-bold text-rose-600 text-xs">
-                                        {fmt(Number(e.total_con_iva) || 0)}
+                                    <td className="px-4 py-3.5 text-right font-mono font-bold text-rose-600 text-xs overflow-hidden">
+                                        <span className="block truncate">{fmt(Number(e.total_con_iva) || 0)}</span>
                                     </td>
-                                    <td className="px-4 py-3.5 text-xs text-slate-500 font-medium">
-                                        {formatDate(e.fecha_limite_pago)}
+                                    <td className="px-4 py-3.5 text-xs text-slate-500 font-medium overflow-hidden">
+                                        <span className="block truncate">{formatDate(e.fecha_limite_pago)}</span>
                                     </td>
                                     <td className="px-4 py-3.5 text-center">
                                         {estadoBadge(e.estado_pago)}

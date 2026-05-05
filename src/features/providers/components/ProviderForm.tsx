@@ -17,6 +17,7 @@ import { Textarea } from '@/shared/components/ui/textarea';
 import { cn } from '@/shared/lib/utils';
 import { useEffect } from 'react';
 import { ExternalLink } from 'lucide-react';
+import { useParametros } from '@/features/admin/hooks/useParametros';
 
 const providerFormSchema = z.object({
     business_name: z.string().min(3, "Mínimo 3 caracteres"),
@@ -51,6 +52,7 @@ interface ProviderFormProps {
 
 export function ProviderForm({ onSuccess, onCancel, initialData }: ProviderFormProps) {
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const { opciones: estadosOnboarding } = useParametros('estados_onboarding');
     const [documentFiles, setDocumentFiles] = useState<{
         rut?: File;
         camara?: File;
@@ -702,9 +704,9 @@ export function ProviderForm({ onSuccess, onCancel, initialData }: ProviderFormP
                                                     </SelectTrigger>
                                                 </FormControl>
                                                 <SelectContent>
-                                                    <SelectItem value="EN REVISION">EN REVISIÓN</SelectItem>
-                                                    <SelectItem value="DEVUELTO">DEVUELTO</SelectItem>
-                                                    <SelectItem value="VALIDADO">VALIDADO</SelectItem>
+                                                    {estadosOnboarding.map(o => (
+                                                        <SelectItem key={o.valor} value={o.valor}>{o.etiqueta}</SelectItem>
+                                                    ))}
                                                 </SelectContent>
                                             </Select>
                                             <FormMessage />

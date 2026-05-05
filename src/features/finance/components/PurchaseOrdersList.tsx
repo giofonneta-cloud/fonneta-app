@@ -5,6 +5,10 @@ import { purchaseOrderService } from '../services/purchaseOrderService';
 import type { PurchaseOrder, POStatus } from '../types/purchase-order.types';
 import { PO_STATUS_LABELS, PO_STATUS_COLORS } from '../types/purchase-order.types';
 import { Search, Eye, Pencil, Trash2, Plus, FileText } from 'lucide-react';
+import { useResizableColumns } from '@/shared/hooks/useResizableColumns';
+
+// [col]: No. OC | Fecha | Proveedor | Descripcion | Total | Estado | Acciones
+const INITIAL_WIDTHS = [120, 110, 200, 260, 130, 110, 120];
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -84,6 +88,7 @@ export function PurchaseOrdersList({ onEdit, onPreview, onNewPO }: PurchaseOrder
   // State
   const [orders, setOrders] = useState<PurchaseOrder[]>([]);
   const [loading, setLoading] = useState(true);
+  const { widths, startResize } = useResizableColumns(INITIAL_WIDTHS);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<POStatus | 'all'>('all');
@@ -187,16 +192,25 @@ export function PurchaseOrdersList({ onEdit, onPreview, onNewPO }: PurchaseOrder
 
       {/* Table */}
       <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-x-auto">
-        <table className="w-full text-sm text-left">
+        <table className="text-sm text-left" style={{ tableLayout: 'fixed', width: widths.reduce((a, b) => a + b, 0) }}>
+          <colgroup>
+            {widths.map((w, i) => <col key={i} style={{ width: w }} />)}
+          </colgroup>
           <thead className="text-[10px] text-slate-500 uppercase bg-slate-50 border-b border-slate-100">
             <tr>
-              <th className="px-4 py-3 font-bold tracking-wider">No. OC</th>
-              <th className="px-4 py-3 font-bold tracking-wider">Fecha</th>
-              <th className="px-4 py-3 font-bold tracking-wider">Proveedor</th>
-              <th className="px-4 py-3 font-bold tracking-wider">Descripcion</th>
-              <th className="px-4 py-3 font-bold tracking-wider text-right">Total</th>
-              <th className="px-4 py-3 font-bold tracking-wider text-center">Estado</th>
-              <th className="px-4 py-3 font-bold tracking-wider text-center">Acciones</th>
+              {(['No. OC', 'Fecha', 'Proveedor', 'Descripcion', 'Total', 'Estado', 'Acciones'] as const).map((label, i) => (
+                <th
+                  key={i}
+                  className="px-4 py-3 font-bold tracking-wider relative select-none overflow-hidden"
+                  style={{ width: widths[i] }}
+                >
+                  <span className="block truncate">{label}</span>
+                  <div
+                    onMouseDown={startResize(i)}
+                    className="absolute right-0 top-0 h-full w-1.5 cursor-col-resize hover:bg-blue-400 transition-colors z-10"
+                  />
+                </th>
+              ))}
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-200">
@@ -212,25 +226,18 @@ export function PurchaseOrdersList({ onEdit, onPreview, onNewPO }: PurchaseOrder
 
                 return (
                   <tr key={po.id} className="hover:bg-gray-50 transition-colors">
-                    {/* No. OC */}
-                    <td className="px-4 py-3.5 font-mono text-xs font-bold text-slate-700">
-                      {po.po_number}
+                    <td className="px-4 py-3.5 font-mono text-xs font-bold text-slate-700 overflow-hidden">
+                      <span className="block truncate">{po.po_number}</span>
                     </td>
-
-                    {/* Fecha */}
-                    <td className="px-4 py-3.5 text-xs text-slate-500 whitespace-nowrap">
-                      {formatDate(po.created_at)}
+                    <td className="px-4 py-3.5 text-xs text-slate-500 overflow-hidden">
+                      <span className="block truncate">{formatDate(po.created_at)}</span>
                     </td>
-
-                    {/* Proveedor */}
-                    <td className="px-4 py-3.5 text-xs text-slate-700 max-w-[180px]">
+                    <td className="px-4 py-3.5 text-xs text-slate-700 overflow-hidden">
                       <span className="block truncate font-medium" title={po.provider_name ?? po.recipient_name}>
                         {po.provider_name ?? po.recipient_name}
                       </span>
                     </td>
-
-                    {/* Descripcion */}
-                    <td className="px-4 py-3.5 text-xs text-slate-500 max-w-[250px]">
+                    <td className="px-4 py-3.5 text-xs text-slate-500 overflow-hidden">
                       <span className="block truncate" title={po.items_summary ?? po.description ?? ''}>
                         {po.items_summary ?? po.description ?? <span className="text-slate-300">—</span>}
                       </span>
@@ -240,28 +247,18 @@ export function PurchaseOrdersList({ onEdit, onPreview, onNewPO }: PurchaseOrder
                         </span>
                       )}
                     </td>
-
-                    {/* Total */}
-                    <td className="px-4 py-3.5 text-right font-mono text-xs font-semibold text-slate-700 whitespace-nowrap">
-                      {formatCurrency(po.total)}
+                    <td className="px-4 py-3.5 text-right font-mono text-xs font-semibold text-slate-700 overflow-hidden">
+                      <span className="block truncate">{formatCurrency(po.total)}</span>
                     </td>
-
-                    {/* Estado */}
                     <td className="px-4 py-3.5 text-center">
-                      <span
-                        className={`px-2.5 py-1 rounded-full text-xs font-semibold ${PO_STATUS_COLORS[po.status]}`}
-                      >
+                      <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${PO_STATUS_COLORS[po.status]}`}>
                         {PO_STATUS_LABELS[po.status]}
                       </span>
                     </td>
-
-                    {/* Acciones */}
                     <td className="px-4 py-3.5">
                       {isConfirmingDelete ? (
                         <div className="flex items-center gap-2 justify-center">
-                          <span className="text-xs text-slate-500 whitespace-nowrap">
-                            ¿Eliminar?
-                          </span>
+                          <span className="text-xs text-slate-500 whitespace-nowrap">¿Eliminar?</span>
                           <button
                             onClick={() => handleDelete(po.id)}
                             disabled={deleting}
@@ -281,7 +278,6 @@ export function PurchaseOrdersList({ onEdit, onPreview, onNewPO }: PurchaseOrder
                         </div>
                       ) : (
                         <div className="flex items-center gap-1.5 justify-center">
-                          {/* Ver */}
                           <button
                             onClick={() => onPreview(po)}
                             className="p-1.5 rounded-lg text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition-colors"
@@ -290,8 +286,6 @@ export function PurchaseOrdersList({ onEdit, onPreview, onNewPO }: PurchaseOrder
                           >
                             <Eye className="w-4 h-4" />
                           </button>
-
-                          {/* Editar — borrador y enviada */}
                           {canEdit && (
                             <button
                               onClick={() => onEdit(po)}
@@ -302,8 +296,6 @@ export function PurchaseOrdersList({ onEdit, onPreview, onNewPO }: PurchaseOrder
                               <Pencil className="w-4 h-4" />
                             </button>
                           )}
-
-                          {/* Eliminar — solo borrador */}
                           {isDraft && (
                             <button
                               onClick={() => setDeleteConfirm(po.id)}

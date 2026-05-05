@@ -24,6 +24,7 @@ interface ProjectDetailPanelProps {
   project: Project | null;
   isOpen: boolean;
   onClose: () => void;
+  onEdit?: () => void;
 }
 
 type TabType = 'overview' | 'quote' | 'tasks' | 'comments';
@@ -32,7 +33,7 @@ type TabType = 'overview' | 'quote' | 'tasks' | 'comments';
  * Project Detail Panel
  * Slide-in panel with tabs for project details, tasks, and comments
  */
-export function ProjectDetailPanel({ project, isOpen, onClose }: ProjectDetailPanelProps) {
+export function ProjectDetailPanel({ project, isOpen, onClose, onEdit }: ProjectDetailPanelProps) {
   const [activeTab, setActiveTab] = useState<TabType>('overview');
   const [showSalesForm, setShowSalesForm] = useState(false);
   const [showExpenseForm, setShowExpenseForm] = useState(false);
@@ -138,6 +139,17 @@ export function ProjectDetailPanel({ project, isOpen, onClose }: ProjectDetailPa
             </p>
           </div>
                 <div className="flex items-center gap-2 mr-4">
+                  {onEdit && (
+                    <Button
+                      onClick={onEdit}
+                      variant="outline"
+                      size="sm"
+                      className="font-bold gap-2 text-xs h-8 px-3 border-blue-200 text-blue-600 hover:bg-blue-50"
+                    >
+                      <Pencil className="w-3 h-3" />
+                      Editar
+                    </Button>
+                  )}
                   <Button
                     onClick={() => setShowSalesForm(true)}
                     className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold gap-2 shadow-sm text-xs h-8 px-3"

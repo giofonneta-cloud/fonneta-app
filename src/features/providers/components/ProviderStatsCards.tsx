@@ -1,6 +1,6 @@
 'use client';
 
-import { FileText, CheckCircle, Clock, DollarSign } from 'lucide-react';
+import { FileText, CheckCircle, Clock, DollarSign, ShoppingCart } from 'lucide-react';
 
 interface ProviderStats {
     onboarding_status: 'EN REVISION' | 'DEVUELTO' | 'VALIDADO';
@@ -9,6 +9,7 @@ interface ProviderStats {
     pending_invoices: number;
     total_invoiced_month: number;
     total_invoiced_year: number;
+    pending_purchase_orders: number;
 }
 
 interface Props {
@@ -40,7 +41,7 @@ export function ProviderStatsCards({ stats }: Props) {
     const status = statusConfig[stats.onboarding_status];
 
     return (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
             {/* Estado de Validación */}
             <div className={`p-6 ${status.bg} border ${status.border} rounded-2xl`}>
                 <div className="flex items-center justify-between mb-4">
@@ -91,6 +92,22 @@ export function ProviderStatsCards({ stats }: Props) {
                 </h3>
                 <p className="text-sm text-gray-500 font-medium">
                     Facturas pendientes de pago
+                </p>
+            </div>
+
+            {/* OCs Pendientes */}
+            <div className="p-6 bg-orange-50/50 border border-orange-100 rounded-2xl">
+                <div className="flex items-center justify-between mb-4">
+                    <ShoppingCart className="w-8 h-8 text-orange-600" />
+                    <span className="px-3 py-1 bg-orange-100 text-orange-600 text-xs font-black uppercase tracking-wider rounded-full">
+                        OCs
+                    </span>
+                </div>
+                <h3 className="text-2xl font-black text-orange-600 mb-1">
+                    {stats.pending_purchase_orders}
+                </h3>
+                <p className="text-sm text-gray-500 font-medium">
+                    Órdenes de compra por aceptar
                 </p>
             </div>
 

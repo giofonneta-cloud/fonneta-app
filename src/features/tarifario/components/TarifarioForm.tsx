@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { tarifarioService } from '../services/tarifarioService';
 import type { TarifarioItem, CreateTarifarioInput, TipoProducto, CostCenter } from '../types/tarifario.types';
-import { TIPO_PRODUCTO_LABELS, COST_CENTERS } from '../types/tarifario.types';
+import { useParametros } from '@/features/admin/hooks/useParametros';
 
 interface TarifarioFormProps {
   item?: TarifarioItem | null;
@@ -11,11 +11,12 @@ interface TarifarioFormProps {
   onCancel: () => void;
 }
 
-const UNIDADES = ['unidad', 'página', 'spot', 'post', 'día', 'hora', 'evento', 'paquete', 'edición'];
-
 export function TarifarioForm({ item, onSuccess, onCancel }: TarifarioFormProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { opciones: tiposTarifario } = useParametros('tipos_tarifario');
+  const { opciones: centrosCosto } = useParametros('centros_costo');
+  const { opciones: unidadesMedida } = useParametros('unidades_medida');
 
   const [form, setForm] = useState<CreateTarifarioInput>({
     nombre: '',
@@ -132,8 +133,8 @@ export function TarifarioForm({ item, onSuccess, onCancel }: TarifarioFormProps)
               onChange={(e) => setForm({ ...form, tipo: e.target.value as TipoProducto })}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             >
-              {(Object.entries(TIPO_PRODUCTO_LABELS) as [TipoProducto, string][]).map(([value, label]) => (
-                <option key={value} value={value}>{label}</option>
+              {tiposTarifario.map(o => (
+                <option key={o.valor} value={o.valor}>{o.etiqueta}</option>
               ))}
             </select>
           </div>
@@ -145,8 +146,8 @@ export function TarifarioForm({ item, onSuccess, onCancel }: TarifarioFormProps)
               className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             >
               <option value="">Sin asignar</option>
-              {COST_CENTERS.map((cc) => (
-                <option key={cc} value={cc}>{cc}</option>
+              {centrosCosto.map(o => (
+                <option key={o.valor} value={o.etiqueta}>{o.etiqueta}</option>
               ))}
             </select>
           </div>
@@ -160,8 +161,8 @@ export function TarifarioForm({ item, onSuccess, onCancel }: TarifarioFormProps)
             onChange={(e) => setForm({ ...form, unidad: e.target.value })}
             className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           >
-            {UNIDADES.map((u) => (
-              <option key={u} value={u}>{u}</option>
+            {unidadesMedida.map(o => (
+              <option key={o.valor} value={o.valor}>{o.etiqueta}</option>
             ))}
           </select>
         </div>

@@ -51,6 +51,7 @@ export interface GastoExtendido {
     id: string;
     proyecto_id?: string;
     proveedor_id: string;
+    proveedor_nombre?: string;
     valor_neto: number;
     iva_porcentaje: number;
     iva_valor: number;

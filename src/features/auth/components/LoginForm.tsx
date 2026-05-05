@@ -24,14 +24,14 @@ export function LoginForm() {
         <form action={handleSubmit} className="space-y-4">
             <div>
                 <label htmlFor="identifier" className="block text-sm font-medium">
-                    Email o NIT / Número de Documento
+                    Correo electrónico
                 </label>
                 <input
                     id="identifier"
                     name="identifier"
-                    type="text"
+                    type="email"
                     required
-                    placeholder="correo@empresa.com o 900123456"
+                    placeholder="correo@empresa.com"
                     className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
                 />
             </div>
@@ -58,12 +58,12 @@ export function LoginForm() {
                 disabled={loading}
                 className="w-full rounded-md bg-blue-600 px-4 py-2 text-white hover:bg-blue-700 disabled:opacity-50"
             >
-                {loading ? 'Signing in...' : 'Sign In'}
+                {loading ? 'Ingresando...' : 'Ingresar'}
             </button>
 
             <p className="text-center text-sm text-gray-600">
                 <Link href="/forgot-password" className="text-blue-600 hover:underline">
-                    Forgot password?
+                    ¿Olvidaste tu contraseña?
                 </Link>
             </p>
         </form>

@@ -210,16 +210,16 @@ export async function updateUser(
     // Obtener estado anterior para auditoría
     const previousUser = await getUserById(userId);
 
-    const { error } = await supabase
-        .from('profiles')
-        .update({
-            ...input,
-            updated_at: new Date().toISOString(),
-        })
-        .eq('id', userId);
+    // Usar API route con service role key para evitar bloqueos de RLS
+    const response = await fetch('/api/admin/update-user', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, updates: input }),
+    });
 
-    if (error) {
-        return { success: false, error: error.message };
+    if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        return { success: false, error: (data as { error?: string }).error || 'Error al actualizar usuario' };
     }
 
     // Registrar en auditoría

@@ -6,7 +6,7 @@ import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { providerService } from '../services/providerService';
 import { COLOMBIA_DEPARTMENTS, COLOMBIA_CITIES_BY_DEPT } from '@/shared/lib/colombia-data';
-import { supabase } from '@/shared/lib/supabase';
+import { supabase } from '@/shared/lib/supabase'; // solo para signIn post-registro
 
 function cn(...inputs: ClassValue[]) {
     return twMerge(clsx(inputs));
@@ -120,27 +120,24 @@ export function ProviderOnboarding() {
                 throw new Error('Debes aceptar la Política de Tratamiento de Datos Personales para continuar');
             }
 
-            // 1. Crear usuario en Supabase Auth
-            // Usamos email sintético basado en NIT para que el proveedor acceda con su número de documento
-            const authEmail = `${formData.document_number}@fonneta.com`;
-            const { data: authData, error: authError } = await supabase.auth.signUp({
-                email: authEmail,
-                password: formData.password,
-                options: {
-                    data: {
-                        full_name: formData.contact_name,
-                        role: 'proveedor'
-                    }
-                }
+            // 1. Crear usuario en Supabase Auth vía API con admin SDK
+            // Esto evita rate limits del cliente y pre-confirma el email sintético
+            const createUserRes = await fetch('/api/providers/create-auth-user', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    documentNumber: formData.document_number,
+                    password: formData.password,
+                    contactName: formData.contact_name,
+                    contactEmail: formData.contact_email,
+                }),
             });
-
-            if (authError) {
-                throw new Error(`Error al crear usuario: ${authError.message}`);
+            const createUserData = await createUserRes.json();
+            if (!createUserRes.ok) {
+                throw new Error(`Error al crear usuario: ${createUserData.error}`);
             }
-
-            if (!authData.user) {
-                throw new Error('No se pudo crear el usuario en el sistema de autenticación.');
-            }
+            const userId = createUserData.userId as string;
+            const authEmail = createUserData.authEmail as string;
 
             // 2. Crear perfil usando API route con service role
             // Esto evita TODOS los problemas de RLS y triggers
@@ -150,7 +147,7 @@ export function ProviderOnboarding() {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        userId: authData.user.id,
+                        userId: userId,
                         email: formData.contact_email,
                         fullName: formData.contact_name,
                         role: 'proveedor'
@@ -176,7 +173,7 @@ export function ProviderOnboarding() {
             console.log('Profile created via API:', profileData);
 
             // 3. Crear registro de proveedor vinculado al user_id
-            console.log('Intentando crear proveedor con ID:', authData.user.id);
+            console.log('Intentando crear proveedor con ID:', userId);
             const providerData = await providerService.createProvider({
                 business_name: formData.business_name,
                 person_type: formData.person_type,
@@ -193,7 +190,7 @@ export function ProviderOnboarding() {
                 is_provider: true,
                 is_client: false,
                 onboarding_status: 'EN REVISION',
-                user_id: authData.user.id
+                user_id: userId
             });
 
             // 4. Subir documentos a Google Drive vía API y guardar enlaces
@@ -284,7 +281,7 @@ export function ProviderOnboarding() {
             } else if (errorMessage.includes('providers_document_number_key') || 
                        (err.code === '23505' && errorMessage.includes('document_number'))) {
                 errorMessage = 'Ya existe una empresa registrada con este Número de Documento / NIT.';
-            } else if (errorMessage.includes('User already registered')) {
+            } else if (errorMessage.includes('User already registered') || errorMessage.includes('already been registered')) {
                 errorMessage = 'Este NIT/Número de Documento ya tiene una cuenta registrada. Por favor inicia sesión.';
             }
 
@@ -366,8 +363,8 @@ export function ProviderOnboarding() {
                                         onChange={(e) => setFormData({ ...formData, document_number: e.target.value })}
                                     />
                                     <p className="text-xs text-blue-600 font-semibold flex items-center gap-1 mt-1">
-                                        <span>🔑</span>
-                                        Este número será tu <span className="font-black">usuario de acceso</span> al portal
+                                        <span>📋</span>
+                                        Tu acceso al portal será con el <span className="font-black">correo electrónico</span> que registres en el paso de Contacto
                                     </p>
                                 </div>
                                 <div className="space-y-2 md:col-span-2">
@@ -513,8 +510,8 @@ export function ProviderOnboarding() {
                                         </div>
                                         <div className="bg-white border border-blue-200 rounded-xl p-4 mb-4">
                                             <p className="text-xs text-blue-500 font-bold uppercase tracking-widest mb-1">Tu usuario de acceso será:</p>
-                                            <p className="text-lg font-black text-blue-900">{formData.document_number || 'Tu Número de Documento / NIT'}</p>
-                                            <p className="text-xs text-blue-400 mt-1">Ingresa este número + tu contraseña para entrar al portal</p>
+                                            <p className="text-lg font-black text-blue-900 break-all">{formData.contact_email || 'Tu correo electrónico de contacto'}</p>
+                                            <p className="text-xs text-blue-400 mt-1">Ingresa este correo + tu contraseña para entrar al portal</p>
                                         </div>
                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                             <div className="space-y-1">
@@ -659,8 +656,8 @@ export function ProviderOnboarding() {
                                     </h4>
                                     <div className="space-y-3 text-sm">
                                         <div className="bg-white rounded-lg p-3 border border-blue-200">
-                                            <span className="text-blue-400 font-bold text-xs uppercase tracking-widest">Usuario (NIT / N° Documento)</span>
-                                            <p className="text-blue-900 font-black text-lg mt-1">{formData.document_number}</p>
+                                            <span className="text-blue-400 font-bold text-xs uppercase tracking-widest">Correo electrónico (usuario)</span>
+                                            <p className="text-blue-900 font-black text-base mt-1 break-all">{formData.contact_email}</p>
                                         </div>
                                         <div className="bg-white rounded-lg p-3 border border-blue-200">
                                             <span className="text-blue-400 font-bold text-xs uppercase tracking-widest">Contraseña</span>
@@ -761,6 +758,7 @@ function DocumentUploadCard({ id, label, icon: Icon, iconColor, required, file, 
                     type="file"
                     accept=".pdf,.jpg,.jpeg,.png"
                     onChange={handleFileChange}
+                    onClick={(e) => e.stopPropagation()}
                     className="hidden"
                 />
             </div>

@@ -4,7 +4,13 @@ import { useState, useEffect } from 'react';
 import { Venta } from '../types/sales-expenses.types';
 import { salesService } from '../services/salesService';
 import { Badge } from '@/shared/components/ui/badge';
-import { AlertCircle, CheckCircle2, Clock } from 'lucide-react';
+import { Button } from '@/shared/components/ui/button';
+import { Input } from '@/shared/components/ui/input';
+import { AlertCircle, CheckCircle2, X } from 'lucide-react';
+import { useResizableColumns } from '@/shared/hooks/useResizableColumns';
+
+// [col]: Cliente | Factura | Proyecto | Total Factura | Saldo por Cobrar | Fecha Cobro Est. | Vencimiento | Acción
+const INITIAL_WIDTHS = [180, 140, 160, 130, 130, 140, 120, 100];
 
 const fmt = (n: number) =>
     n.toLocaleString('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 });
@@ -60,8 +66,16 @@ interface Props { period: string }
 export function CXCList({ period }: Props) {
     const [sales, setSales] = useState<Venta[]>([]);
     const [loading, setLoading] = useState(true);
+    const { widths, startResize } = useResizableColumns(INITIAL_WIDTHS);
 
-    useEffect(() => {
+    // Estado del modal de cobro
+    const [confirmingId, setConfirmingId] = useState<string | null>(null);
+    const [payAmount, setPayAmount] = useState('');
+    const [payDate, setPayDate] = useState(new Date().toISOString().split('T')[0]);
+    const [saving, setSaving] = useState(false);
+
+    const loadData = () => {
+        setLoading(true);
         salesService.getAllSales()
             .then(data => {
                 const pending = data
@@ -75,7 +89,9 @@ export function CXCList({ period }: Props) {
             })
             .catch(err => console.error('Error CXC', err))
             .finally(() => setLoading(false));
-    }, [period]);
+    };
+
+    useEffect(() => { loadData(); }, [period]);
 
     const thisWeek = sales.filter(s => {
         const d = getDaysUntil(s.fecha_cobro_estimada);
@@ -87,6 +103,34 @@ export function CXCList({ period }: Props) {
     });
 
     const totalPendiente = sales.reduce((a, s) => a + (Number(s.total_con_iva) - Number(s.valor_pagado || 0)), 0);
+
+    const confirmingSale = sales.find(s => s.id === confirmingId);
+    const saldoPendiente = confirmingSale
+        ? Number(confirmingSale.total_con_iva) - Number(confirmingSale.valor_pagado || 0)
+        : 0;
+
+    const openConfirmModal = (sale: Venta) => {
+        const saldo = Number(sale.total_con_iva) - Number(sale.valor_pagado || 0);
+        setConfirmingId(sale.id);
+        setPayAmount(String(Math.round(saldo)));
+        setPayDate(new Date().toISOString().split('T')[0]);
+    };
+
+    const handleConfirmCobro = async () => {
+        if (!confirmingId) return;
+        const amount = Number(payAmount);
+        if (!amount || amount <= 0) { alert('Ingresa un valor válido'); return; }
+        setSaving(true);
+        try {
+            await salesService.recordPayment(confirmingId, amount, payDate);
+            setConfirmingId(null);
+            loadData();
+        } catch (err: unknown) {
+            alert('Error al confirmar cobro: ' + (err instanceof Error ? err.message : String(err)));
+        } finally {
+            setSaving(false);
+        }
+    };
 
     return (
         <div className="space-y-5">
@@ -116,23 +160,32 @@ export function CXCList({ period }: Props) {
 
             {/* Table */}
             <div className="overflow-x-auto rounded-xl border border-slate-100">
-                <table className="w-full text-sm text-left">
+                <table className="text-sm text-left" style={{ tableLayout: 'fixed', width: widths.reduce((a, b) => a + b, 0) }}>
+                    <colgroup>
+                        {widths.map((w, i) => <col key={i} style={{ width: w }} />)}
+                    </colgroup>
                     <thead className="text-[10px] text-slate-500 uppercase bg-slate-50 border-b border-slate-100">
                         <tr>
-                            <th className="px-4 py-3 font-black tracking-widest">Cliente</th>
-                            <th className="px-4 py-3 font-black tracking-widest">Factura</th>
-                            <th className="px-4 py-3 font-black tracking-widest">Proyecto</th>
-                            <th className="px-4 py-3 font-black tracking-widest text-right">Total Factura</th>
-                            <th className="px-4 py-3 font-black tracking-widest text-right">Saldo por Cobrar</th>
-                            <th className="px-4 py-3 font-black tracking-widest">Fecha Cobro Est.</th>
-                            <th className="px-4 py-3 font-black tracking-widest text-center">Vencimiento</th>
+                            {(['Cliente', 'Factura', 'Proyecto', 'Total Factura', 'Saldo por Cobrar', 'Fecha Cobro Est.', 'Vencimiento', 'Acción'] as const).map((label, i) => (
+                                <th
+                                    key={i}
+                                    className="px-4 py-3 font-black tracking-widest relative select-none overflow-hidden"
+                                    style={{ width: widths[i] }}
+                                >
+                                    <span className="block truncate">{label}</span>
+                                    <div
+                                        onMouseDown={startResize(i)}
+                                        className="absolute right-0 top-0 h-full w-1.5 cursor-col-resize hover:bg-blue-400 transition-colors z-10"
+                                    />
+                                </th>
+                            ))}
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-50">
                         {loading ? (
                             Array.from({ length: 4 }).map((_, i) => (
                                 <tr key={i}>
-                                    {Array.from({ length: 7 }).map((__, j) => (
+                                    {Array.from({ length: 8 }).map((__, j) => (
                                         <td key={j} className="px-4 py-4">
                                             <div className="h-3 bg-slate-100 rounded animate-pulse" />
                                         </td>
@@ -141,7 +194,7 @@ export function CXCList({ period }: Props) {
                             ))
                         ) : sales.length === 0 ? (
                             <tr>
-                                <td colSpan={7} className="py-16 text-center">
+                                <td colSpan={8} className="py-16 text-center">
                                     <CheckCircle2 className="w-10 h-10 text-emerald-200 mx-auto mb-3" />
                                     <p className="text-sm font-bold text-slate-400">¡Todo cobrado! No hay cuentas por cobrar pendientes.</p>
                                 </td>
@@ -161,26 +214,41 @@ export function CXCList({ period }: Props) {
                                             'hover:bg-slate-50/60'
                                         }`}
                                     >
-                                        <td className="px-4 py-3.5 font-semibold text-blue-600 text-xs">
-                                            {s.cliente?.business_name || 'Sin cliente'}
+                                        <td className="px-4 py-3.5 font-semibold text-blue-600 text-xs overflow-hidden">
+                                            <span className="block truncate" title={s.cliente?.business_name ?? ''}>
+                                                {s.cliente?.business_name || 'Sin cliente'}
+                                            </span>
                                         </td>
-                                        <td className="px-4 py-3.5 font-mono text-xs font-bold text-slate-700">
-                                            {s.numero_factura || <span className="text-slate-300">—</span>}
+                                        <td className="px-4 py-3.5 font-mono text-xs font-bold text-slate-700 overflow-hidden">
+                                            <span className="block truncate">{s.numero_factura || '—'}</span>
                                         </td>
-                                        <td className="px-4 py-3.5 text-xs text-slate-500">
-                                            {s.proyecto?.name || '—'}
+                                        <td className="px-4 py-3.5 text-xs text-slate-500 overflow-hidden">
+                                            <span className="block truncate" title={s.proyecto?.name ?? ''}>
+                                                {s.proyecto?.name || '—'}
+                                            </span>
                                         </td>
-                                        <td className="px-4 py-3.5 text-right font-mono text-xs text-slate-600">
-                                            {fmt(Number(s.total_con_iva))}
+                                        <td className="px-4 py-3.5 text-right font-mono text-xs text-slate-600 overflow-hidden">
+                                            <span className="block truncate">{fmt(Number(s.total_con_iva))}</span>
                                         </td>
-                                        <td className="px-4 py-3.5 text-right font-mono text-xs font-black text-emerald-600">
-                                            {fmt(saldo)}
+                                        <td className="px-4 py-3.5 text-right font-mono text-xs font-black text-emerald-600 overflow-hidden">
+                                            <span className="block truncate">{fmt(saldo)}</span>
                                         </td>
-                                        <td className="px-4 py-3.5 text-xs text-slate-500 font-medium">
-                                            {formatDate(s.fecha_cobro_estimada)}
+                                        <td className="px-4 py-3.5 text-xs text-slate-500 font-medium overflow-hidden">
+                                            <span className="block truncate">{formatDate(s.fecha_cobro_estimada)}</span>
                                         </td>
                                         <td className="px-4 py-3.5 text-center">
                                             {urgencyBadge(days, s.estado_pago)}
+                                        </td>
+                                        <td className="px-4 py-3.5 text-center">
+                                            <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                onClick={() => openConfirmModal(s)}
+                                                className="h-7 px-2 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 text-[10px] font-bold gap-1"
+                                            >
+                                                <CheckCircle2 className="w-3 h-3" />
+                                                Cobrado
+                                            </Button>
                                         </td>
                                     </tr>
                                 );
@@ -196,6 +264,59 @@ export function CXCList({ period }: Props) {
                     <span className="font-black text-slate-700">
                         Total pendiente: <span className="text-emerald-600">{fmt(totalPendiente)}</span>
                     </span>
+                </div>
+            )}
+
+            {/* Modal Confirmar Cobro */}
+            {confirmingId && confirmingSale && (
+                <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 space-y-4">
+                        <div className="flex items-center justify-between">
+                            <h4 className="font-black text-slate-800 text-base">Confirmar Cobro</h4>
+                            <button onClick={() => setConfirmingId(null)} className="text-slate-400 hover:text-slate-600">
+                                <X className="w-5 h-5" />
+                            </button>
+                        </div>
+                        <div className="bg-slate-50 rounded-xl p-3 space-y-1 text-xs">
+                            <p className="text-slate-500">Cliente: <span className="font-bold text-slate-800">{confirmingSale.cliente?.business_name}</span></p>
+                            <p className="text-slate-500">Factura: <span className="font-bold text-slate-800">{confirmingSale.numero_factura || '—'}</span></p>
+                            <p className="text-slate-500">Saldo por cobrar: <span className="font-black text-emerald-600">{fmt(saldoPendiente)}</span></p>
+                        </div>
+                        <div className="space-y-3">
+                            <div>
+                                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Valor Recibido (COP)</label>
+                                <Input
+                                    type="number"
+                                    value={payAmount}
+                                    onChange={e => setPayAmount(e.target.value)}
+                                    placeholder="0"
+                                    className="mt-1"
+                                    autoFocus
+                                />
+                            </div>
+                            <div>
+                                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Fecha de Cobro</label>
+                                <Input
+                                    type="date"
+                                    value={payDate}
+                                    onChange={e => setPayDate(e.target.value)}
+                                    className="mt-1"
+                                />
+                            </div>
+                        </div>
+                        <div className="flex gap-2 pt-2">
+                            <Button variant="outline" onClick={() => setConfirmingId(null)} className="flex-1">
+                                Cancelar
+                            </Button>
+                            <Button
+                                onClick={handleConfirmCobro}
+                                disabled={saving}
+                                className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white"
+                            >
+                                {saving ? 'Guardando...' : 'Confirmar Cobro'}
+                            </Button>
+                        </div>
+                    </div>
                 </div>
             )}
         </div>

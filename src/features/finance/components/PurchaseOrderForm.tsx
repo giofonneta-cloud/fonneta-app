@@ -9,12 +9,7 @@ import type { TarifarioItem } from '@/features/tarifario/types/tarifario.types';
 import { Trash2, Plus, ArrowUp, ArrowDown, Package, Building2, FileText, ShoppingCart, Calculator, ChevronDown } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/shared/components/ui/card';
 import { Separator } from '@/shared/components/ui/separator';
-
-// ---------------------------------------------------------------------------
-// Constants
-// ---------------------------------------------------------------------------
-
-const COST_CENTERS = ['FUSCIA', 'SOHO', 'MONICA J', 'FONNETA', 'CLUB INDOMITAS'] as const;
+import { useParametros } from '@/features/admin/hooks/useParametros';
 
 const IVA_OPTIONS = [
   { label: '0%', value: 0 },
@@ -116,6 +111,7 @@ interface PurchaseOrderFormProps {
 
 export function PurchaseOrderForm({ initialData, onSuccess, onCancel }: PurchaseOrderFormProps) {
   const isEditing = !!initialData;
+  const { opciones: centrosCosto } = useParametros('centros_costo');
 
   // Remote data
   const [providers, setProviders] = useState<ProviderOption[]>([]);
@@ -635,10 +631,8 @@ export function PurchaseOrderForm({ initialData, onSuccess, onCancel }: Purchase
                     className={`${inputClass(!!errors.cost_center)} appearance-none pr-8`}
                   >
                     <option value="">Selecciona centro de costo</option>
-                    {COST_CENTERS.map((cc) => (
-                      <option key={cc} value={cc}>
-                        {cc}
-                      </option>
+                    {centrosCosto.map(o => (
+                      <option key={o.valor} value={o.etiqueta}>{o.etiqueta}</option>
                     ))}
                   </select>
                   <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />

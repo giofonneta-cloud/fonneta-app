@@ -25,8 +25,11 @@ export function ForgotPasswordForm() {
 
     if (success) {
         return (
-            <div className="text-center">
-                <p className="text-green-600">Check your email for a reset link.</p>
+            <div className="text-center space-y-2">
+                <p className="text-green-600 font-medium">¡Enlace enviado!</p>
+                <p className="text-sm text-gray-600">
+                    Revisa tu correo electrónico para encontrar el enlace de recuperación.
+                </p>
             </div>
         )
     }
@@ -35,13 +38,14 @@ export function ForgotPasswordForm() {
         <form action={handleSubmit} className="space-y-4">
             <div>
                 <label htmlFor="email" className="block text-sm font-medium">
-                    Email
+                    Correo electrónico
                 </label>
                 <input
                     id="email"
                     name="email"
                     type="email"
                     required
+                    placeholder="correo@empresa.com"
                     className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
                 />
             </div>
@@ -55,7 +59,7 @@ export function ForgotPasswordForm() {
                 disabled={loading}
                 className="w-full rounded-md bg-blue-600 px-4 py-2 text-white hover:bg-blue-700 disabled:opacity-50"
             >
-                {loading ? 'Sending...' : 'Send Reset Link'}
+                {loading ? 'Enviando...' : 'Enviar enlace de recuperación'}
             </button>
         </form>
     )

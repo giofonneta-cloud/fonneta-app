@@ -122,6 +122,37 @@ export interface CreateInvoiceInput {
     cost_center?: string;
 }
 
+// ============================================
+// ÓRDENES DE COMPRA (vista proveedor)
+// ============================================
+
+export type ProviderPOStatus = 'enviada' | 'aceptada' | 'completada' | 'cancelada';
+
+export interface ProviderPOItem {
+  id: string;
+  descripcion: string;
+  precio: number;
+  order_index: number;
+}
+
+export interface ProviderPurchaseOrder {
+  id: string;
+  po_number: string;
+  status: ProviderPOStatus;
+  created_at: string;
+  sent_at: string | null;
+  authorized_by: string | null;
+  cost_center: string | null;
+  description: string | null;
+  subtotal: number;
+  iva_porcentaje: number;
+  iva_valor: number;
+  otros_impuestos: number;
+  total: number;
+  document_url: string | null;
+  purchase_order_items: ProviderPOItem[];
+}
+
 export interface UpdateInvoiceInput {
     invoice_number?: string;
     invoice_type?: InvoiceType;

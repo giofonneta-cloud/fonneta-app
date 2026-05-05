@@ -5,6 +5,16 @@ import Link from 'next/link';
 export function QuickActionsCard() {
     const actions = [
         {
+            label: 'Parámetros del Sistema',
+            href: '/dashboard/admin/parametros',
+            icon: (
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
+                </svg>
+            ),
+            color: 'blue',
+        },
+        {
             label: 'Gestionar Comerciales',
             href: '/dashboard/admin/comerciales',
             icon: (
@@ -58,6 +68,7 @@ export function QuickActionsCard() {
     ];
 
     const colorClasses: Record<string, string> = {
+        blue: 'bg-blue-50 text-blue-600 hover:bg-blue-100 border-blue-200',
         indigo: 'bg-indigo-50 text-indigo-600 hover:bg-indigo-100 border-indigo-200',
         emerald: 'bg-emerald-50 text-emerald-600 hover:bg-emerald-100 border-emerald-200',
         cyan: 'bg-cyan-50 text-cyan-600 hover:bg-cyan-100 border-cyan-200',

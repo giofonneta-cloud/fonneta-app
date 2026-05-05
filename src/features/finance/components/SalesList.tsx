@@ -6,7 +6,11 @@ import { salesService } from '../services/salesService';
 import { Input } from '@/shared/components/ui/input';
 import { Badge } from '@/shared/components/ui/badge';
 import { Button } from '@/shared/components/ui/button';
-import { Search, AlertCircle, Pencil } from 'lucide-react';
+import { Search, AlertCircle, Pencil, DollarSign, X } from 'lucide-react';
+import { useResizableColumns } from '@/shared/hooks/useResizableColumns';
+
+// [col]: Fecha | Factura | Cliente | Proyecto | Valor Neto | Total+IVA | Estado | Acciones
+const INITIAL_WIDTHS = [110, 140, 180, 180, 120, 120, 100, 100];
 
 const fmt = (n: number) =>
     n.toLocaleString('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 });
@@ -34,19 +38,57 @@ export function SalesList({ onEdit }: Props) {
     const [sales, setSales] = useState<Venta[]>([]);
     const [search, setSearch] = useState('');
     const [loading, setLoading] = useState(true);
+    const { widths, startResize } = useResizableColumns(INITIAL_WIDTHS);
 
-    useEffect(() => {
+    // Estado del modal de pago
+    const [payingId, setPayingId] = useState<string | null>(null);
+    const [payAmount, setPayAmount] = useState('');
+    const [payDate, setPayDate] = useState(new Date().toISOString().split('T')[0]);
+    const [saving, setSaving] = useState(false);
+
+    const loadSales = () => {
+        setLoading(true);
         salesService.getAllSales()
             .then(data => setSales(data))
             .catch(err => console.error('Error loading sales', err))
             .finally(() => setLoading(false));
-    }, []);
+    };
+
+    useEffect(() => { loadSales(); }, []);
 
     const filtered = sales.filter(s =>
         (s.cliente?.business_name ?? '').toLowerCase().includes(search.toLowerCase()) ||
         (s.proyecto?.name ?? '').toLowerCase().includes(search.toLowerCase()) ||
         (s.numero_factura ?? '').toLowerCase().includes(search.toLowerCase())
     );
+
+    const payingSale = sales.find(s => s.id === payingId);
+    const saldoPendiente = payingSale
+        ? Number(payingSale.total_con_iva) - Number(payingSale.valor_pagado || 0)
+        : 0;
+
+    const openPayModal = (sale: Venta) => {
+        const saldo = Number(sale.total_con_iva) - Number(sale.valor_pagado || 0);
+        setPayingId(sale.id);
+        setPayAmount(String(saldo > 0 ? Math.round(saldo) : ''));
+        setPayDate(new Date().toISOString().split('T')[0]);
+    };
+
+    const handleRegisterPayment = async () => {
+        if (!payingId) return;
+        const amount = Number(payAmount);
+        if (!amount || amount <= 0) { alert('Ingresa un valor válido'); return; }
+        setSaving(true);
+        try {
+            await salesService.recordPayment(payingId, amount, payDate);
+            setPayingId(null);
+            loadSales();
+        } catch (err: unknown) {
+            alert('Error al registrar pago: ' + (err instanceof Error ? err.message : String(err)));
+        } finally {
+            setSaving(false);
+        }
+    };
 
     return (
         <div className="space-y-4">
@@ -71,17 +113,25 @@ export function SalesList({ onEdit }: Props) {
 
             {/* Table */}
             <div className="overflow-x-auto rounded-xl border border-slate-100">
-                <table className="w-full text-sm text-left">
+                <table className="text-sm text-left" style={{ tableLayout: 'fixed', width: widths.reduce((a, b) => a + b, 0) }}>
+                    <colgroup>
+                        {widths.map((w, i) => <col key={i} style={{ width: w }} />)}
+                    </colgroup>
                     <thead className="text-[10px] text-slate-500 uppercase bg-slate-50 border-b border-slate-100">
                         <tr>
-                            <th className="px-4 py-3 font-black tracking-widest">Fecha</th>
-                            <th className="px-4 py-3 font-black tracking-widest">Factura</th>
-                            <th className="px-4 py-3 font-black tracking-widest">Cliente</th>
-                            <th className="px-4 py-3 font-black tracking-widest">Proyecto</th>
-                            <th className="px-4 py-3 font-black tracking-widest text-right">Valor Neto</th>
-                            <th className="px-4 py-3 font-black tracking-widest text-right">Total + IVA</th>
-                            <th className="px-4 py-3 font-black tracking-widest text-center">Estado</th>
-                            <th className="px-4 py-3 font-black tracking-widest text-center">Editar</th>
+                            {(['Fecha', 'Factura', 'Cliente', 'Proyecto', 'Valor Neto', 'Total + IVA', 'Estado', 'Acciones'] as const).map((label, i) => (
+                                <th
+                                    key={i}
+                                    className="px-4 py-3 font-black tracking-widest relative select-none overflow-hidden"
+                                    style={{ width: widths[i] }}
+                                >
+                                    <span className="block truncate">{label}</span>
+                                    <div
+                                        onMouseDown={startResize(i)}
+                                        className="absolute right-0 top-0 h-full w-1.5 cursor-col-resize hover:bg-blue-400 transition-colors z-10"
+                                    />
+                                </th>
+                            ))}
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-50">
@@ -107,36 +157,53 @@ export function SalesList({ onEdit }: Props) {
                         ) : (
                             filtered.map(sale => (
                                 <tr key={sale.id} className="hover:bg-slate-50/60 transition-colors">
-                                    <td className="px-4 py-3.5 text-slate-600 font-medium text-xs">
-                                        {formatDate(sale.fecha_factura ?? sale.created_at)}
+                                    <td className="px-4 py-3.5 text-slate-600 font-medium text-xs overflow-hidden">
+                                        <span className="block truncate">{formatDate(sale.fecha_factura ?? sale.created_at)}</span>
                                     </td>
-                                    <td className="px-4 py-3.5 font-mono text-slate-700 text-xs font-bold">
-                                        {sale.numero_factura || <span className="text-slate-300">—</span>}
+                                    <td className="px-4 py-3.5 font-mono text-slate-700 text-xs font-bold overflow-hidden">
+                                        <span className="block truncate">{sale.numero_factura || '—'}</span>
                                     </td>
-                                    <td className="px-4 py-3.5 font-semibold text-blue-600 text-xs">
-                                        {sale.cliente?.business_name || 'Sin cliente'}
+                                    <td className="px-4 py-3.5 font-semibold text-blue-600 text-xs overflow-hidden">
+                                        <span className="block truncate" title={sale.cliente?.business_name ?? ''}>
+                                            {sale.cliente?.business_name || 'Sin cliente'}
+                                        </span>
                                     </td>
-                                    <td className="px-4 py-3.5 text-slate-600 text-xs">
-                                        {sale.proyecto?.name || <span className="text-slate-300">—</span>}
+                                    <td className="px-4 py-3.5 text-slate-600 text-xs overflow-hidden">
+                                        <span className="block truncate" title={sale.proyecto?.name ?? ''}>
+                                            {sale.proyecto?.name || '—'}
+                                        </span>
                                     </td>
-                                    <td className="px-4 py-3.5 text-right font-mono text-slate-700 text-xs">
-                                        {fmt(sale.valor_venta_neto)}
+                                    <td className="px-4 py-3.5 text-right font-mono text-slate-700 text-xs overflow-hidden">
+                                        <span className="block truncate">{fmt(sale.valor_venta_neto)}</span>
                                     </td>
-                                    <td className="px-4 py-3.5 text-right font-mono font-bold text-emerald-600 text-xs">
-                                        {fmt(sale.total_con_iva)}
+                                    <td className="px-4 py-3.5 text-right font-mono font-bold text-emerald-600 text-xs overflow-hidden">
+                                        <span className="block truncate">{fmt(sale.total_con_iva)}</span>
                                     </td>
                                     <td className="px-4 py-3.5 text-center">
                                         {estadoBadge(sale.estado_pago)}
                                     </td>
                                     <td className="px-4 py-3.5 text-center">
-                                        <Button
-                                            variant="ghost"
-                                            size="sm"
-                                            onClick={() => onEdit?.(sale)}
-                                            className="h-7 w-7 p-0 text-slate-400 hover:text-blue-600 hover:bg-blue-50"
-                                        >
-                                            <Pencil className="w-3.5 h-3.5" />
-                                        </Button>
+                                        <div className="flex items-center justify-center gap-1">
+                                            {sale.estado_pago !== 'pagado' && (
+                                                <Button
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    onClick={() => openPayModal(sale)}
+                                                    className="h-7 px-2 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 text-[10px] font-bold gap-1"
+                                                >
+                                                    <DollarSign className="w-3 h-3" />
+                                                    Pago
+                                                </Button>
+                                            )}
+                                            <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                onClick={() => onEdit?.(sale)}
+                                                className="h-7 w-7 p-0 text-slate-400 hover:text-blue-600 hover:bg-blue-50"
+                                            >
+                                                <Pencil className="w-3.5 h-3.5" />
+                                            </Button>
+                                        </div>
                                     </td>
                                 </tr>
                             ))
@@ -160,6 +227,60 @@ export function SalesList({ onEdit }: Props) {
                                 {fmt(filtered.reduce((a, s) => a + (Number(s.total_con_iva) || 0), 0))}
                             </span>
                         </span>
+                    </div>
+                </div>
+            )}
+
+            {/* Modal Registrar Pago */}
+            {payingId && payingSale && (
+                <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 space-y-4">
+                        <div className="flex items-center justify-between">
+                            <h4 className="font-black text-slate-800 text-base">Registrar Pago</h4>
+                            <button onClick={() => setPayingId(null)} className="text-slate-400 hover:text-slate-600">
+                                <X className="w-5 h-5" />
+                            </button>
+                        </div>
+                        <div className="bg-slate-50 rounded-xl p-3 space-y-1 text-xs">
+                            <p className="text-slate-500">Cliente: <span className="font-bold text-slate-800">{payingSale.cliente?.business_name}</span></p>
+                            <p className="text-slate-500">Factura: <span className="font-bold text-slate-800">{payingSale.numero_factura || '—'}</span></p>
+                            <p className="text-slate-500">Total: <span className="font-bold text-emerald-600">{fmt(Number(payingSale.total_con_iva))}</span></p>
+                            <p className="text-slate-500">Saldo pendiente: <span className="font-black text-amber-600">{fmt(saldoPendiente)}</span></p>
+                        </div>
+                        <div className="space-y-3">
+                            <div>
+                                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Valor Recibido (COP)</label>
+                                <Input
+                                    type="number"
+                                    value={payAmount}
+                                    onChange={e => setPayAmount(e.target.value)}
+                                    placeholder="0"
+                                    className="mt-1"
+                                    autoFocus
+                                />
+                            </div>
+                            <div>
+                                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Fecha de Pago</label>
+                                <Input
+                                    type="date"
+                                    value={payDate}
+                                    onChange={e => setPayDate(e.target.value)}
+                                    className="mt-1"
+                                />
+                            </div>
+                        </div>
+                        <div className="flex gap-2 pt-2">
+                            <Button variant="outline" onClick={() => setPayingId(null)} className="flex-1">
+                                Cancelar
+                            </Button>
+                            <Button
+                                onClick={handleRegisterPayment}
+                                disabled={saving}
+                                className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white"
+                            >
+                                {saving ? 'Guardando...' : 'Confirmar Pago'}
+                            </Button>
+                        </div>
                     </div>
                 </div>
             )}

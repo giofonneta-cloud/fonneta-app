@@ -1,5 +1,25 @@
 // Tipos para el módulo de administración
 
+export interface Parametro {
+    id: string;
+    categoria: string;
+    valor: string;
+    etiqueta: string;
+    grupo?: string | null;
+    orden: number;
+    activo: boolean;
+    created_at?: string;
+    updated_at?: string;
+}
+
+export interface NewParametro {
+    categoria: string;
+    valor: string;
+    etiqueta: string;
+    grupo?: string | null;
+    orden?: number;
+}
+
 export interface SystemConfig {
     id: string;
     module_name: string;

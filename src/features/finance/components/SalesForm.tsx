@@ -19,6 +19,7 @@ import { Provider } from '@/features/providers/types/provider.types';
 import { projectService } from '@/features/projects/services/projectService';
 import { Project } from '@/features/projects/types/project.types';
 import { Venta } from '../types/sales-expenses.types';
+import { useParametros } from '@/features/admin/hooks/useParametros';
 
 const salesFormSchema = z.object({
     cliente_id: z.string().min(1, "Selecciona un cliente"),
@@ -57,6 +58,9 @@ export function SalesForm({ onSuccess, onCancel, initialProjectId, initialClient
     const [clients, setClients] = useState<Provider[]>([]);
     const [projects, setProjects] = useState<Project[]>([]);
     const [comerciales, setComerciales] = useState<Comercial[]>([]);
+    const { opciones: lineasNegocio } = useParametros('lineas_negocio');
+    const { opciones: centrosCosto } = useParametros('centros_costo');
+    const { opciones: plazosPagoVentas } = useParametros('plazos_pago_ventas');
 
     useEffect(() => {
         providerService.getClients().then(setClients).catch(console.error);
@@ -273,10 +277,9 @@ export function SalesForm({ onSuccess, onCancel, initialProjectId, initialClient
                                                     </SelectTrigger>
                                                 </FormControl>
                                                 <SelectContent>
-                                                    <SelectItem value="publicidad">Publicidad</SelectItem>
-                                                    <SelectItem value="editorial">Editorial</SelectItem>
-                                                    <SelectItem value="digital">Digital</SelectItem>
-                                                    <SelectItem value="eventos">Eventos</SelectItem>
+                                                    {lineasNegocio.map(o => (
+                                                        <SelectItem key={o.valor} value={o.valor}>{o.etiqueta}</SelectItem>
+                                                    ))}
                                                 </SelectContent>
                                             </Select>
                                             <FormMessage />
@@ -320,11 +323,9 @@ export function SalesForm({ onSuccess, onCancel, initialProjectId, initialClient
                                                     </SelectTrigger>
                                                 </FormControl>
                                                 <SelectContent>
-                                                    <SelectItem value="FUSCIA">FUSCIA</SelectItem>
-                                                    <SelectItem value="SOHO">SOHO</SelectItem>
-                                                    <SelectItem value="MONICA J">MONICA J</SelectItem>
-                                                    <SelectItem value="FONNETA">FONNETA</SelectItem>
-                                                    <SelectItem value="CLUB INDOMITAS">CLUB INDOMITAS</SelectItem>
+                                                    {centrosCosto.map(o => (
+                                                        <SelectItem key={o.valor} value={o.etiqueta}>{o.etiqueta}</SelectItem>
+                                                    ))}
                                                 </SelectContent>
                                             </Select>
                                             <FormMessage />
@@ -452,10 +453,9 @@ export function SalesForm({ onSuccess, onCancel, initialProjectId, initialClient
                                                     </SelectTrigger>
                                                 </FormControl>
                                                 <SelectContent>
-                                                    <SelectItem value="15">15 Días</SelectItem>
-                                                    <SelectItem value="30">30 Días</SelectItem>
-                                                    <SelectItem value="45">45 Días</SelectItem>
-                                                    <SelectItem value="60">60 Días</SelectItem>
+                                                    {plazosPagoVentas.map(o => (
+                                                        <SelectItem key={o.valor} value={o.valor}>{o.etiqueta}</SelectItem>
+                                                    ))}
                                                 </SelectContent>
                                             </Select>
                                             <FormMessage />
