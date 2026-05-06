@@ -10,59 +10,44 @@ import { X, FileDown, Send, Pencil, Loader2, Paperclip, Trash2 } from 'lucide-re
  * Retorna el Blob listo para enviar como FormData o descargar.
  */
 async function generatePdfBlob(html: string): Promise<Blob> {
-  // html2pdf.js mueve su contenedor interno a coords negativas antes de llamar
-  // html2canvas → Chrome no pinta esa área → canvas en blanco → PDF en blanco.
-  // Solución: usar html2canvas + jsPDF directamente, con el contenedor en el
-  // viewport (z-55, detrás del modal z-[60]) para que Chrome SÍ lo renderice.
-  const [h2cMod, jsPDFMod] = await Promise.all([
-    import('html2canvas'),
-    import('jspdf'),
-  ]);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const html2canvas: (el: HTMLElement, opts?: unknown) => Promise<HTMLCanvasElement> =
-    (h2cMod as any).default ?? h2cMod;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const JsPDF: new (opts: unknown) => any = (jsPDFMod as any).jsPDF ?? (jsPDFMod as any).default;
+  // html2pdf.js mueve su contenedor a coords negativas ANTES de llamar html2canvas
+  // → Chrome no pinta esa área → canvas en blanco.
+  // Fix: usar onclone de html2canvas para reposicionar el contenedor en el
+  // documento clonado (antes del pintado) a position:fixed top:0 left:0,
+  // así Chrome lo pinta correctamente y html2pdf puede aplicar sus page-breaks.
+  const html2pdf = (await import('html2pdf.js')).default;
 
   const container = document.createElement('div');
   container.innerHTML = html;
-  // En el viewport (Chrome lo pinta) pero detrás del modal OC (z-[60]).
-  container.style.cssText =
-    'position:fixed;top:0;left:0;width:794px;z-index:55;pointer-events:none;background:white;';
   document.body.appendChild(container);
 
   try {
-    const canvas = await html2canvas(container, {
-      scale: 2,
-      useCORS: true,
-      logging: false,
-      width: 794,
-      windowWidth: 794,
-      scrollX: 0,
-      scrollY: 0,
-    });
-
-    // A4 en píxeles a 96 dpi
-    const A4_W = 794;
-    const A4_H = 1123;
-    const pdf = new JsPDF({ orientation: 'portrait', unit: 'px', format: [A4_W, A4_H] });
-    const imgData = canvas.toDataURL('image/jpeg', 0.95);
-    const imgW = A4_W;
-    const imgH = (canvas.height / canvas.width) * imgW;
-
-    let y = 0;
-    let remaining = imgH;
-    pdf.addImage(imgData, 'JPEG', 0, y, imgW, imgH);
-    remaining -= A4_H;
-
-    while (remaining > 0) {
-      y -= A4_H;
-      pdf.addPage();
-      pdf.addImage(imgData, 'JPEG', 0, y, imgW, imgH);
-      remaining -= A4_H;
-    }
-
-    return pdf.output('blob') as Blob;
+    const blob: Blob = await html2pdf()
+      .set({
+        margin: [10, 10, 10, 10],
+        filename: 'oc.pdf',
+        image: { type: 'jpeg', quality: 0.95 },
+        html2canvas: {
+          scale: 2,
+          useCORS: true,
+          logging: false,
+          scrollX: 0,
+          scrollY: 0,
+          // onclone se ejecuta en el doc clonado, ANTES de que html2canvas pinte.
+          // html2pdf habrá movido el container a coords negativas; aquí lo devolvemos
+          // al viewport (0,0) para que Chrome lo renderice correctamente.
+          onclone: (_clonedDoc: Document, element: HTMLElement) => {
+            element.style.position = 'fixed';
+            element.style.left = '0';
+            element.style.top = '0';
+          },
+        },
+        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+        pagebreak: { mode: ['css', 'legacy'] },
+      })
+      .from(container)
+      .outputPdf('blob');
+    return blob;
   } finally {
     document.body.removeChild(container);
   }
