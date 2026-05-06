@@ -77,6 +77,9 @@ interface FormState {
   otros_impuestos: number;
 }
 
+const DEFAULT_DESCRIPTION =
+  'Estimado proveedor: Le compartimos la orden de compra y el release para el cobro y pago del servicio prestado. Por favor, tenga en cuenta que la radicación de estos documentos debe realizarse a través del sistema Fonnettapp, ingresando con la cuenta creada al momento de su registro. El sistema le solicitará adjuntar su cuenta de cobro, el release, orden de compra y el soporte de pago de la seguridad social; le recordamos que la falta de cualquiera de estos soportes será motivo de rechazo de su solicitud. Si tiene alguna duda o inquietud, puede escribirnos al número 3112487439. Cordialmente, Tatiana Medina - Directora Administrativa.';
+
 const EMPTY_FORM: FormState = {
   provider_id: '',
   unregistered_provider: false,
@@ -90,7 +93,7 @@ const EMPTY_FORM: FormState = {
   cost_center: '',
   project_id: '',
   transport: '',
-  description: '',
+  description: DEFAULT_DESCRIPTION,
   iva_porcentaje: 0,
   otros_impuestos: 0,
 };
