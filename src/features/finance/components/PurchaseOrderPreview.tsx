@@ -70,10 +70,13 @@ const formatDate = (dateStr: string) => {
 };
 
 export function PurchaseOrderPreview({ po, onClose, onEdit, onSent }: PurchaseOrderPreviewProps) {
+  const ADMIN_CC = 'administrativo@fonneta.com';
+
   const [sending, setSending] = useState(false);
   const [sendError, setSendError] = useState<string | null>(null);
   const [attachments, setAttachments] = useState<File[]>([]);
-  const [ccEmail, setCcEmail] = useState('');
+  const [ccAdmin, setCcAdmin] = useState(true);
+  const [ccCustom, setCcCustom] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
   // Guard sincrónico contra doble-clic. setState es async y no protege en clicks rápidos consecutivos.
   const sendingRef = useRef(false);
@@ -153,7 +156,8 @@ export function PurchaseOrderPreview({ po, onClose, onEdit, onSent }: PurchaseOr
       const formData = new FormData();
       formData.append('purchaseOrderId', po.id);
       formData.append('pdfFile', pdfFile);
-      if (ccEmail.trim()) formData.append('ccEmail', ccEmail.trim());
+      const finalCc = [ccAdmin ? ADMIN_CC : '', ccCustom.trim()].filter(Boolean).join(',');
+      if (finalCc) formData.append('ccEmail', finalCc);
       attachments.forEach((file) => formData.append('attachments', file));
 
       const res = await fetch('/api/purchase-orders/send', {
@@ -361,15 +365,28 @@ export function PurchaseOrderPreview({ po, onClose, onEdit, onSent }: PurchaseOr
         {(po.status === 'borrador' || po.status === 'enviada') && (
           <div className="mx-6 mb-2 space-y-3">
             {/* CC email */}
-            <div className="flex items-center gap-2">
-              <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">CC:</label>
-              <input
-                type="email"
-                value={ccEmail}
-                onChange={(e) => setCcEmail(e.target.value)}
-                placeholder="correo@ejemplo.com (opcional)"
-                className="flex-1 text-sm border border-gray-200 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder-gray-400"
-              />
+            <div className="space-y-2">
+              <label className="flex items-center gap-2 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={ccAdmin}
+                  onChange={(e) => setCcAdmin(e.target.checked)}
+                  className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                />
+                <span className="text-sm text-gray-700">
+                  Copiar a <span className="font-medium text-blue-700">{ADMIN_CC}</span>
+                </span>
+              </label>
+              <div className="flex items-center gap-2">
+                <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">CC adicional:</label>
+                <input
+                  type="email"
+                  value={ccCustom}
+                  onChange={(e) => setCcCustom(e.target.value)}
+                  placeholder="otro@ejemplo.com (opcional)"
+                  className="flex-1 text-sm border border-gray-200 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder-gray-400"
+                />
+              </div>
             </div>
 
             {/* Attachments */}
