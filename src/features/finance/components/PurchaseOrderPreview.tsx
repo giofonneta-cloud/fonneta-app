@@ -498,27 +498,36 @@ function buildPrintHTML(po: PurchaseOrder, items: PurchaseOrderItem[]): string {
 
   const rows = items.map((item, idx) => `
     <tr>
-      <td style="padding:8px 12px; border-bottom:1px solid #e5e7eb; text-align:center; color:#6b7280;">${idx + 1}</td>
-      <td style="padding:8px 12px; border-bottom:1px solid #e5e7eb; white-space:pre-wrap;">${item.descripcion}</td>
-      <td style="padding:8px 12px; border-bottom:1px solid #e5e7eb; text-align:right; font-family:monospace; font-weight:600;">${fmt(item.precio)}</td>
+      <td style="padding:6px 10px; border-bottom:1px solid #e5e7eb; text-align:center; color:#6b7280; font-size:12px;">${idx + 1}</td>
+      <td style="padding:6px 10px; border-bottom:1px solid #e5e7eb; white-space:pre-wrap; font-size:12px;">${item.descripcion}</td>
+      <td style="padding:6px 10px; border-bottom:1px solid #e5e7eb; text-align:right; font-family:monospace; font-weight:600; font-size:12px;">${fmt(item.precio)}</td>
     </tr>
   `).join('');
 
-  const recipientRows = [
-    `<tr><td style="padding:4px 0; color:#6b7280; width:120px;">Nombre:</td><td style="padding:4px 0; font-weight:600;">${po.recipient_name}</td></tr>`,
-    po.recipient_nit ? `<tr><td style="padding:4px 0; color:#6b7280;">NIT:</td><td style="padding:4px 0;">${po.recipient_nit}</td></tr>` : '',
-    po.recipient_address ? `<tr><td style="padding:4px 0; color:#6b7280;">Direccion:</td><td style="padding:4px 0;">${po.recipient_address}</td></tr>` : '',
-    po.recipient_city ? `<tr><td style="padding:4px 0; color:#6b7280;">Ciudad:</td><td style="padding:4px 0;">${po.recipient_city}</td></tr>` : '',
-    po.recipient_phone ? `<tr><td style="padding:4px 0; color:#6b7280;">Telefono:</td><td style="padding:4px 0;">${po.recipient_phone}</td></tr>` : '',
-    `<tr><td style="padding:4px 0; color:#6b7280;">Email:</td><td style="padding:4px 0;">${po.recipient_email}</td></tr>`,
+  const cell = (label: string, value: string) =>
+    `<div style="display:flex; gap:4px; margin-bottom:3px; font-size:11.5px;">
+       <span style="color:#6b7280; white-space:nowrap; min-width:90px;">${label}</span>
+       <span style="font-weight:600; color:#111827;">${value}</span>
+     </div>`;
+
+  const recipientFields = [
+    cell('Nombre:', po.recipient_name),
+    po.recipient_nit ? cell('NIT:', po.recipient_nit) : '',
+    po.recipient_address ? cell('Dirección:', po.recipient_address) : '',
+    po.recipient_city ? cell('Ciudad:', po.recipient_city) : '',
+    po.recipient_phone ? cell('Teléfono:', po.recipient_phone) : '',
+    cell('Email:', po.recipient_email),
   ].filter(Boolean).join('');
 
-  const detailRows = [
-    po.authorized_by ? `<tr><td style="padding:4px 0; color:#6b7280; width:140px;">Autorizado por:</td><td style="padding:4px 0;">${po.authorized_by}</td></tr>` : '',
-    po.cost_center ? `<tr><td style="padding:4px 0; color:#6b7280;">Centro de costo:</td><td style="padding:4px 0;">${po.cost_center}</td></tr>` : '',
-    po.project_name ? `<tr><td style="padding:4px 0; color:#6b7280;">Proyecto:</td><td style="padding:4px 0;">${po.project_name}</td></tr>` : '',
-    po.transport ? `<tr><td style="padding:4px 0; color:#6b7280;">Transporte:</td><td style="padding:4px 0;">${po.transport}</td></tr>` : '',
-    `<tr><td style="padding:4px 0; color:#6b7280; width:140px;">Forma de pago:</td><td style="padding:4px 0; font-weight:600; color:#1d4ed8;">30 días calendario desde la radicación exitosa en Fonnetapp</td></tr>`,
+  const detailFields = [
+    po.authorized_by ? cell('Autorizado:', po.authorized_by) : '',
+    po.cost_center ? cell('C. costo:', po.cost_center) : '',
+    po.project_name ? cell('Proyecto:', po.project_name) : '',
+    po.transport ? cell('Transporte:', po.transport) : '',
+    `<div style="margin-top:4px; padding:4px 6px; background:#eff6ff; border-radius:4px; font-size:11px;">
+       <span style="color:#1d4ed8; font-weight:700;">Forma de pago:</span>
+       <span style="color:#1e40af; font-weight:600;"> 30 días calendario desde radicación en Fonnetapp</span>
+     </div>`,
   ].filter(Boolean).join('');
 
   return `<!DOCTYPE html>
@@ -528,26 +537,25 @@ function buildPrintHTML(po: PurchaseOrder, items: PurchaseOrderItem[]): string {
   <title>Orden de Compra ${po.po_number}</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { font-family: 'Segoe UI', Arial, sans-serif; font-size: 13px; color: #111827; background: #fff; }
-    .page { max-width: 800px; margin: 0 auto; padding: 40px; }
-    .header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 28px; padding-bottom: 20px; border-bottom: 3px solid #1d4ed8; }
-    .company-name { font-size: 20px; font-weight: 900; color: #1d4ed8; }
-    .company-info { font-size: 11px; color: #6b7280; margin-top: 4px; }
-    .po-title { font-size: 18px; font-weight: 700; color: #111827; }
-    .po-number { font-size: 14px; color: #1d4ed8; font-weight: 600; }
-    .section { margin-bottom: 20px; }
-    .section-title { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: #6b7280; margin-bottom: 8px; border-bottom: 1px solid #e5e7eb; padding-bottom: 4px; }
+    body { font-family: 'Segoe UI', Arial, sans-serif; font-size: 12px; color: #111827; background: #fff; }
+    .page { max-width: 800px; margin: 0 auto; padding: 32px 36px; }
+    .header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 16px; padding-bottom: 14px; border-bottom: 3px solid #1d4ed8; }
+    .company-name { font-size: 17px; font-weight: 900; color: #1d4ed8; }
+    .company-info { font-size: 10px; color: #6b7280; margin-top: 2px; }
+    .po-title { font-size: 16px; font-weight: 700; color: #111827; }
+    .po-number { font-size: 13px; color: #1d4ed8; font-weight: 600; }
+    .section-title { font-size: 9.5px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.07em; color: #9ca3af; margin-bottom: 5px; padding-bottom: 3px; border-bottom: 1px solid #e5e7eb; }
     table.items { width: 100%; border-collapse: collapse; }
     table.items thead tr { background: #f3f4f6; }
-    table.items thead th { padding: 10px 12px; text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: #6b7280; font-weight: 600; }
-    table.items thead th:first-child { text-align: center; width: 40px; }
+    table.items thead th { padding: 7px 10px; text-align: left; font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em; color: #6b7280; font-weight: 700; }
+    table.items thead th:first-child { text-align: center; width: 36px; }
     table.items thead th:last-child { text-align: right; }
-    .totals { display: flex; justify-content: flex-end; margin-top: 16px; }
-    .totals-box { width: 260px; }
-    .totals-row { display: flex; justify-content: space-between; padding: 5px 0; font-size: 13px; color: #6b7280; }
-    .totals-row.total { border-top: 2px solid #1d4ed8; margin-top: 6px; padding-top: 10px; font-size: 16px; font-weight: 700; color: #111827; }
+    .totals { display: flex; justify-content: flex-end; margin-top: 12px; }
+    .totals-box { width: 240px; }
+    .totals-row { display: flex; justify-content: space-between; padding: 4px 0; font-size: 12px; color: #6b7280; }
+    .totals-row.total { border-top: 2px solid #1d4ed8; margin-top: 5px; padding-top: 8px; font-size: 15px; font-weight: 700; color: #111827; }
     .totals-row.total span:last-child { color: #16a34a; }
-    .footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #e5e7eb; text-align: center; color: #9ca3af; font-size: 11px; }
+    .footer { margin-top: 28px; padding-top: 12px; border-top: 1px solid #e5e7eb; text-align: center; color: #9ca3af; font-size: 10px; }
     @media print {
       body { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
       .page { padding: 20px; }
@@ -556,43 +564,43 @@ function buildPrintHTML(po: PurchaseOrder, items: PurchaseOrderItem[]): string {
 </head>
 <body>
   <div class="page">
+    <!-- Header -->
     <div class="header">
-      <div style="display:flex; align-items:flex-start; gap:12px;">
-        <img src="${FONNETA_LOGO_B64}" alt="Fonneta" style="width:40px; height:auto; margin-top:2px;" />
+      <div style="display:flex; align-items:flex-start; gap:10px;">
+        <img src="${FONNETA_LOGO_B64}" alt="Fonneta" style="width:36px; height:auto; margin-top:2px;" />
         <div>
           <div class="company-name">FONNETA COMUNICACIONES S.A.S.</div>
           <div class="company-info">NIT 901.362.051-7</div>
-          <div class="company-info">Carrera 6 #123A-74, Bogota D.C.</div>
-          <div class="company-info">Cel: 318 254 4377</div>
+          <div class="company-info">Carrera 6 #123A-74, Bogota D.C. &nbsp;·&nbsp; Cel: 318 254 4377</div>
         </div>
       </div>
       <div style="text-align:right;">
         <div class="po-title">ORDEN DE COMPRA</div>
         <div class="po-number">No. ${po.po_number}</div>
-        <div style="font-size:12px; color:#6b7280; margin-top:4px;">Fecha: ${date}</div>
+        <div style="font-size:10.5px; color:#6b7280; margin-top:3px;">Fecha: ${date}</div>
       </div>
     </div>
 
-    <div class="section">
-      <div class="section-title">Emitido Para</div>
-      <table style="font-size:13px;"><tbody>${recipientRows}</tbody></table>
+    <!-- Emitido Para + Detalles en dos columnas -->
+    <div style="display:flex; gap:20px; margin-bottom:10px;">
+      <div style="flex:1; background:#f9fafb; border:1px solid #e5e7eb; border-radius:6px; padding:10px 12px;">
+        <div class="section-title">Emitido Para</div>
+        ${recipientFields}
+      </div>
+      <div style="flex:1; background:#f9fafb; border:1px solid #e5e7eb; border-radius:6px; padding:10px 12px;">
+        <div class="section-title">Detalles</div>
+        ${detailFields}
+      </div>
     </div>
-
-    ${detailRows ? `
-    <div class="section">
-      <div class="section-title">Detalles</div>
-      <table style="font-size:13px;"><tbody>${detailRows}</tbody></table>
-    </div>
-    ` : ''}
 
     ${po.description ? `
-    <div class="section">
-      <div class="section-title">Descripcion</div>
-      <p style="font-size:13px; color:#374151;">${po.description}</p>
+    <div style="margin-bottom:10px; padding:8px 12px; background:#f8faff; border-left:3px solid #1d4ed8; border-radius:0 4px 4px 0;">
+      <div style="font-size:9.5px; font-weight:800; text-transform:uppercase; letter-spacing:0.07em; color:#9ca3af; margin-bottom:4px;">Descripción</div>
+      <p style="font-size:10.5px; color:#374151; line-height:1.55;">${po.description}</p>
     </div>
     ` : ''}
 
-    <div class="section">
+    <div style="margin-bottom:6px;">
       <div class="section-title">Items</div>
       <table class="items">
         <thead>
