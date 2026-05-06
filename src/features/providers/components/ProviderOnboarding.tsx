@@ -4,7 +4,6 @@ import { useState, useRef } from 'react';
 import { Upload, CheckCircle, AlertCircle, FileText, Building2, CreditCard, Loader2, User, Mail } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
-import { providerService } from '../services/providerService';
 import { COLOMBIA_DEPARTMENTS, COLOMBIA_CITIES_BY_DEPT } from '@/shared/lib/colombia-data';
 import { supabase } from '@/shared/lib/supabase'; // solo para signIn post-registro
 
@@ -103,6 +102,7 @@ export function ProviderOnboarding() {
     const handleSubmit = async () => {
         setIsSubmitting(true);
         setError(null);
+        let createdUserId: string | null = null;
         try {
             // Validar documentos obligatorios
             if (!uploadedFiles.RUT) {
@@ -138,6 +138,7 @@ export function ProviderOnboarding() {
             }
             const userId = createUserData.userId as string;
             const authEmail = createUserData.authEmail as string;
+            createdUserId = userId; // para rollback si algo falla
 
             // 2. Crear perfil usando API route con service role
             // Esto evita TODOS los problemas de RLS y triggers
@@ -172,26 +173,35 @@ export function ProviderOnboarding() {
             const profileData = await profileResponse.json();
             console.log('Profile created via API:', profileData);
 
-            // 3. Crear registro de proveedor vinculado al user_id
-            console.log('Intentando crear proveedor con ID:', userId);
-            const providerData = await providerService.createProvider({
-                business_name: formData.business_name,
-                person_type: formData.person_type,
-                document_type: formData.document_type,
-                document_number: formData.document_number,
-                contact_name: formData.contact_name,
-                contact_email: formData.contact_email,
-                contact_phone: formData.contact_phone,
-                billing_email: formData.billing_email,
-                address: formData.address,
-                city: formData.city,
-                department: formData.department,
-                country: formData.country,
-                is_provider: true,
-                is_client: false,
-                onboarding_status: 'EN REVISION',
-                user_id: userId
+            // 3. Crear registro de proveedor vía API con service role
+            // (el usuario no está autenticado aún → RLS bloquearía el cliente directo)
+            const createProviderRes = await fetch('/api/providers/create', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    business_name: formData.business_name,
+                    person_type: formData.person_type,
+                    document_type: formData.document_type,
+                    document_number: formData.document_number,
+                    contact_name: formData.contact_name,
+                    contact_email: formData.contact_email,
+                    contact_phone: formData.contact_phone,
+                    billing_email: formData.billing_email,
+                    address: formData.address,
+                    city: formData.city,
+                    department: formData.department,
+                    country: formData.country,
+                    is_provider: true,
+                    is_client: false,
+                    onboarding_status: 'EN REVISION',
+                    user_id: userId,
+                }),
             });
+            const createProviderData = await createProviderRes.json();
+            if (!createProviderRes.ok) {
+                throw new Error(`Error al crear proveedor: ${createProviderData.error}`);
+            }
+            const providerData = createProviderData;
 
             // 4. Subir documentos a Google Drive vía API y guardar enlaces
             const providerId = providerData.id;
@@ -268,21 +278,34 @@ export function ProviderOnboarding() {
 
             setStep('finish');
             window.scrollTo({ top: 0, behavior: 'smooth' });
-        } catch (err: any) {
-            console.error('Error al registrar proveedor (RAW):', err);
-            console.error('Error al registrar proveedor (JSON):', JSON.stringify(err, null, 2));
-            
-            let errorMessage = err.message || err.error_description || JSON.stringify(err);
+        } catch (err: unknown) {
+            console.error('Error al registrar proveedor:', err);
+
+            // Rollback: eliminar el auth user si fue creado pero el registro no se completó
+            if (createdUserId) {
+                try {
+                    await fetch('/api/providers/delete-auth-user', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ userId: createdUserId }),
+                    });
+                } catch (rollbackErr) {
+                    console.error('Rollback fallido:', rollbackErr);
+                }
+            }
+
+            const errObj = err as { message?: string; error_description?: string };
+            let errorMessage = errObj.message || errObj.error_description || JSON.stringify(err);
             
             // Handle specific Supabase duplicate key errors
-            if (errorMessage.includes('providers_business_name_key') || 
-                (err.code === '23505' && errorMessage.includes('business_name'))) {
+            if (errorMessage.includes('providers_business_name_key') ||
+                errorMessage.includes('business_name')) {
                 errorMessage = 'Ya existe una empresa registrada con esta Razón Social. Por favor verifica o contacta a soporte.';
-            } else if (errorMessage.includes('providers_document_number_key') || 
-                       (err.code === '23505' && errorMessage.includes('document_number'))) {
+            } else if (errorMessage.includes('providers_document_number_key') ||
+                       errorMessage.includes('document_number')) {
                 errorMessage = 'Ya existe una empresa registrada con este Número de Documento / NIT.';
             } else if (errorMessage.includes('User already registered') || errorMessage.includes('already been registered')) {
-                errorMessage = 'Este NIT/Número de Documento ya tiene una cuenta registrada. Por favor inicia sesión.';
+                errorMessage = `El correo electrónico ingresado (${formData.contact_email}) ya está registrado en el sistema. Si intentaste registrarte antes y no completaste el proceso, contacta a administrativo@fonneta.com para que eliminen el registro incompleto.`;
             }
 
             setError(errorMessage || 'Error al procesar el registro. Inténtalo de nuevo.');
