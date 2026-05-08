@@ -36,7 +36,7 @@ export const providerService = {
         const { data, error } = await supabase
             .from('providers')
             .select('*')
-            .order('business_name');
+            .order('created_at', { ascending: false });
 
         if (error) throw error;
         return data as Provider[];
