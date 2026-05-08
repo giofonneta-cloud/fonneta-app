@@ -5,7 +5,6 @@ import { Upload, CheckCircle, AlertCircle, FileText, Building2, CreditCard, Load
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { COLOMBIA_DEPARTMENTS, COLOMBIA_CITIES_BY_DEPT } from '@/shared/lib/colombia-data';
-import { supabase } from '@/shared/lib/supabase'; // solo para signIn post-registro
 
 function cn(...inputs: ClassValue[]) {
     return twMerge(clsx(inputs));
@@ -265,16 +264,23 @@ export function ProviderOnboarding() {
                 uploadedDocuments.cert_bancaria_url = await uploadDocument(uploadedFiles.Cert_Bancaria, 'Cert_Bancaria');
             }
 
-            // 5. Actualizar registro del proveedor con URLs de documentos
-            await supabase
-                .from('providers')
-                .update({
-                    rut_url: uploadedDocuments.rut_url || null,
-                    cedula_url: uploadedDocuments.cedula_url || null,
-                    camara_comercio_url: uploadedDocuments.camara_comercio_url || null,
-                    cert_bancaria_url: uploadedDocuments.cert_bancaria_url || null,
-                })
-                .eq('id', providerId);
+            // 5. Actualizar registro del proveedor con URLs de documentos vía admin API
+            // (usuario no autenticado aún → RLS bloquearía el cliente directo)
+            const updateDocsRes = await fetch('/api/providers/create', {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    providerId,
+                    rut_url: uploadedDocuments.rut_url ?? null,
+                    cedula_url: uploadedDocuments.cedula_url ?? null,
+                    camara_comercio_url: uploadedDocuments.camara_comercio_url ?? null,
+                    cert_bancaria_url: uploadedDocuments.cert_bancaria_url ?? null,
+                }),
+            });
+            if (!updateDocsRes.ok) {
+                const { error } = await updateDocsRes.json();
+                throw new Error(`Error guardando documentos: ${error}`);
+            }
 
             setStep('finish');
             window.scrollTo({ top: 0, behavior: 'smooth' });

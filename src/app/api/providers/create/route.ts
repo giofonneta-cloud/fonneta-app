@@ -1,6 +1,37 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 
+export async function PATCH(request: NextRequest) {
+  try {
+    const { providerId, rut_url, cedula_url, camara_comercio_url, cert_bancaria_url } = await request.json();
+
+    if (!providerId) {
+      return NextResponse.json({ error: 'providerId es requerido' }, { status: 400 });
+    }
+
+    const adminClient = createAdminClient();
+    const { error } = await adminClient
+      .from('providers')
+      .update({
+        ...(rut_url !== undefined && { rut_url }),
+        ...(cedula_url !== undefined && { cedula_url }),
+        ...(camara_comercio_url !== undefined && { camara_comercio_url }),
+        ...(cert_bancaria_url !== undefined && { cert_bancaria_url }),
+      })
+      .eq('id', providerId);
+
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 400 });
+    }
+
+    return NextResponse.json({ success: true });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Error interno';
+    console.error('Error updating provider documents:', message);
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
+}
+
 export async function POST(request: NextRequest) {
   try {
     const input = await request.json();
