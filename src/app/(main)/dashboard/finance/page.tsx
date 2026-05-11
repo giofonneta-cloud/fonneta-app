@@ -119,17 +119,10 @@ export default function FinancePage() {
     const [previewPO, setPreviewPO] = useState<PurchaseOrder | null>(null);
     const [selectedProjects, setSelectedProjects] = useState<string[]>([]);
     const [selectedCostCenters, setSelectedCostCenters] = useState<string[]>([]);
-    const [isScrolled, setIsScrolled] = useState(false);
     const [allSales, setAllSales] = useState<Venta[]>([]);
     const [allExpenses, setAllExpenses] = useState<GastoExtendido[]>([]);
 
     useEffect(() => { setIsMounted(true); }, []);
-
-    useEffect(() => {
-        const onScroll = () => setIsScrolled(window.scrollY > 80);
-        window.addEventListener('scroll', onScroll, { passive: true });
-        return () => window.removeEventListener('scroll', onScroll);
-    }, []);
 
     const projectNames = useMemo(() =>
         [...new Set([
@@ -304,85 +297,119 @@ export default function FinancePage() {
 
             {/* Header Sticky */}
             {view === 'dashboard' && (
-                <div
-                    className={`sticky top-0 z-40 bg-white border-b border-slate-100 transition-all duration-300 ${
-                        isScrolled ? 'shadow-md' : 'shadow-none'
-                    } ${isScrolled ? 'py-3 px-4' : 'py-4 px-0'}`}
-                >
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                        <div className={`transition-all duration-300 ${isScrolled ? 'hidden' : 'block'}`}>
-                            <h1 className="text-3xl font-black text-slate-900 tracking-tight">
-                                Gestión Financiera
-                            </h1>
-                        </div>
+                <>
+                    {/* Toolbar — Filtros y acciones */}
+                    <div className="sticky top-0 z-50 bg-white border-b border-slate-100 shadow-sm py-4 px-0">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                            <div>
+                                <h1 className="text-3xl font-black text-slate-900 tracking-tight">
+                                    Gestión Financiera
+                                </h1>
+                            </div>
 
-                        <div className="flex items-center gap-2 flex-wrap">
-                            {/* Period */}
-                            <Select value={period} onValueChange={setPeriod}>
-                                <SelectTrigger className="w-[148px] bg-white border-slate-200 font-semibold text-slate-700 text-sm h-9">
-                                    <SelectValue placeholder="Periodo" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {PERIODS.map(p => (
-                                        <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
+                            <div className="flex items-center gap-2 flex-wrap">
+                                {/* Period */}
+                                <Select value={period} onValueChange={setPeriod}>
+                                    <SelectTrigger className="w-[148px] bg-white border-slate-200 font-semibold text-slate-700 text-sm h-9">
+                                        <SelectValue placeholder="Periodo" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {PERIODS.map(p => (
+                                            <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
 
-                            {/* Proyectos Filter */}
-                            <MultiSelectFilter
-                                label="Proyectos"
-                                options={projectNames}
-                                selectedValues={selectedProjects}
-                                onChange={setSelectedProjects}
-                            />
+                                {/* Proyectos Filter */}
+                                <MultiSelectFilter
+                                    label="Proyectos"
+                                    options={projectNames}
+                                    selectedValues={selectedProjects}
+                                    onChange={setSelectedProjects}
+                                />
 
-                            {/* Cost Centers Filter */}
-                            <MultiSelectFilter
-                                label="C. Costo"
-                                options={Array.from(COST_CENTERS)}
-                                selectedValues={selectedCostCenters}
-                                onChange={setSelectedCostCenters}
-                            />
+                                {/* Cost Centers Filter */}
+                                <MultiSelectFilter
+                                    label="C. Costo"
+                                    options={Array.from(COST_CENTERS)}
+                                    selectedValues={selectedCostCenters}
+                                    onChange={setSelectedCostCenters}
+                                />
 
-                            {/* Export dropdown */}
-                            <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                    <Button variant="outline" size="sm" className="gap-1.5 h-9 border-slate-200 text-slate-600 font-bold">
-                                        <Download className="w-3.5 h-3.5" />
-                                        Exportar
-                                    </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end" className="w-52">
-                                    {EXPORTS.map((e, i) => (
-                                        <DropdownMenuItem key={i} className="gap-2 cursor-pointer">
-                                            <e.icon className="w-4 h-4 text-slate-400" />
-                                            <span className="text-sm font-medium">{e.label}</span>
-                                        </DropdownMenuItem>
-                                    ))}
-                                </DropdownMenuContent>
-                            </DropdownMenu>
+                                {/* Export dropdown */}
+                                <DropdownMenu>
+                                    <DropdownMenuTrigger asChild>
+                                        <Button variant="outline" size="sm" className="gap-1.5 h-9 border-slate-200 text-slate-600 font-bold">
+                                            <Download className="w-3.5 h-3.5" />
+                                            Exportar
+                                        </Button>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent align="end" className="w-52">
+                                        {EXPORTS.map((e, i) => (
+                                            <DropdownMenuItem key={i} className="gap-2 cursor-pointer">
+                                                <e.icon className="w-4 h-4 text-slate-400" />
+                                                <span className="text-sm font-medium">{e.label}</span>
+                                            </DropdownMenuItem>
+                                        ))}
+                                    </DropdownMenuContent>
+                                </DropdownMenu>
 
-                            {/* Actions */}
-                            <Button
-                                onClick={() => setView('sales-form')}
-                                size="sm"
-                                className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold gap-1.5 h-9"
-                            >
-                                <Plus className="w-3.5 h-3.5" />
-                                Nueva Venta
-                            </Button>
-                            <Button
-                                onClick={() => setView('expense-form')}
-                                size="sm"
-                                className="bg-slate-800 hover:bg-slate-900 text-white font-bold gap-1.5 h-9"
-                            >
-                                <Receipt className="w-3.5 h-3.5" />
-                                Nuevo Gasto
-                            </Button>
+                                {/* Actions */}
+                                <Button
+                                    onClick={() => setView('sales-form')}
+                                    size="sm"
+                                    className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold gap-1.5 h-9"
+                                >
+                                    <Plus className="w-3.5 h-3.5" />
+                                    Nueva Venta
+                                </Button>
+                                <Button
+                                    onClick={() => setView('expense-form')}
+                                    size="sm"
+                                    className="bg-slate-800 hover:bg-slate-900 text-white font-bold gap-1.5 h-9"
+                                >
+                                    <Receipt className="w-3.5 h-3.5" />
+                                    Nuevo Gasto
+                                </Button>
+                            </div>
                         </div>
                     </div>
-                </div>
+
+                    {/* KPI Cards — Sticky */}
+                    <div className="sticky top-[88px] z-40 bg-white border-b border-slate-100 shadow-sm py-4 px-0">
+                        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
+                            {loadingKpis
+                                ? Array.from({ length: 5 }).map((_, i) => (
+                                    <div key={i} className="bg-slate-50 rounded-2xl border border-slate-100 shadow-sm p-4 animate-pulse">
+                                        <div className="h-2.5 bg-slate-200 rounded w-2/3 mb-3" />
+                                        <div className="h-6 bg-slate-200 rounded w-full mb-1.5" />
+                                        <div className="h-2.5 bg-slate-200 rounded w-1/2" />
+                                    </div>
+                                ))
+                                : kpis.map((kpi, i) => (
+                                    <div
+                                        key={i}
+                                        className="bg-slate-50 rounded-2xl border border-slate-100 shadow-sm p-4 hover:shadow-md transition-all duration-200 group"
+                                    >
+                                        <div className="flex items-center justify-between mb-2.5">
+                                            <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest leading-tight">
+                                                {kpi.label}
+                                            </span>
+                                            <div className={`p-1.5 rounded-lg ${kpi.iconBg} group-hover:scale-110 transition-transform`}>
+                                                <kpi.Icon className={`w-3.5 h-3.5 ${kpi.iconColor}`} />
+                                            </div>
+                                        </div>
+                                        <p className="text-lg font-black text-slate-900 tracking-tight truncate">
+                                            {kpi.value}
+                                        </p>
+                                        <p className="text-xs text-slate-400 font-medium mt-0.5">{kpi.sub}</p>
+                                        {kpi.extra}
+                                    </div>
+                                ))
+                            }
+                        </div>
+                    </div>
+                </>
             )}
 
             {/* Header Regular */}
@@ -404,109 +431,67 @@ export default function FinancePage() {
             {view === 'dashboard' ? (
                 <div className="space-y-5">
 
-                    {/* KPI Cards — 5 cards (collapse on scroll) */}
-                    <div
-                        className={`transition-all duration-300 overflow-hidden ${
-                            isScrolled ? 'max-h-0 opacity-0' : 'max-h-96 opacity-100'
-                        }`}
-                    >
-                        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
-                        {loadingKpis
-                            ? Array.from({ length: 5 }).map((_, i) => (
-                                <div key={i} className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5 animate-pulse">
-                                    <div className="h-3 bg-slate-100 rounded w-2/3 mb-4" />
-                                    <div className="h-7 bg-slate-100 rounded w-full mb-2" />
-                                    <div className="h-3 bg-slate-100 rounded w-1/2" />
-                                </div>
-                            ))
-                            : kpis.map((kpi, i) => (
-                                <div
-                                    key={i}
-                                    className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5 hover:shadow-md transition-all duration-200 group"
+                    {/* Tabs Nav — Sticky */}
+                    <div className="sticky top-[184px] z-40 bg-white border-b border-slate-100 shadow-sm flex overflow-x-auto">
+                        {TABS.map(t => {
+                            const isActive = tab === t.id;
+                            const accentActive = t.accent === 'emerald'
+                                ? 'border-emerald-500 text-emerald-600 bg-emerald-50/50'
+                                : t.accent === 'rose'
+                                    ? 'border-rose-500 text-rose-600 bg-rose-50/50'
+                                    : t.accent === 'blue'
+                                        ? 'border-blue-500 text-blue-600 bg-blue-50/50'
+                                        : t.accent === 'violet'
+                                            ? 'border-violet-500 text-violet-600 bg-violet-50/50'
+                                            : 'border-blue-600 text-blue-600 bg-blue-50/50';
+                            return (
+                                <button
+                                    key={t.id}
+                                    onClick={() => setTab(t.id)}
+                                    className={`flex items-center gap-2 px-5 py-4 text-sm font-bold whitespace-nowrap transition-all border-b-2 ${isActive
+                                            ? accentActive
+                                            : 'border-transparent text-slate-500 hover:text-slate-700 hover:bg-slate-50'
+                                        }`}
                                 >
-                                    <div className="flex items-center justify-between mb-3">
-                                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-tight">
-                                            {kpi.label}
+                                    <t.Icon className="w-4 h-4" />
+                                    {t.label}
+                                    {t.id === 'cxc' && (
+                                        <span className="ml-0.5 text-[9px] font-black bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded-full">
+                                            COBRAR
                                         </span>
-                                        <div className={`p-2 rounded-xl ${kpi.iconBg} group-hover:scale-110 transition-transform`}>
-                                            <kpi.Icon className={`w-4 h-4 ${kpi.iconColor}`} />
-                                        </div>
-                                    </div>
-                                    <p className="text-xl font-black text-slate-900 tracking-tight truncate">
-                                        {kpi.value}
-                                    </p>
-                                    <p className="text-xs text-slate-400 font-medium mt-1">{kpi.sub}</p>
-                                    {kpi.extra}
-                                </div>
-                            ))
-                        }
-                        </div>
+                                    )}
+                                    {t.id === 'cxp' && (
+                                        <span className="ml-0.5 text-[9px] font-black bg-rose-100 text-rose-700 px-1.5 py-0.5 rounded-full">
+                                            PAGAR
+                                        </span>
+                                    )}
+                                    {t.id === 'oc' && (
+                                        <span className="ml-0.5 text-[9px] font-black bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded-full">
+                                            COMPRAS
+                                        </span>
+                                    )}
+                                </button>
+                            );
+                        })}
                     </div>
 
-                    {/* Tabs panel */}
-                    <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
-                        {/* Nav */}
-                        <div className="flex border-b border-slate-100 overflow-x-auto">
-                            {TABS.map(t => {
-                                const isActive = tab === t.id;
-                                const accentActive = t.accent === 'emerald'
-                                    ? 'border-emerald-500 text-emerald-600 bg-emerald-50/50'
-                                    : t.accent === 'rose'
-                                        ? 'border-rose-500 text-rose-600 bg-rose-50/50'
-                                        : t.accent === 'blue'
-                                            ? 'border-blue-500 text-blue-600 bg-blue-50/50'
-                                            : t.accent === 'violet'
-                                                ? 'border-violet-500 text-violet-600 bg-violet-50/50'
-                                                : 'border-blue-600 text-blue-600 bg-blue-50/50';
-                                return (
-                                    <button
-                                        key={t.id}
-                                        onClick={() => setTab(t.id)}
-                                        className={`flex items-center gap-2 px-5 py-4 text-sm font-bold whitespace-nowrap transition-all border-b-2 ${isActive
-                                                ? accentActive
-                                                : 'border-transparent text-slate-500 hover:text-slate-700 hover:bg-slate-50'
-                                            }`}
-                                    >
-                                        <t.Icon className="w-4 h-4" />
-                                        {t.label}
-                                        {t.id === 'cxc' && (
-                                            <span className="ml-0.5 text-[9px] font-black bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded-full">
-                                                COBRAR
-                                            </span>
-                                        )}
-                                        {t.id === 'cxp' && (
-                                            <span className="ml-0.5 text-[9px] font-black bg-rose-100 text-rose-700 px-1.5 py-0.5 rounded-full">
-                                                PAGAR
-                                            </span>
-                                        )}
-                                        {t.id === 'oc' && (
-                                            <span className="ml-0.5 text-[9px] font-black bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded-full">
-                                                COMPRAS
-                                            </span>
-                                        )}
-                                    </button>
-                                );
-                            })}
-                        </div>
-
-                        {/* Content */}
-                        <div className="p-6">
-                            {tab === 'resumen' && <FinanceReportCenter period={period} />}
-                            {tab === 'ventas' && <SalesList period={period} selectedProjects={selectedProjects} selectedCostCenters={selectedCostCenters} onEdit={handleEditSale} />}
-                            {tab === 'gastos' && <ExpensesList period={period} selectedProjects={selectedProjects} selectedCostCenters={selectedCostCenters} onEdit={handleEditExpense} />}
-                            {tab === 'cxc' && <CXCList period={period} selectedProjects={selectedProjects} selectedCostCenters={selectedCostCenters} />}
-                            {tab === 'cxp' && <CXPList period={period} selectedProjects={selectedProjects} selectedCostCenters={selectedCostCenters} />}
-                            {tab === 'oc' && (
-                                <PurchaseOrdersList
-                                    period={period}
-                                    selectedProjects={selectedProjects}
-                                    onEdit={handleEditPO}
-                                    onPreview={handlePreviewPO}
-                                    onNewPO={() => setView('oc-form')}
-                                />
-                            )}
-                            {tab === 'tarifario' && <TarifarioList />}
-                        </div>
+                    {/* Content */}
+                    <div className="p-6 bg-white rounded-b-2xl border border-slate-100 border-t-0 shadow-sm">
+                        {tab === 'resumen' && <FinanceReportCenter period={period} />}
+                        {tab === 'ventas' && <SalesList period={period} selectedProjects={selectedProjects} selectedCostCenters={selectedCostCenters} onEdit={handleEditSale} />}
+                        {tab === 'gastos' && <ExpensesList period={period} selectedProjects={selectedProjects} selectedCostCenters={selectedCostCenters} onEdit={handleEditExpense} />}
+                        {tab === 'cxc' && <CXCList period={period} selectedProjects={selectedProjects} selectedCostCenters={selectedCostCenters} />}
+                        {tab === 'cxp' && <CXPList period={period} selectedProjects={selectedProjects} selectedCostCenters={selectedCostCenters} />}
+                        {tab === 'oc' && (
+                            <PurchaseOrdersList
+                                period={period}
+                                selectedProjects={selectedProjects}
+                                onEdit={handleEditPO}
+                                onPreview={handlePreviewPO}
+                                onNewPO={() => setView('oc-form')}
+                            />
+                        )}
+                        {tab === 'tarifario' && <TarifarioList />}
                     </div>
                 </div>
             ) : view === 'sales-form' ? (
