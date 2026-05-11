@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getEmailService } from '@/lib/email/emailService';
 import { createClient } from '@/lib/supabase/server';
+import { authPermissionService } from '@/features/auth';
 
 interface StatusChangeRequest {
     invoiceId: string;
@@ -36,16 +37,12 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        // 2. Verificar que sea admin/administrativo
-        const { data: profile } = await supabase
-            .from('profiles')
-            .select('role')
-            .eq('id', user.id)
-            .single();
-
-        if (!profile || !['admin', 'pm', 'administrativo'].includes(profile.role)) {
+        // 2. Verificar permisos dinámicos (finance.edit)
+        const hasPermission = await authPermissionService.hasPermission(user.id, 'finance.edit');
+        
+        if (!hasPermission) {
             return NextResponse.json(
-                { error: 'Sin permisos para esta acción' },
+                { error: 'Sin permisos (finance.edit) para realizar esta acción' },
                 { status: 403 }
             );
         }

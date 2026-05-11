@@ -19,3 +19,4 @@ export { FinancialSummaryCard } from './components/FinancialSummaryCard';
 export { AlertsCard } from './components/AlertsCard';
 export { AdoptionMetricsCard } from './components/AdoptionMetricsCard';
 export { QuickActionsCard } from './components/QuickActionsCard';
+export { RoleManager } from './components/Roles/RoleManager';

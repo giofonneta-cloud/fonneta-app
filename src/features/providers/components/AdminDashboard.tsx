@@ -164,6 +164,7 @@ export function AdminDashboard() {
                         <X className="w-5 h-5" />
                     </button>
                     <ProviderForm
+                        key={selectedProvider?.id ?? 'new'}
                         onSuccess={handleSuccess}
                         onCancel={handleCancel}
                         initialData={selectedProvider}

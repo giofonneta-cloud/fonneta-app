@@ -63,9 +63,13 @@ function urgencyBadge(days: number | null, estado: string) {
 
 const METODOS_PAGO = ['TRANSFERENCIA', 'CHEQUE', 'EFECTIVO', 'PSE', 'OTRO'];
 
-interface Props { period: string }
+interface Props {
+    period: string;
+    selectedProjects?: string[];
+    selectedCostCenters?: string[];
+}
 
-export function CXPList({ period }: Props) {
+export function CXPList({ period, selectedProjects, selectedCostCenters }: Props) {
     const [expenses, setExpenses] = useState<GastoExtendido[]>([]);
     const [loading, setLoading] = useState(true);
     const { widths, startResize } = useResizableColumns(INITIAL_WIDTHS);
@@ -81,7 +85,12 @@ export function CXPList({ period }: Props) {
         expensesService.getAllExpenses()
             .then(data => {
                 const pending = data
-                    .filter(e => e.estado_pago !== 'pagado' && isInPeriod(e.fecha_limite_pago, period))
+                    .filter(e => {
+                        const matchesPeriod = e.estado_pago !== 'pagado' && isInPeriod(e.fecha_limite_pago, period);
+                        const matchesProject = !selectedProjects || selectedProjects.length === 0 || !e.proyecto_id || true; // TODO: implement project filtering when proyecto is available
+                        const matchesCostCenter = !selectedCostCenters || selectedCostCenters.length === 0 || selectedCostCenters.includes(e.cost_center ?? '');
+                        return matchesPeriod && matchesProject && matchesCostCenter;
+                    })
                     .sort((a, b) => {
                         const da = getDaysUntil(a.fecha_limite_pago) ?? 9999;
                         const db = getDaysUntil(b.fecha_limite_pago) ?? 9999;
@@ -93,7 +102,7 @@ export function CXPList({ period }: Props) {
             .finally(() => setLoading(false));
     };
 
-    useEffect(() => { loadData(); }, [period]);
+    useEffect(() => { loadData(); }, [period, selectedProjects, selectedCostCenters]);
 
     const thisWeek = expenses.filter(e => {
         const d = getDaysUntil(e.fecha_limite_pago);

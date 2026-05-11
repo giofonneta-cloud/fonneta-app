@@ -31,6 +31,8 @@ export interface Provider {
     cedula_url?: string | null;
     camara_comercio_url?: string | null;
     cert_bancaria_url?: string | null;
+    // Etiquetas personalizadas
+    tags?: string[] | null;
 }
 
 export interface CreateProviderInput {
@@ -51,6 +53,7 @@ export interface CreateProviderInput {
     country?: string;
     onboarding_status?: OnboardingStatus;
     onboarding_notes?: string;
+    tags?: string[];
 }
 
 export interface ProviderDocument {

@@ -6,8 +6,9 @@ import { providerService } from '../services/providerService';
 import { useResizableColumns } from '@/shared/hooks/useResizableColumns';
 import {
   Search, Building2, Mail, Phone, FileText, MoreHorizontal,
-  Pencil, Trash2, ExternalLink, FileCheck, AlertCircle, Filter,
+  Pencil, Trash2, ExternalLink, FileCheck, AlertCircle, Filter, Download,
 } from 'lucide-react';
+import * as XLSX from 'xlsx';
 import { cn } from '@/shared/lib/utils';
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem,
@@ -22,8 +23,23 @@ import { Textarea } from '@/shared/components/ui/textarea';
 import { Button } from '@/shared/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/shared/components/ui/select';
 
-// Nombre | Registro | Tipo | Documento | Contacto | Docs | Estado | Acciones
-const INITIAL_WIDTHS = [230, 95, 90, 150, 195, 165, 145, 70];
+// Nombre | Registro | Tipo | Documento | Contacto | Docs | Etiquetas | Estado | Acciones
+const INITIAL_WIDTHS = [230, 95, 90, 150, 195, 165, 150, 145, 70];
+
+const TAG_COLORS = [
+  'bg-blue-50 text-blue-700 border-blue-200',
+  'bg-purple-50 text-purple-700 border-purple-200',
+  'bg-emerald-50 text-emerald-700 border-emerald-200',
+  'bg-amber-50 text-amber-700 border-amber-200',
+  'bg-rose-50 text-rose-700 border-rose-200',
+  'bg-indigo-50 text-indigo-700 border-indigo-200',
+  'bg-teal-50 text-teal-700 border-teal-200',
+];
+const getTagColor = (tag: string) => {
+  let hash = 0;
+  for (let i = 0; i < tag.length; i++) hash = tag.charCodeAt(i) + ((hash << 5) - hash);
+  return TAG_COLORS[Math.abs(hash) % TAG_COLORS.length];
+};
 
 const ONBOARDING_STYLES: Record<OnboardingStatus, string> = {
   'VALIDADO':    'bg-green-50 text-green-700 border-green-200',
@@ -42,7 +58,7 @@ function TableSkeleton() {
     <>
       {Array.from({ length: 6 }).map((_, i) => (
         <tr key={i}>
-          {Array.from({ length: 8 }).map((__, j) => (
+          {Array.from({ length: 9 }).map((__, j) => (
             <td key={j} className="px-4 py-4">
               <div className="h-3 bg-slate-100 rounded animate-pulse" />
             </td>
@@ -87,7 +103,7 @@ export function ProvidersTable({ onEdit, onDelete }: ProvidersTableProps) {
   useEffect(() => { loadProviders(); }, [loadProviders]);
 
   const filtered = providers.filter(p => {
-    const matchSearch = !searchTerm || [p.business_name, p.document_number, p.contact_email, p.contact_name]
+    const matchSearch = !searchTerm || [p.business_name, p.document_number, p.contact_email, p.contact_name, ...(p.tags ?? [])]
       .some(v => v?.toLowerCase().includes(searchTerm.toLowerCase()));
     const matchType = typeFilter === 'all' || (typeFilter === 'provider' ? p.is_provider : p.is_client);
     const matchStatus = statusFilter === 'all' || (statusFilter === 'active' ? p.is_active : !p.is_active);
@@ -147,8 +163,41 @@ export function ProvidersTable({ onEdit, onDelete }: ProvidersTableProps) {
     }
   };
 
+  const exportToExcel = () => {
+    const rows = providers.map(p => ({
+      'Nombre / Razón Social': p.business_name,
+      'Tipo de Persona': p.person_type === 'natural' ? 'Natural' : p.person_type === 'juridica' ? 'Jurídica' : '',
+      'Tipo de Documento': p.document_type?.replace(/_/g, ' ').toUpperCase() || '',
+      'Número de Documento': p.document_number || '',
+      'Nombre de Contacto': p.contact_name || '',
+      'Email de Contacto': p.contact_email || '',
+      'Teléfono': p.contact_phone || '',
+      'Email de Facturación': p.billing_email || '',
+      'Dirección': p.address || '',
+      'Ciudad': p.city || '',
+      'Departamento': p.department || '',
+      'País': p.country || '',
+      'Es Proveedor': p.is_provider ? 'Sí' : 'No',
+      'Es Cliente': p.is_client ? 'Sí' : 'No',
+      'Estado Onboarding': p.onboarding_status,
+      'Fecha de Registro': formatDate(p.created_at),
+      'RUT': p.rut_url ? 'Cargado' : 'Pendiente',
+      'Cédula Rep. Legal': p.cedula_url ? 'Cargado' : 'Pendiente',
+      'Cámara de Comercio': p.camara_comercio_url ? 'Cargado' : 'Pendiente',
+      'Cert. Bancaria': p.cert_bancaria_url ? 'Cargado' : 'Pendiente',
+      'Etiquetas': (p.tags ?? []).join(', '),
+      'Activo': p.is_active ? 'Sí' : 'No',
+    }));
+
+    const ws = XLSX.utils.json_to_sheet(rows);
+    ws['!cols'] = Object.keys(rows[0] ?? {}).map(k => ({ wch: Math.max(k.length + 2, 18) }));
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Proveedores');
+    XLSX.writeFile(wb, `Proveedores_${new Date().toISOString().split('T')[0]}.xlsx`);
+  };
+
   const totalWidth = widths.reduce((a, b) => a + b, 0);
-  const COLS = ['Nombre / Entidad', 'Registro', 'Tipo', 'Documento', 'Contacto', 'Docs Cargados', 'Estado', 'Acc.'];
+  const COLS = ['Nombre / Entidad', 'Registro', 'Tipo', 'Documento', 'Contacto', 'Docs Cargados', 'Etiquetas', 'Estado', 'Acc.'];
 
   return (
     <div className="space-y-4">
@@ -158,7 +207,7 @@ export function ProvidersTable({ onEdit, onDelete }: ProvidersTableProps) {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
           <input
             type="text"
-            placeholder="Buscar por nombre, documento, email..."
+            placeholder="Buscar por nombre, documento, email, etiqueta..."
             value={searchTerm}
             onChange={e => setSearchTerm(e.target.value)}
             className="w-full pl-9 pr-4 py-2 text-sm bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400 transition-colors placeholder:text-slate-300"
@@ -182,6 +231,15 @@ export function ProvidersTable({ onEdit, onDelete }: ProvidersTableProps) {
           <option value="active">Activos</option>
           <option value="inactive">Inactivos</option>
         </select>
+        <button
+          onClick={exportToExcel}
+          disabled={providers.length === 0}
+          title={`Exportar todos los registros (${providers.length})`}
+          className="inline-flex items-center gap-2 px-4 py-2 text-sm font-bold bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-200 disabled:text-slate-400 text-white rounded-lg transition-colors shrink-0"
+        >
+          <Download className="w-4 h-4" />
+          Excel ({providers.length})
+        </button>
       </div>
 
       {/* Count */}
@@ -222,7 +280,7 @@ export function ProvidersTable({ onEdit, onDelete }: ProvidersTableProps) {
               <TableSkeleton />
             ) : filtered.length === 0 ? (
               <tr>
-                <td colSpan={8} className="py-16 text-center">
+                <td colSpan={9} className="py-16 text-center">
                   <Building2 className="w-10 h-10 text-slate-200 mx-auto mb-3" />
                   <p className="text-sm font-bold text-slate-400">No se encontraron registros</p>
                 </td>
@@ -337,6 +395,24 @@ export function ProvidersTable({ onEdit, onDelete }: ProvidersTableProps) {
                         <AlertCircle className="w-3.5 h-3.5 shrink-0" />
                         <span className="text-[10px] font-bold">Sin documentos</span>
                       </div>
+                    )}
+                  </td>
+
+                  {/* Etiquetas */}
+                  <td className="px-4 py-3 overflow-hidden">
+                    {provider.tags && provider.tags.length > 0 ? (
+                      <div className="flex flex-wrap gap-1">
+                        {provider.tags.map(tag => (
+                          <span
+                            key={tag}
+                            className={cn('inline-block px-1.5 py-0.5 rounded-full text-[10px] font-bold border', getTagColor(tag))}
+                          >
+                            {tag}
+                          </span>
+                        ))}
+                      </div>
+                    ) : (
+                      <span className="text-[10px] text-slate-300">—</span>
                     )}
                   </td>
 

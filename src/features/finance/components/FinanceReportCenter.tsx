@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { PieChart as PieChartIcon } from 'lucide-react';
 import { salesService } from '../services/salesService';
 import { expensesService } from '../services/expensesService';
+import { MonthlyTrendChart } from './MonthlyTrendChart';
 import {
     BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
     ResponsiveContainer, Legend,
@@ -120,6 +121,8 @@ export function FinanceReportCenter({ period }: Props) {
 
     return (
         <div className="space-y-6">
+            <MonthlyTrendChart />
+
             <div>
                 <h3 className="text-base font-bold text-slate-800">Ingresos vs Gastos por Proyecto</h3>
                 <p className="text-xs text-slate-400 mt-0.5">Comparativa de rentabilidad en el periodo seleccionado</p>

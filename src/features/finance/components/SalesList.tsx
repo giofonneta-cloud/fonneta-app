@@ -31,10 +31,37 @@ function formatDate(d?: string) {
 }
 
 interface Props {
+    period?: string;
+    selectedProjects?: string[];
+    selectedCostCenters?: string[];
     onEdit?: (sale: Venta) => void;
 }
 
-export function SalesList({ onEdit }: Props) {
+function getYearMonth(dateStr: string): { year: number; month: number } | null {
+    if (!dateStr) return null;
+    const part = dateStr.split('T')[0];
+    const [y, m] = part.split('-').map(Number);
+    if (!y || !m) return null;
+    return { year: y, month: m };
+}
+
+function isInPeriod(dateStr: string, periodStr?: string): boolean {
+    if (!periodStr || periodStr === 'all') return true;
+    const ym = getYearMonth(dateStr);
+    if (!ym) return false;
+    const { year, month } = ym;
+
+    if (periodStr.startsWith('2026-Q')) {
+        if (year !== 2026) return false;
+        const q = parseInt(periodStr.split('-Q')[1]);
+        const start = (q - 1) * 3 + 1;
+        return month >= start && month <= start + 2;
+    }
+    const [py, pm] = periodStr.split('-').map(Number);
+    return year === py && month === pm;
+}
+
+export function SalesList({ period, selectedProjects, selectedCostCenters, onEdit }: Props) {
     const [sales, setSales] = useState<Venta[]>([]);
     const [search, setSearch] = useState('');
     const [loading, setLoading] = useState(true);
@@ -56,11 +83,15 @@ export function SalesList({ onEdit }: Props) {
 
     useEffect(() => { loadSales(); }, []);
 
-    const filtered = sales.filter(s =>
-        (s.cliente?.business_name ?? '').toLowerCase().includes(search.toLowerCase()) ||
-        (s.proyecto?.name ?? '').toLowerCase().includes(search.toLowerCase()) ||
-        (s.numero_factura ?? '').toLowerCase().includes(search.toLowerCase())
-    );
+    const filtered = sales.filter(s => {
+        const matchesSearch = (s.cliente?.business_name ?? '').toLowerCase().includes(search.toLowerCase()) ||
+            (s.proyecto?.name ?? '').toLowerCase().includes(search.toLowerCase()) ||
+            (s.numero_factura ?? '').toLowerCase().includes(search.toLowerCase());
+        const matchesPeriod = isInPeriod(s.fecha_factura || s.created_at, period);
+        const matchesProject = !selectedProjects || selectedProjects.length === 0 || selectedProjects.includes(s.proyecto?.name ?? '');
+        const matchesCostCenter = !selectedCostCenters || selectedCostCenters.length === 0 || selectedCostCenters.includes(s.cost_center ?? '');
+        return matchesSearch && matchesPeriod && matchesProject && matchesCostCenter;
+    });
 
     const payingSale = sales.find(s => s.id === payingId);
     const saldoPendiente = payingSale

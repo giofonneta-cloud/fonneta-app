@@ -61,9 +61,13 @@ function urgencyBadge(days: number | null, estadoPago: string) {
     return <Badge className="bg-slate-100 text-slate-500 border-none text-[10px] font-medium">{days}d restantes</Badge>;
 }
 
-interface Props { period: string }
+interface Props {
+    period: string;
+    selectedProjects?: string[];
+    selectedCostCenters?: string[];
+}
 
-export function CXCList({ period }: Props) {
+export function CXCList({ period, selectedProjects, selectedCostCenters }: Props) {
     const [sales, setSales] = useState<Venta[]>([]);
     const [loading, setLoading] = useState(true);
     const { widths, startResize } = useResizableColumns(INITIAL_WIDTHS);
@@ -79,7 +83,12 @@ export function CXCList({ period }: Props) {
         salesService.getAllSales()
             .then(data => {
                 const pending = data
-                    .filter(s => s.estado_pago !== 'pagado' && isInPeriod(s.fecha_cobro_estimada, period))
+                    .filter(s => {
+                        const matchesPeriod = s.estado_pago !== 'pagado' && isInPeriod(s.fecha_cobro_estimada, period);
+                        const matchesProject = !selectedProjects || selectedProjects.length === 0 || selectedProjects.includes(s.proyecto?.name ?? '');
+                        const matchesCostCenter = !selectedCostCenters || selectedCostCenters.length === 0 || selectedCostCenters.includes(s.cost_center ?? '');
+                        return matchesPeriod && matchesProject && matchesCostCenter;
+                    })
                     .sort((a, b) => {
                         const da = getDaysUntil(a.fecha_cobro_estimada) ?? 9999;
                         const db = getDaysUntil(b.fecha_cobro_estimada) ?? 9999;
@@ -91,7 +100,7 @@ export function CXCList({ period }: Props) {
             .finally(() => setLoading(false));
     };
 
-    useEffect(() => { loadData(); }, [period]);
+    useEffect(() => { loadData(); }, [period, selectedProjects, selectedCostCenters]);
 
     const thisWeek = sales.filter(s => {
         const d = getDaysUntil(s.fecha_cobro_estimada);

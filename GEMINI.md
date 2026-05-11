@@ -304,6 +304,11 @@ test('should calculate total with tax', () => {
 - **Fix**: Siempre usar `npm run dev` (auto-detecta puerto)
 - **Aplicar en**: Todos los proyectos
 
+### 2026-05-05: Cuidado con filtros en Supabase update() y select() encadenados
+- **Error**: Al usar `.update({...}).or('...').select()`, PostgREST evalúa el filtro tanto antes de actualizar (para elegir qué actualizar) como DESPUÉS de actualizar (para ver qué retornar). Si el nuevo valor incumple la condición del filtro `.or()`, la función retorna una lista vacía `[]` a pesar de que el registro fue actualizado exitosamente. Esto causa falsos negativos en bloqueos o condicionales que validen `data.length === 0`.
+- **Fix**: NUNCA usar `.select()` encadenado a un `.update()` si la condición de filtro incluye el mismo campo que está siendo actualizado. En su lugar, usar el parámetro `{ count: 'exact' }` en la función `.update()` y validar el éxito de la consulta confirmando que `count === 1`.
+- **Aplicar en**: Todos los endpoints o mutaciones que requieran validación estricta de concurrencia y actualización atómica usando filtros en Supabase (especialmente timestamp cooldown locks).
+
 ---
 
 *Este archivo es el cerebro de la fábrica. Cada error documentado la hace más fuerte.*

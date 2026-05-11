@@ -31,10 +31,37 @@ function formatDate(d?: string) {
 const INITIAL_WIDTHS = [130, 140, 200, 120, 130, 120, 120, 120, 100, 70];
 
 interface Props {
+    period?: string;
+    selectedProjects?: string[];
+    selectedCostCenters?: string[];
     onEdit?: (expense: GastoExtendido) => void;
 }
 
-export function ExpensesList({ onEdit }: Props) {
+function getYearMonth(dateStr: string): { year: number; month: number } | null {
+    if (!dateStr) return null;
+    const part = dateStr.split('T')[0];
+    const [y, m] = part.split('-').map(Number);
+    if (!y || !m) return null;
+    return { year: y, month: m };
+}
+
+function isInPeriod(dateStr: string, periodStr?: string): boolean {
+    if (!periodStr || periodStr === 'all') return true;
+    const ym = getYearMonth(dateStr);
+    if (!ym) return false;
+    const { year, month } = ym;
+
+    if (periodStr.startsWith('2026-Q')) {
+        if (year !== 2026) return false;
+        const q = parseInt(periodStr.split('-Q')[1]);
+        const start = (q - 1) * 3 + 1;
+        return month >= start && month <= start + 2;
+    }
+    const [py, pm] = periodStr.split('-').map(Number);
+    return year === py && month === pm;
+}
+
+export function ExpensesList({ period, selectedProjects, selectedCostCenters, onEdit }: Props) {
     const [expenses, setExpenses] = useState<GastoExtendido[]>([]);
     const [search, setSearch] = useState('');
     const [loading, setLoading] = useState(true);
@@ -49,12 +76,14 @@ export function ExpensesList({ onEdit }: Props) {
 
     const filtered = expenses.filter(e => {
         const q = search.toLowerCase();
-        return (
-            (e.numero_factura_proveedor ?? '').toLowerCase().includes(q) ||
+        const matchesSearch = (e.numero_factura_proveedor ?? '').toLowerCase().includes(q) ||
             (e.categoria ?? '').toLowerCase().includes(q) ||
             (e.codigo_oc ?? '').toLowerCase().includes(q) ||
-            (e.proveedor_nombre ?? '').toLowerCase().includes(q)
-        );
+            (e.proveedor_nombre ?? '').toLowerCase().includes(q);
+        const matchesPeriod = isInPeriod(e.fecha_radicado || e.created_at, period);
+        const matchesProject = !selectedProjects || selectedProjects.length === 0 || !e.proyecto_id || true; // TODO: implement project filtering when proyecto is available
+        const matchesCostCenter = !selectedCostCenters || selectedCostCenters.length === 0 || selectedCostCenters.includes(e.cost_center ?? '');
+        return matchesSearch && matchesPeriod && matchesProject && matchesCostCenter;
     });
 
     const headers = [

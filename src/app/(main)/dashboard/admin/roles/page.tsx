@@ -1,5 +1,5 @@
 import { RoleGuard } from '@/features/auth/components/RoleGuard';
-import { RoleConfig } from '@/features/admin/components/UserManagement/RoleConfig';
+import { RoleManager } from '@/features/admin/components/Roles/RoleManager';
 import { Metadata } from 'next';
 import Link from 'next/link';
 
@@ -31,7 +31,7 @@ export default function RolesPage() {
                     <h1 className="text-3xl font-bold text-gray-900">Roles y Permisos</h1>
                     <p className="text-gray-500 mt-1">Define qué acciones puede realizar cada rol en el sistema</p>
                 </div>
-                <RoleConfig />
+                <RoleManager />
             </div>
         </RoleGuard>
     );

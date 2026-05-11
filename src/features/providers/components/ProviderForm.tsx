@@ -10,12 +10,11 @@ import { Input } from '@/shared/components/ui/input';
 import { Button } from '@/shared/components/ui/button';
 import { Checkbox } from '@/shared/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/shared/components/ui/select';
-import { Building2, User, Mail, Phone, FileText, MapPin, Globe, Upload, Info } from 'lucide-react';
+import { Building2, User, Mail, Phone, FileText, MapPin, Upload, Info, Tag, X } from 'lucide-react';
 import { providerService } from '../services/providerService';
 import { COLOMBIA_DEPARTMENTS, COLOMBIA_CITIES_BY_DEPT } from '@/shared/lib/colombia-data';
 import { Textarea } from '@/shared/components/ui/textarea';
 import { cn } from '@/shared/lib/utils';
-import { useEffect } from 'react';
 import { ExternalLink } from 'lucide-react';
 import { useParametros } from '@/features/admin/hooks/useParametros';
 
@@ -40,9 +39,7 @@ const providerFormSchema = z.object({
 
 type ProviderFormValues = z.infer<typeof providerFormSchema>;
 
-import { Provider, CreateProviderInput, ProviderDocument, DocumentType } from '../types/provider.types';
-
-// ... (previous imports)
+import { Provider, CreateProviderInput } from '../types/provider.types';
 
 interface ProviderFormProps {
     onSuccess?: () => void;
@@ -59,29 +56,49 @@ export function ProviderForm({ onSuccess, onCancel, initialData }: ProviderFormP
         cedula_rep?: File;
         bancaria?: File;
     }>({});
-    const [existingDocuments, setExistingDocuments] = useState<ProviderDocument[]>([]);
+    const [docUrls, setDocUrls] = useState<{
+        rut: string | null;
+        camara: string | null;
+        cedula_rep: string | null;
+        bancaria: string | null;
+    }>({
+        rut: initialData?.rut_url ?? null,
+        camara: initialData?.camara_comercio_url ?? null,
+        cedula_rep: initialData?.cedula_url ?? null,
+        bancaria: initialData?.cert_bancaria_url ?? null,
+    });
+    const [uploadingDoc, setUploadingDoc] = useState<string | null>(null);
+    const [localTags, setLocalTags] = useState<string[]>(initialData?.tags ?? []);
+    const [tagInput, setTagInput] = useState('');
+
+    const addTag = () => {
+        const tag = tagInput.trim();
+        if (!tag || localTags.includes(tag)) return;
+        setLocalTags(prev => [...prev, tag]);
+        setTagInput('');
+    };
+    const removeTag = (tag: string) => setLocalTags(prev => prev.filter(t => t !== tag));
+
+    const TAG_COLORS = [
+        'bg-blue-50 text-blue-700 border-blue-200',
+        'bg-purple-50 text-purple-700 border-purple-200',
+        'bg-emerald-50 text-emerald-700 border-emerald-200',
+        'bg-amber-50 text-amber-700 border-amber-200',
+        'bg-rose-50 text-rose-700 border-rose-200',
+        'bg-indigo-50 text-indigo-700 border-indigo-200',
+        'bg-teal-50 text-teal-700 border-teal-200',
+    ];
+    const getTagColor = (tag: string) => {
+        let hash = 0;
+        for (let i = 0; i < tag.length; i++) hash = tag.charCodeAt(i) + ((hash << 5) - hash);
+        return TAG_COLORS[Math.abs(hash) % TAG_COLORS.length];
+    };
 
     const fileInputRefs = {
         rut: React.useRef<HTMLInputElement>(null),
         camara: React.useRef<HTMLInputElement>(null),
         cedula_rep: React.useRef<HTMLInputElement>(null),
         bancaria: React.useRef<HTMLInputElement>(null),
-    };
-
-    useEffect(() => {
-        if (initialData) {
-            loadDocuments();
-        }
-    }, [initialData]);
-
-    const loadDocuments = async () => {
-        if (!initialData) return;
-        try {
-            const docs = await providerService.getProviderDocuments(initialData.id);
-            setExistingDocuments(docs);
-        } catch (error) {
-            console.error("Error loading documents:", error);
-        }
     };
 
 
@@ -123,36 +140,69 @@ export function ProviderForm({ onSuccess, onCancel, initialData }: ProviderFormP
         setIsSubmitting(true);
         try {
             let providerId = initialData?.id;
-            
+
             if (initialData) {
-                await providerService.updateProvider(initialData.id, values);
+                await providerService.updateProvider(initialData.id, { ...values, tags: localTags });
             } else {
-                const newProvider = await providerService.createProvider(values);
+                const newProvider = await providerService.createProvider({ ...values, tags: localTags });
                 providerId = newProvider.id;
             }
 
-            // Subir documentos si hay nuevos archivos seleccionados
             if (providerId) {
-                const uploadPromises = [];
-                if (documentFiles.rut) uploadPromises.push(providerService.uploadDocument(providerId, 'RUT', documentFiles.rut));
-                if (documentFiles.camara) uploadPromises.push(providerService.uploadDocument(providerId, 'Camara_Comercio', documentFiles.camara));
-                if (documentFiles.cedula_rep) uploadPromises.push(providerService.uploadDocument(providerId, 'Cedula_Rep_Legal', documentFiles.cedula_rep));
-                if (documentFiles.bancaria) uploadPromises.push(providerService.uploadDocument(providerId, 'Cert_Bancaria', documentFiles.bancaria));
-                
-                if (uploadPromises.length > 0) {
-                    await Promise.all(uploadPromises);
-                    await loadDocuments(); // Recargar para mostrar los nuevos enlaces
+                const docMap = [
+                    { key: 'rut' as const, type: 'RUT', column: 'rut_url', file: documentFiles.rut },
+                    { key: 'camara' as const, type: 'Camara_Comercio', column: 'camara_comercio_url', file: documentFiles.camara },
+                    { key: 'cedula_rep' as const, type: 'Cedula_Rep_Legal', column: 'cedula_url', file: documentFiles.cedula_rep },
+                    { key: 'bancaria' as const, type: 'Cert_Bancaria', column: 'cert_bancaria_url', file: documentFiles.bancaria },
+                ];
+
+                const urlUpdates: Record<string, string> = {};
+                for (const doc of docMap) {
+                    if (!doc.file) continue;
+                    setUploadingDoc(doc.type);
+                    const fd = new FormData();
+                    fd.append('file', doc.file);
+                    fd.append('providerId', providerId);
+                    fd.append('providerName', values.business_name);
+                    fd.append('providerNIT', values.document_number || '');
+                    fd.append('documentType', doc.type);
+
+                    const res = await fetch('/api/providers/upload-document', { method: 'POST', body: fd });
+                    if (!res.ok) {
+                        const err = await res.json() as { error?: string };
+                        throw new Error(err.error || `Error subiendo ${doc.type}`);
+                    }
+                    const { webViewLink } = await res.json() as { webViewLink: string };
+                    urlUpdates[doc.column] = webViewLink;
+                    setDocUrls(prev => ({ ...prev, [doc.key]: webViewLink }));
+                }
+                setUploadingDoc(null);
+
+                if (Object.keys(urlUpdates).length > 0) {
+                    const patchRes = await fetch('/api/providers/create', {
+                        method: 'PATCH',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ providerId, ...urlUpdates }),
+                    });
+                    if (!patchRes.ok) {
+                        const err = await patchRes.json() as { error?: string };
+                        throw new Error(err.error || 'Error guardando URLs de documentos');
+                    }
                 }
             }
 
             form.reset();
             setDocumentFiles({});
+            setLocalTags([]);
+            setTagInput('');
             onSuccess?.();
-        } catch (error: any) {
-            console.error("Error saving provider:", error);
-            alert(`Error al guardar: ${error.message || "Error desconocido"}`);
+        } catch (error: unknown) {
+            const msg = error instanceof Error ? error.message : 'Error desconocido';
+            console.error('Error saving provider:', error);
+            alert(`Error al guardar: ${msg}`);
         } finally {
             setIsSubmitting(false);
+            setUploadingDoc(null);
         }
     };
 
@@ -461,21 +511,19 @@ export function ProviderForm({ onSuccess, onCancel, initialData }: ProviderFormP
                                         </div>
                                     </div>
                                     <div className="flex items-center gap-2">
-                                        {existingDocuments.find(d => d.tipo_documento === 'RUT') && (
-                                            <Button 
-                                                type="button" 
-                                                variant="ghost" 
-                                                size="sm" 
+                                        {docUrls.rut && (
+                                            <Button
+                                                type="button"
+                                                variant="ghost"
+                                                size="sm"
                                                 className="text-blue-600 hover:text-blue-700"
-                                                onClick={() => {
-                                                    const url = existingDocuments.find(d => d.tipo_documento === 'RUT')?.archivo_url;
-                                                    if (url) window.open(url, '_blank');
-                                                }}
+                                                onClick={() => window.open(docUrls.rut!, '_blank')}
                                             >
                                                 <ExternalLink className="w-4 h-4 mr-1" /> Abrir
                                             </Button>
                                         )}
-                                        {documentFiles.rut && <span className="text-xs text-green-600 font-medium">Nuevo</span>}
+                                        {uploadingDoc === 'RUT' && <span className="text-xs text-amber-600 font-medium">Subiendo...</span>}
+                                        {documentFiles.rut && uploadingDoc !== 'RUT' && <span className="text-xs text-green-600 font-medium">Listo para subir</span>}
                                         <input
                                             type="file"
                                             accept=".pdf"
@@ -483,13 +531,13 @@ export function ProviderForm({ onSuccess, onCancel, initialData }: ProviderFormP
                                             className="hidden"
                                             ref={fileInputRefs.rut}
                                         />
-                                        <Button 
-                                            type="button" 
-                                            variant="outline" 
-                                            size="sm" 
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            size="sm"
                                             onClick={() => fileInputRefs.rut.current?.click()}
                                         >
-                                            {documentFiles.rut ? 'Cambiar' : 'Subir'}
+                                            {docUrls.rut ? 'Actualizar' : 'Subir'}
                                         </Button>
                                     </div>
                                 </div>
@@ -505,21 +553,19 @@ export function ProviderForm({ onSuccess, onCancel, initialData }: ProviderFormP
                                             </div>
                                         </div>
                                         <div className="flex items-center gap-2">
-                                            {existingDocuments.find(d => d.tipo_documento === 'Camara_Comercio') && (
-                                                <Button 
-                                                    type="button" 
-                                                    variant="ghost" 
-                                                    size="sm" 
+                                            {docUrls.camara && (
+                                                <Button
+                                                    type="button"
+                                                    variant="ghost"
+                                                    size="sm"
                                                     className="text-blue-600 hover:text-blue-700"
-                                                    onClick={() => {
-                                                        const url = existingDocuments.find(d => d.tipo_documento === 'Camara_Comercio')?.archivo_url;
-                                                        if (url) window.open(url, '_blank');
-                                                    }}
+                                                    onClick={() => window.open(docUrls.camara!, '_blank')}
                                                 >
                                                     <ExternalLink className="w-4 h-4 mr-1" /> Abrir
                                                 </Button>
                                             )}
-                                            {documentFiles.camara && <span className="text-xs text-green-600 font-medium">Nuevo</span>}
+                                            {uploadingDoc === 'Camara_Comercio' && <span className="text-xs text-amber-600 font-medium">Subiendo...</span>}
+                                            {documentFiles.camara && uploadingDoc !== 'Camara_Comercio' && <span className="text-xs text-green-600 font-medium">Listo para subir</span>}
                                             <input
                                                 type="file"
                                                 accept=".pdf"
@@ -527,13 +573,13 @@ export function ProviderForm({ onSuccess, onCancel, initialData }: ProviderFormP
                                                 className="hidden"
                                                 ref={fileInputRefs.camara}
                                             />
-                                            <Button 
-                                                type="button" 
-                                                variant="outline" 
-                                                size="sm" 
+                                            <Button
+                                                type="button"
+                                                variant="outline"
+                                                size="sm"
                                                 onClick={() => fileInputRefs.camara.current?.click()}
                                             >
-                                                {documentFiles.camara ? 'Cambiar' : 'Subir'}
+                                                {docUrls.camara ? 'Actualizar' : 'Subir'}
                                             </Button>
                                         </div>
                                     </div>
@@ -549,21 +595,19 @@ export function ProviderForm({ onSuccess, onCancel, initialData }: ProviderFormP
                                         </div>
                                     </div>
                                     <div className="flex items-center gap-2">
-                                        {existingDocuments.find(d => d.tipo_documento === 'Cedula_Rep_Legal') && (
-                                            <Button 
-                                                type="button" 
-                                                variant="ghost" 
-                                                size="sm" 
+                                        {docUrls.cedula_rep && (
+                                            <Button
+                                                type="button"
+                                                variant="ghost"
+                                                size="sm"
                                                 className="text-blue-600 hover:text-blue-700"
-                                                onClick={() => {
-                                                    const url = existingDocuments.find(d => d.tipo_documento === 'Cedula_Rep_Legal')?.archivo_url;
-                                                    if (url) window.open(url, '_blank');
-                                                }}
+                                                onClick={() => window.open(docUrls.cedula_rep!, '_blank')}
                                             >
                                                 <ExternalLink className="w-4 h-4 mr-1" /> Abrir
                                             </Button>
                                         )}
-                                        {documentFiles.cedula_rep && <span className="text-xs text-green-600 font-medium">Nuevo</span>}
+                                        {uploadingDoc === 'Cedula_Rep_Legal' && <span className="text-xs text-amber-600 font-medium">Subiendo...</span>}
+                                        {documentFiles.cedula_rep && uploadingDoc !== 'Cedula_Rep_Legal' && <span className="text-xs text-green-600 font-medium">Listo para subir</span>}
                                         <input
                                             type="file"
                                             accept=".pdf,.png,.jpg,.jpeg"
@@ -571,13 +615,13 @@ export function ProviderForm({ onSuccess, onCancel, initialData }: ProviderFormP
                                             className="hidden"
                                             ref={fileInputRefs.cedula_rep}
                                         />
-                                        <Button 
-                                            type="button" 
-                                            variant="outline" 
-                                            size="sm" 
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            size="sm"
                                             onClick={() => fileInputRefs.cedula_rep.current?.click()}
                                         >
-                                            {documentFiles.cedula_rep ? 'Cambiar' : 'Subir'}
+                                            {docUrls.cedula_rep ? 'Actualizar' : 'Subir'}
                                         </Button>
                                     </div>
                                 </div>
@@ -592,21 +636,19 @@ export function ProviderForm({ onSuccess, onCancel, initialData }: ProviderFormP
                                         </div>
                                     </div>
                                     <div className="flex items-center gap-2">
-                                        {existingDocuments.find(d => d.tipo_documento === 'Cert_Bancaria') && (
-                                            <Button 
-                                                type="button" 
-                                                variant="ghost" 
-                                                size="sm" 
+                                        {docUrls.bancaria && (
+                                            <Button
+                                                type="button"
+                                                variant="ghost"
+                                                size="sm"
                                                 className="text-blue-600 hover:text-blue-700"
-                                                onClick={() => {
-                                                    const url = existingDocuments.find(d => d.tipo_documento === 'Cert_Bancaria')?.archivo_url;
-                                                    if (url) window.open(url, '_blank');
-                                                }}
+                                                onClick={() => window.open(docUrls.bancaria!, '_blank')}
                                             >
                                                 <ExternalLink className="w-4 h-4 mr-1" /> Abrir
                                             </Button>
                                         )}
-                                        {documentFiles.bancaria && <span className="text-xs text-green-600 font-medium">Nuevo</span>}
+                                        {uploadingDoc === 'Cert_Bancaria' && <span className="text-xs text-amber-600 font-medium">Subiendo...</span>}
+                                        {documentFiles.bancaria && uploadingDoc !== 'Cert_Bancaria' && <span className="text-xs text-green-600 font-medium">Listo para subir</span>}
                                         <input
                                             type="file"
                                             accept=".pdf"
@@ -614,13 +656,13 @@ export function ProviderForm({ onSuccess, onCancel, initialData }: ProviderFormP
                                             className="hidden"
                                             ref={fileInputRefs.bancaria}
                                         />
-                                        <Button 
-                                            type="button" 
-                                            variant="outline" 
-                                            size="sm" 
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            size="sm"
                                             onClick={() => fileInputRefs.bancaria.current?.click()}
                                         >
-                                            {documentFiles.bancaria ? 'Cambiar' : 'Subir'}
+                                            {docUrls.bancaria ? 'Actualizar' : 'Subir'}
                                         </Button>
                                     </div>
                                 </div>
@@ -676,6 +718,57 @@ export function ProviderForm({ onSuccess, onCancel, initialData }: ProviderFormP
                                         </FormItem>
                                     )}
                                 />
+                            </div>
+                        </section>
+
+                        {/* Etiquetas */}
+                        <section className="space-y-4">
+                            <div className="flex items-center gap-2 mb-4">
+                                <Tag className="w-5 h-5 text-violet-600" />
+                                <h3 className="text-lg font-bold text-slate-800">Etiquetas</h3>
+                            </div>
+                            <div className="bg-slate-50 p-4 rounded-lg border border-slate-200 space-y-3">
+                                <div className="flex gap-2">
+                                    <input
+                                        type="text"
+                                        value={tagInput}
+                                        onChange={e => setTagInput(e.target.value)}
+                                        onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addTag(); } }}
+                                        placeholder="Ej: VIP, Frecuente, Prioritario..."
+                                        className="flex-1 px-3 py-2 text-sm bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400 transition-colors placeholder:text-slate-300"
+                                    />
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={addTag}
+                                        disabled={!tagInput.trim()}
+                                        className="shrink-0"
+                                    >
+                                        Agregar
+                                    </Button>
+                                </div>
+                                {localTags.length > 0 ? (
+                                    <div className="flex flex-wrap gap-1.5">
+                                        {localTags.map(tag => (
+                                            <span
+                                                key={tag}
+                                                className={cn('inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold border', getTagColor(tag))}
+                                            >
+                                                {tag}
+                                                <button
+                                                    type="button"
+                                                    onClick={() => removeTag(tag)}
+                                                    className="hover:opacity-60 transition-opacity"
+                                                >
+                                                    <X className="w-3 h-3" />
+                                                </button>
+                                            </span>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <p className="text-xs text-slate-400">Sin etiquetas. Agrega para clasificar este registro.</p>
+                                )}
                             </div>
                         </section>
 

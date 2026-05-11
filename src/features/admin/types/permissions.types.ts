@@ -2,54 +2,8 @@
 
 import { UserRole } from '@/features/auth/types/auth.types';
 
-export type Permission =
-    // Usuarios
-    | 'users.view'
-    | 'users.create'
-    | 'users.edit'
-    | 'users.delete'
-    | 'users.block'
-    // Proyectos
-    | 'projects.view'
-    | 'projects.view_all'
-    | 'projects.create'
-    | 'projects.edit'
-    | 'projects.edit_all'
-    | 'projects.delete'
-    | 'projects.change_status'
-    // Finanzas
-    | 'finance.view'
-    | 'finance.view_all'
-    | 'finance.create_expense'
-    | 'finance.create_sale'
-    | 'finance.approve_expense'
-    | 'finance.approve_sale'
-    | 'finance.edit'
-    // Proveedores
-    | 'providers.view'
-    | 'providers.view_all'
-    | 'providers.create'
-    | 'providers.invite'
-    | 'providers.approve'
-    | 'providers.suspend'
-    | 'providers.validate_docs'
-    // Reportes
-    | 'reports.view_basic'
-    | 'reports.view_advanced'
-    | 'reports.export'
-    | 'reports.cashflow'
-    // Configuración
-    | 'config.view'
-    | 'config.modules'
-    | 'config.fields'
-    | 'config.workflows'
-    // Chat
-    | 'chat.view'
-    | 'chat.create_channel'
-    | 'chat.delete_messages'
-    // Auditoría
-    | 'audit.view'
-    | 'audit.view_financial';
+import { Permission } from '@/shared/types/permissions';
+export type { Permission };
 
 export type PermissionLevel = 'none' | 'partial' | 'full';
 

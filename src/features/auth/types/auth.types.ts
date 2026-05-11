@@ -1,4 +1,16 @@
-export type UserRole = 'admin' | 'pm' | 'administrativo' | 'proveedor';
+import { Permission } from '@/shared/types/permissions';
+
+export type UserRole = 'admin' | 'pm' | 'administrativo' | 'proveedor' | string;
+
+export interface AppRoleData {
+    id: string;
+    name: string;
+    permissions: Permission[];
+    approval_limits: {
+        expenses: number;
+        sales: number;
+    };
+}
 
 export interface Profile {
     id: string;
@@ -6,6 +18,8 @@ export interface Profile {
     full_name: string | null;
     avatar_url: string | null;
     role: UserRole;
+    roles?: AppRoleData[];
+    permissions?: Permission[];
     is_active: boolean;
     approval_limit_expenses: number | null;
     approval_limit_sales: number | null;

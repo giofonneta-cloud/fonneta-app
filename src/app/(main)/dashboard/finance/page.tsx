@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { SalesForm } from '@/features/finance/components/SalesForm';
 import { ExpenseForm } from '@/features/finance/components/ExpenseForm';
 import { SalesList } from '@/features/finance/components/SalesList';
@@ -11,7 +11,9 @@ import { PurchaseOrdersList } from '@/features/finance/components/PurchaseOrders
 import { PurchaseOrderForm } from '@/features/finance/components/PurchaseOrderForm';
 import { PurchaseOrderPreview } from '@/features/finance/components/PurchaseOrderPreview';
 import { FinanceReportCenter } from '@/features/finance/components/FinanceReportCenter';
+import { MultiSelectFilter } from '@/features/finance/components/MultiSelectFilter';
 import { TarifarioList } from '@/features/tarifario/components/TarifarioList';
+import { COST_CENTERS } from '@/features/tarifario/types/tarifario.types';
 import { salesService } from '@/features/finance/services/salesService';
 import { expensesService } from '@/features/finance/services/expensesService';
 import { purchaseOrderService } from '@/features/finance/services/purchaseOrderService';
@@ -115,8 +117,32 @@ export default function FinancePage() {
     const [editingExpense, setEditingExpense] = useState<GastoExtendido | null>(null);
     const [editingPO, setEditingPO] = useState<PurchaseOrder | null>(null);
     const [previewPO, setPreviewPO] = useState<PurchaseOrder | null>(null);
+    const [selectedProjects, setSelectedProjects] = useState<string[]>([]);
+    const [selectedCostCenters, setSelectedCostCenters] = useState<string[]>([]);
+    const [isScrolled, setIsScrolled] = useState(false);
+    const [allSales, setAllSales] = useState<Venta[]>([]);
+    const [allExpenses, setAllExpenses] = useState<GastoExtendido[]>([]);
 
     useEffect(() => { setIsMounted(true); }, []);
+
+    useEffect(() => {
+        const onScroll = () => setIsScrolled(window.scrollY > 80);
+        window.addEventListener('scroll', onScroll, { passive: true });
+        return () => window.removeEventListener('scroll', onScroll);
+    }, []);
+
+    const projectNames = useMemo(() =>
+        [...new Set([
+            ...allSales.map(s => s.proyecto?.name).filter(Boolean),
+            ...allExpenses.map(e => {
+                if (e.proyecto_id && allSales.some(s => s.proyecto_id === e.proyecto_id)) {
+                    return allSales.find(s => s.proyecto_id === e.proyecto_id)?.proyecto?.name;
+                }
+                return undefined;
+            }).filter(Boolean),
+        ])].sort() as string[],
+        [allSales, allExpenses],
+    );
 
     const loadKPIs = useCallback(async () => {
         setLoadingKpis(true);
@@ -125,6 +151,9 @@ export default function FinancePage() {
                 salesService.getAllSales(),
                 expensesService.getAllExpenses(),
             ]);
+
+            setAllSales(sales);
+            setAllExpenses(expenses);
 
             const fs = sales.filter(s => isInPeriod(s.fecha_factura || s.created_at, period));
             const fe = expenses.filter(e => isInPeriod(e.fecha_radicado || e.created_at, period));
@@ -273,78 +302,115 @@ export default function FinancePage() {
                 </button>
             )}
 
-            {/* Header */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                <div>
-                    <h1 className="text-3xl font-black text-slate-900 tracking-tight">
-                        Gestión Financiera
-                    </h1>
-                    <p className="text-sm text-slate-500 mt-0.5">
-                        {view === 'dashboard' && `Análisis estratégico · ${periodLabel}`}
-                        {view === 'sales-form' && (editingSale ? 'Editando venta registrada' : 'Registrando nueva venta / factura')}
-                        {view === 'expense-form' && (editingExpense ? 'Editando gasto registrado' : 'Registrando nuevo gasto / pago')}
-                        {view === 'oc-form' && (editingPO ? `Editando OC ${editingPO.po_number}` : 'Nueva orden de compra')}
-                    </p>
-                </div>
+            {/* Header Sticky */}
+            {view === 'dashboard' && (
+                <div
+                    className={`sticky top-0 z-40 bg-white border-b border-slate-100 transition-all duration-300 ${
+                        isScrolled ? 'shadow-md' : 'shadow-none'
+                    } ${isScrolled ? 'py-3 px-4' : 'py-4 px-0'}`}
+                >
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                        <div className={`transition-all duration-300 ${isScrolled ? 'hidden' : 'block'}`}>
+                            <h1 className="text-3xl font-black text-slate-900 tracking-tight">
+                                Gestión Financiera
+                            </h1>
+                        </div>
 
-                {view === 'dashboard' && (
-                    <div className="flex items-center gap-2 flex-wrap">
-                        {/* Period */}
-                        <Select value={period} onValueChange={setPeriod}>
-                            <SelectTrigger className="w-[148px] bg-white border-slate-200 font-semibold text-slate-700 text-sm h-9">
-                                <SelectValue placeholder="Periodo" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                {PERIODS.map(p => (
-                                    <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
+                        <div className="flex items-center gap-2 flex-wrap">
+                            {/* Period */}
+                            <Select value={period} onValueChange={setPeriod}>
+                                <SelectTrigger className="w-[148px] bg-white border-slate-200 font-semibold text-slate-700 text-sm h-9">
+                                    <SelectValue placeholder="Periodo" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {PERIODS.map(p => (
+                                        <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
 
-                        {/* Export dropdown */}
-                        <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                                <Button variant="outline" size="sm" className="gap-1.5 h-9 border-slate-200 text-slate-600 font-bold">
-                                    <Download className="w-3.5 h-3.5" />
-                                    Exportar
-                                </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end" className="w-52">
-                                {EXPORTS.map((e, i) => (
-                                    <DropdownMenuItem key={i} className="gap-2 cursor-pointer">
-                                        <e.icon className="w-4 h-4 text-slate-400" />
-                                        <span className="text-sm font-medium">{e.label}</span>
-                                    </DropdownMenuItem>
-                                ))}
-                            </DropdownMenuContent>
-                        </DropdownMenu>
+                            {/* Proyectos Filter */}
+                            <MultiSelectFilter
+                                label="Proyectos"
+                                options={projectNames}
+                                selectedValues={selectedProjects}
+                                onChange={setSelectedProjects}
+                            />
 
-                        {/* Actions */}
-                        <Button
-                            onClick={() => setView('sales-form')}
-                            size="sm"
-                            className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold gap-1.5 h-9"
-                        >
-                            <Plus className="w-3.5 h-3.5" />
-                            Nueva Venta
-                        </Button>
-                        <Button
-                            onClick={() => setView('expense-form')}
-                            size="sm"
-                            className="bg-slate-800 hover:bg-slate-900 text-white font-bold gap-1.5 h-9"
-                        >
-                            <Receipt className="w-3.5 h-3.5" />
-                            Nuevo Gasto
-                        </Button>
+                            {/* Cost Centers Filter */}
+                            <MultiSelectFilter
+                                label="C. Costo"
+                                options={Array.from(COST_CENTERS)}
+                                selectedValues={selectedCostCenters}
+                                onChange={setSelectedCostCenters}
+                            />
+
+                            {/* Export dropdown */}
+                            <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                    <Button variant="outline" size="sm" className="gap-1.5 h-9 border-slate-200 text-slate-600 font-bold">
+                                        <Download className="w-3.5 h-3.5" />
+                                        Exportar
+                                    </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end" className="w-52">
+                                    {EXPORTS.map((e, i) => (
+                                        <DropdownMenuItem key={i} className="gap-2 cursor-pointer">
+                                            <e.icon className="w-4 h-4 text-slate-400" />
+                                            <span className="text-sm font-medium">{e.label}</span>
+                                        </DropdownMenuItem>
+                                    ))}
+                                </DropdownMenuContent>
+                            </DropdownMenu>
+
+                            {/* Actions */}
+                            <Button
+                                onClick={() => setView('sales-form')}
+                                size="sm"
+                                className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold gap-1.5 h-9"
+                            >
+                                <Plus className="w-3.5 h-3.5" />
+                                Nueva Venta
+                            </Button>
+                            <Button
+                                onClick={() => setView('expense-form')}
+                                size="sm"
+                                className="bg-slate-800 hover:bg-slate-900 text-white font-bold gap-1.5 h-9"
+                            >
+                                <Receipt className="w-3.5 h-3.5" />
+                                Nuevo Gasto
+                            </Button>
+                        </div>
                     </div>
-                )}
-            </div>
+                </div>
+            )}
+
+            {/* Header Regular */}
+            {view !== 'dashboard' && (
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div>
+                        <h1 className="text-3xl font-black text-slate-900 tracking-tight">
+                            Gestión Financiera
+                        </h1>
+                        <p className="text-sm text-slate-500 mt-0.5">
+                            {view === 'sales-form' && (editingSale ? 'Editando venta registrada' : 'Registrando nueva venta / factura')}
+                            {view === 'expense-form' && (editingExpense ? 'Editando gasto registrado' : 'Registrando nuevo gasto / pago')}
+                            {view === 'oc-form' && (editingPO ? `Editando OC ${editingPO.po_number}` : 'Nueva orden de compra')}
+                        </p>
+                    </div>
+                </div>
+            )}
 
             {view === 'dashboard' ? (
                 <div className="space-y-5">
 
-                    {/* KPI Cards — 5 cards */}
-                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
+                    {/* KPI Cards — 5 cards (collapse on scroll) */}
+                    <div
+                        className={`transition-all duration-300 overflow-hidden ${
+                            isScrolled ? 'max-h-0 opacity-0' : 'max-h-96 opacity-100'
+                        }`}
+                    >
+                        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
                         {loadingKpis
                             ? Array.from({ length: 5 }).map((_, i) => (
                                 <div key={i} className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5 animate-pulse">
@@ -374,6 +440,7 @@ export default function FinancePage() {
                                 </div>
                             ))
                         }
+                        </div>
                     </div>
 
                     {/* Tabs panel */}
@@ -425,12 +492,14 @@ export default function FinancePage() {
                         {/* Content */}
                         <div className="p-6">
                             {tab === 'resumen' && <FinanceReportCenter period={period} />}
-                            {tab === 'ventas' && <SalesList onEdit={handleEditSale} />}
-                            {tab === 'gastos' && <ExpensesList onEdit={handleEditExpense} />}
-                            {tab === 'cxc' && <CXCList period={period} />}
-                            {tab === 'cxp' && <CXPList period={period} />}
+                            {tab === 'ventas' && <SalesList period={period} selectedProjects={selectedProjects} selectedCostCenters={selectedCostCenters} onEdit={handleEditSale} />}
+                            {tab === 'gastos' && <ExpensesList period={period} selectedProjects={selectedProjects} selectedCostCenters={selectedCostCenters} onEdit={handleEditExpense} />}
+                            {tab === 'cxc' && <CXCList period={period} selectedProjects={selectedProjects} selectedCostCenters={selectedCostCenters} />}
+                            {tab === 'cxp' && <CXPList period={period} selectedProjects={selectedProjects} selectedCostCenters={selectedCostCenters} />}
                             {tab === 'oc' && (
                                 <PurchaseOrdersList
+                                    period={period}
+                                    selectedProjects={selectedProjects}
                                     onEdit={handleEditPO}
                                     onPreview={handlePreviewPO}
                                     onNewPO={() => setView('oc-form')}

@@ -28,6 +28,8 @@ const formatDate = (dateStr: string) => {
 // ─── Types ───────────────────────────────────────────────────────────────────
 
 interface PurchaseOrdersListProps {
+  period?: string;
+  selectedProjects?: string[];
   onEdit: (po: PurchaseOrder) => void;
   onPreview: (po: PurchaseOrder) => void;
   onNewPO: () => void;
@@ -82,9 +84,35 @@ function EmptyState({ hasFilters }: { hasFilters: boolean }) {
   );
 }
 
+// ─── Period Filter Helpers ──────────────────────────────────────────────────
+
+function getYearMonth(dateStr: string): { year: number; month: number } | null {
+  if (!dateStr) return null;
+  const part = dateStr.split('T')[0];
+  const [y, m] = part.split('-').map(Number);
+  if (!y || !m) return null;
+  return { year: y, month: m };
+}
+
+function isInPeriod(dateStr: string, periodStr?: string): boolean {
+  if (!periodStr || periodStr === 'all') return true;
+  const ym = getYearMonth(dateStr);
+  if (!ym) return false;
+  const { year, month } = ym;
+
+  if (periodStr.startsWith('2026-Q')) {
+    if (year !== 2026) return false;
+    const q = parseInt(periodStr.split('-Q')[1]);
+    const start = (q - 1) * 3 + 1;
+    return month >= start && month <= start + 2;
+  }
+  const [py, pm] = periodStr.split('-').map(Number);
+  return year === py && month === pm;
+}
+
 // ─── Main Component ──────────────────────────────────────────────────────────
 
-export function PurchaseOrdersList({ onEdit, onPreview, onNewPO }: PurchaseOrdersListProps) {
+export function PurchaseOrdersList({ period, selectedProjects, onEdit, onPreview, onNewPO }: PurchaseOrdersListProps) {
   // State
   const [orders, setOrders] = useState<PurchaseOrder[]>([]);
   const [loading, setLoading] = useState(true);
@@ -134,6 +162,12 @@ export function PurchaseOrdersList({ onEdit, onPreview, onNewPO }: PurchaseOrder
   };
 
   const hasFilters = search.trim().length > 0 || statusFilter !== 'all';
+
+  const filteredByPeriod = orders.filter(po => {
+    const matchesPeriod = isInPeriod(po.created_at, period);
+    const matchesProject = !selectedProjects || selectedProjects.length === 0 || selectedProjects.includes(po.project_name ?? '');
+    return matchesPeriod && matchesProject;
+  });
 
   return (
     <div className="space-y-5">
@@ -216,10 +250,10 @@ export function PurchaseOrdersList({ onEdit, onPreview, onNewPO }: PurchaseOrder
           <tbody className="divide-y divide-gray-200">
             {loading ? (
               <TableSkeleton />
-            ) : orders.length === 0 ? (
+            ) : filteredByPeriod.length === 0 ? (
               <EmptyState hasFilters={hasFilters} />
             ) : (
-              orders.map((po) => {
+              filteredByPeriod.map((po) => {
                 const isDraft = po.status === 'borrador';
                 const canEdit = po.status === 'borrador' || po.status === 'enviada';
                 const isConfirmingDelete = deleteConfirm === po.id;
