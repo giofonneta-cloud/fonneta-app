@@ -12,6 +12,8 @@ import {
 
 interface Props {
     period: string;
+    selectedProjects?: string[];
+    selectedCostCenters?: string[];
 }
 
 // Parsea año y mes directamente del string para evitar bugs de zona horaria
@@ -67,7 +69,7 @@ interface ProjectRow {
     utilidad: number;
 }
 
-export function FinanceReportCenter({ period }: Props) {
+export function FinanceReportCenter({ period, selectedProjects, selectedCostCenters }: Props) {
     const [data, setData] = useState<ProjectRow[]>([]);
     const [totalIncome, setTotalIncome] = useState(0);
     const [totalExp, setTotalExp] = useState(0);
@@ -82,8 +84,17 @@ export function FinanceReportCenter({ period }: Props) {
                     expensesService.getAllExpenses(),
                 ]);
 
-                const fs = sales.filter(s => isInPeriod(s.fecha_factura || s.created_at, period));
-                const fe = expenses.filter(e => isInPeriod(e.fecha_radicado || e.created_at, period));
+                const fs = sales.filter(s => {
+                    if (!isInPeriod(s.fecha_factura || s.created_at, period)) return false;
+                    const matchesProject = !selectedProjects || selectedProjects.length === 0 || selectedProjects.includes(s.proyecto?.name ?? '');
+                    const matchesCostCenter = !selectedCostCenters || selectedCostCenters.length === 0 || selectedCostCenters.includes(s.cost_center ?? '');
+                    return matchesProject && matchesCostCenter;
+                });
+                const fe = expenses.filter(e => {
+                    if (!isInPeriod(e.fecha_radicado || e.created_at, period)) return false;
+                    const matchesCostCenter = !selectedCostCenters || selectedCostCenters.length === 0 || selectedCostCenters.includes(e.cost_center ?? '');
+                    return matchesCostCenter;
+                });
 
                 const income = fs.reduce((a, s) => a + (Number(s.valor_venta_neto) || 0), 0);
                 const exp = fe.reduce((a, e) => a + (Number(e.valor_neto) || 0), 0);
@@ -115,7 +126,7 @@ export function FinanceReportCenter({ period }: Props) {
             }
         };
         load();
-    }, [period]);
+    }, [period, selectedProjects, selectedCostCenters]);
 
     const net = totalIncome - totalExp;
 

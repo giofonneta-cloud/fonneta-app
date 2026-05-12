@@ -299,10 +299,10 @@ export default function FinancePage() {
             {view === 'dashboard' && (
                 <>
                     {/* Toolbar — Filtros y acciones */}
-                    <div className="sticky top-0 z-50 bg-white border-b border-slate-100 shadow-sm py-4 px-0">
-                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                            <div>
-                                <h1 className="text-3xl font-black text-slate-900 tracking-tight">
+                    <div className="sticky top-0 z-50 bg-white border-b border-slate-100 shadow-sm py-3 px-0">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                            <div className="hidden sm:block">
+                                <h1 className="text-2xl font-black text-slate-900 tracking-tight">
                                     Gestión Financiera
                                 </h1>
                             </div>
@@ -376,30 +376,30 @@ export default function FinancePage() {
                     </div>
 
                     {/* KPI Cards — Sticky */}
-                    <div className="sticky top-[88px] z-40 bg-white border-b border-slate-100 shadow-sm py-4 px-0">
-                        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
+                    <div className="sticky top-[60px] z-40 bg-white border-b border-slate-100 shadow-sm py-3 px-0">
+                        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2">
                             {loadingKpis
                                 ? Array.from({ length: 5 }).map((_, i) => (
-                                    <div key={i} className="bg-slate-50 rounded-2xl border border-slate-100 shadow-sm p-4 animate-pulse">
-                                        <div className="h-2.5 bg-slate-200 rounded w-2/3 mb-3" />
-                                        <div className="h-6 bg-slate-200 rounded w-full mb-1.5" />
-                                        <div className="h-2.5 bg-slate-200 rounded w-1/2" />
+                                    <div key={i} className="bg-slate-50 rounded-lg border border-slate-100 shadow-sm p-3 animate-pulse">
+                                        <div className="h-2 bg-slate-200 rounded w-2/3 mb-2" />
+                                        <div className="h-5 bg-slate-200 rounded w-full mb-1" />
+                                        <div className="h-2 bg-slate-200 rounded w-1/2" />
                                     </div>
                                 ))
                                 : kpis.map((kpi, i) => (
                                     <div
                                         key={i}
-                                        className="bg-slate-50 rounded-2xl border border-slate-100 shadow-sm p-4 hover:shadow-md transition-all duration-200 group"
+                                        className="bg-slate-50 rounded-lg border border-slate-100 shadow-sm p-3 hover:shadow-md transition-all duration-200 group"
                                     >
-                                        <div className="flex items-center justify-between mb-2.5">
-                                            <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest leading-tight">
+                                        <div className="flex items-center justify-between mb-1.5">
+                                            <span className="text-[8px] font-bold text-slate-400 uppercase tracking-widest leading-tight">
                                                 {kpi.label}
                                             </span>
-                                            <div className={`p-1.5 rounded-lg ${kpi.iconBg} group-hover:scale-110 transition-transform`}>
-                                                <kpi.Icon className={`w-3.5 h-3.5 ${kpi.iconColor}`} />
+                                            <div className={`p-1 rounded-md ${kpi.iconBg} group-hover:scale-110 transition-transform`}>
+                                                <kpi.Icon className={`w-3 h-3 ${kpi.iconColor}`} />
                                             </div>
                                         </div>
-                                        <p className="text-lg font-black text-slate-900 tracking-tight truncate">
+                                        <p className="text-base font-black text-slate-900 tracking-tight truncate">
                                             {kpi.value}
                                         </p>
                                         <p className="text-xs text-slate-400 font-medium mt-0.5">{kpi.sub}</p>
@@ -432,7 +432,7 @@ export default function FinancePage() {
                 <div className="space-y-5">
 
                     {/* Tabs Nav — Sticky */}
-                    <div className="sticky top-[184px] z-40 bg-white border-b border-slate-100 shadow-sm flex overflow-x-auto">
+                    <div className="sticky top-[140px] z-40 bg-white border-b border-slate-100 shadow-sm flex overflow-x-auto">
                         {TABS.map(t => {
                             const isActive = tab === t.id;
                             const accentActive = t.accent === 'emerald'
@@ -477,7 +477,7 @@ export default function FinancePage() {
 
                     {/* Content */}
                     <div className="p-6 bg-white rounded-b-2xl border border-slate-100 border-t-0 shadow-sm">
-                        {tab === 'resumen' && <FinanceReportCenter period={period} />}
+                        {tab === 'resumen' && <FinanceReportCenter period={period} selectedProjects={selectedProjects} selectedCostCenters={selectedCostCenters} />}
                         {tab === 'ventas' && <SalesList period={period} selectedProjects={selectedProjects} selectedCostCenters={selectedCostCenters} onEdit={handleEditSale} />}
                         {tab === 'gastos' && <ExpensesList period={period} selectedProjects={selectedProjects} selectedCostCenters={selectedCostCenters} onEdit={handleEditExpense} />}
                         {tab === 'cxc' && <CXCList period={period} selectedProjects={selectedProjects} selectedCostCenters={selectedCostCenters} />}
