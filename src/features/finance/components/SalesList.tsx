@@ -9,8 +9,8 @@ import { Button } from '@/shared/components/ui/button';
 import { Search, AlertCircle, Pencil, DollarSign, X } from 'lucide-react';
 import { useResizableColumns } from '@/shared/hooks/useResizableColumns';
 
-// [col]: Fecha | Factura | Cliente | Proyecto | Valor Neto | Total+IVA | Estado | Acciones
-const INITIAL_WIDTHS = [110, 140, 180, 180, 120, 120, 100, 100];
+// [col]: Fecha | Factura | Cliente | Proyecto | C. Costo | Valor Neto | Total+IVA | Estado | Acciones
+const INITIAL_WIDTHS = [110, 140, 180, 180, 120, 120, 120, 100, 100];
 
 const fmt = (n: number) =>
     n.toLocaleString('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 });
@@ -150,7 +150,7 @@ export function SalesList({ period, selectedProjects, selectedCostCenters, onEdi
                     </colgroup>
                     <thead className="text-[10px] text-slate-500 uppercase bg-slate-50 border-b border-slate-100">
                         <tr>
-                            {(['Fecha', 'Factura', 'Cliente', 'Proyecto', 'Valor Neto', 'Total + IVA', 'Estado', 'Acciones'] as const).map((label, i) => (
+                            {(['Fecha', 'Factura', 'Cliente', 'Proyecto', 'C. Costo', 'Valor Neto', 'Total + IVA', 'Estado', 'Acciones'] as const).map((label, i) => (
                                 <th
                                     key={i}
                                     className="px-4 py-3 font-black tracking-widest relative select-none overflow-hidden"
@@ -169,7 +169,7 @@ export function SalesList({ period, selectedProjects, selectedCostCenters, onEdi
                         {loading ? (
                             Array.from({ length: 5 }).map((_, i) => (
                                 <tr key={i}>
-                                    {Array.from({ length: 8 }).map((__, j) => (
+                                    {Array.from({ length: 9 }).map((__, j) => (
                                         <td key={j} className="px-4 py-4">
                                             <div className="h-3 bg-slate-100 rounded animate-pulse w-full" />
                                         </td>
@@ -178,7 +178,7 @@ export function SalesList({ period, selectedProjects, selectedCostCenters, onEdi
                             ))
                         ) : filtered.length === 0 ? (
                             <tr>
-                                <td colSpan={8} className="py-16 text-center">
+                                <td colSpan={9} className="py-16 text-center">
                                     <AlertCircle className="w-8 h-8 text-slate-200 mx-auto mb-2" />
                                     <p className="text-sm text-slate-400 font-medium">
                                         {search ? 'Sin resultados' : 'No hay ventas registradas'}
@@ -202,6 +202,11 @@ export function SalesList({ period, selectedProjects, selectedCostCenters, onEdi
                                     <td className="px-4 py-3.5 text-slate-600 text-xs overflow-hidden">
                                         <span className="block truncate" title={sale.proyecto?.name ?? ''}>
                                             {sale.proyecto?.name || '—'}
+                                        </span>
+                                    </td>
+                                    <td className="px-4 py-3.5 text-slate-600 text-xs overflow-hidden">
+                                        <span className="inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-bold bg-slate-100 text-slate-700 capitalize">
+                                            {sale.cost_center || '—'}
                                         </span>
                                     </td>
                                     <td className="px-4 py-3.5 text-right font-mono text-slate-700 text-xs overflow-hidden">

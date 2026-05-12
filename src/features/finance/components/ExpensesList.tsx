@@ -27,8 +27,8 @@ function formatDate(d?: string) {
     });
 }
 
-// [col]: Fecha Radicado | Factura Prov. | Proveedor | Categoría | OC/Release | Valor Neto | Total+IVA | Límite Pago | Estado | Editar
-const INITIAL_WIDTHS = [130, 140, 200, 120, 130, 120, 120, 120, 100, 70];
+// [col]: Fecha Radicado | Factura Prov. | Proveedor | C. Costo | Categoría | OC/Release | Valor Neto | Total+IVA | Límite Pago | Estado | Editar
+const INITIAL_WIDTHS = [130, 140, 200, 120, 120, 130, 120, 120, 120, 100, 70];
 
 interface Props {
     period?: string;
@@ -87,7 +87,7 @@ export function ExpensesList({ period, selectedProjects, selectedCostCenters, on
     });
 
     const headers = [
-        'Fecha Radicado', 'Factura Prov.', 'Proveedor', 'Categoría',
+        'Fecha Radicado', 'Factura Prov.', 'Proveedor', 'C. Costo', 'Categoría',
         'OC / Release', 'Valor Neto', 'Total + IVA', 'Límite Pago', 'Estado', 'Editar',
     ];
 
@@ -139,7 +139,7 @@ export function ExpensesList({ period, selectedProjects, selectedCostCenters, on
                         {loading ? (
                             Array.from({ length: 5 }).map((_, i) => (
                                 <tr key={i}>
-                                    {Array.from({ length: 10 }).map((__, j) => (
+                                    {Array.from({ length: 11 }).map((__, j) => (
                                         <td key={j} className="px-4 py-4">
                                             <div className="h-3 bg-slate-100 rounded animate-pulse w-full" />
                                         </td>
@@ -148,7 +148,7 @@ export function ExpensesList({ period, selectedProjects, selectedCostCenters, on
                             ))
                         ) : filtered.length === 0 ? (
                             <tr>
-                                <td colSpan={10} className="py-16 text-center">
+                                <td colSpan={11} className="py-16 text-center">
                                     <AlertCircle className="w-8 h-8 text-slate-200 mx-auto mb-2" />
                                     <p className="text-sm text-slate-400 font-medium">
                                         {search ? 'Sin resultados' : 'No hay gastos registrados'}
@@ -167,6 +167,11 @@ export function ExpensesList({ period, selectedProjects, selectedCostCenters, on
                                     <td className="px-4 py-3.5 text-xs text-slate-700 font-medium overflow-hidden">
                                         <span className="block truncate" title={e.proveedor_nombre ?? ''}>
                                             {e.proveedor_nombre || <span className="text-slate-300">—</span>}
+                                        </span>
+                                    </td>
+                                    <td className="px-4 py-3.5 text-xs text-slate-700 font-medium overflow-hidden">
+                                        <span className="inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-bold bg-slate-100 text-slate-700 capitalize">
+                                            {e.cost_center || '—'}
                                         </span>
                                     </td>
                                     <td className="px-4 py-3.5 overflow-hidden">

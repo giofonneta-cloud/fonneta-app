@@ -9,8 +9,8 @@ import { Input } from '@/shared/components/ui/input';
 import { AlertCircle, CheckCircle2, X } from 'lucide-react';
 import { useResizableColumns } from '@/shared/hooks/useResizableColumns';
 
-// [col]: Cliente | Factura | Proyecto | Total Factura | Saldo por Cobrar | Fecha Cobro Est. | Vencimiento | Acción
-const INITIAL_WIDTHS = [180, 140, 160, 130, 130, 140, 120, 100];
+// [col]: Cliente | Factura | Proyecto | C. Costo | Total Factura | Saldo por Cobrar | Fecha Cobro Est. | Vencimiento | Acción
+const INITIAL_WIDTHS = [180, 140, 160, 120, 130, 130, 140, 120, 100];
 
 const fmt = (n: number) =>
     n.toLocaleString('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 });
@@ -175,7 +175,7 @@ export function CXCList({ period, selectedProjects, selectedCostCenters }: Props
                     </colgroup>
                     <thead className="text-[10px] text-slate-500 uppercase bg-slate-50 border-b border-slate-100">
                         <tr>
-                            {(['Cliente', 'Factura', 'Proyecto', 'Total Factura', 'Saldo por Cobrar', 'Fecha Cobro Est.', 'Vencimiento', 'Acción'] as const).map((label, i) => (
+                            {(['Cliente', 'Factura', 'Proyecto', 'C. Costo', 'Total Factura', 'Saldo por Cobrar', 'Fecha Cobro Est.', 'Vencimiento', 'Acción'] as const).map((label, i) => (
                                 <th
                                     key={i}
                                     className="px-4 py-3 font-black tracking-widest relative select-none overflow-hidden"
@@ -194,7 +194,7 @@ export function CXCList({ period, selectedProjects, selectedCostCenters }: Props
                         {loading ? (
                             Array.from({ length: 4 }).map((_, i) => (
                                 <tr key={i}>
-                                    {Array.from({ length: 8 }).map((__, j) => (
+                                    {Array.from({ length: 9 }).map((__, j) => (
                                         <td key={j} className="px-4 py-4">
                                             <div className="h-3 bg-slate-100 rounded animate-pulse" />
                                         </td>
@@ -203,7 +203,7 @@ export function CXCList({ period, selectedProjects, selectedCostCenters }: Props
                             ))
                         ) : sales.length === 0 ? (
                             <tr>
-                                <td colSpan={8} className="py-16 text-center">
+                                <td colSpan={9} className="py-16 text-center">
                                     <CheckCircle2 className="w-10 h-10 text-emerald-200 mx-auto mb-3" />
                                     <p className="text-sm font-bold text-slate-400">¡Todo cobrado! No hay cuentas por cobrar pendientes.</p>
                                 </td>
