@@ -34,7 +34,9 @@ interface Props {
     period?: string;
     selectedProjects?: string[];
     selectedCostCenters?: string[];
+    selectedEstado?: string[];
     onEdit?: (sale: Venta) => void;
+    onClientClick?: (clientId: string) => void;
 }
 
 function getYearMonth(dateStr: string): { year: number; month: number } | null {
@@ -61,7 +63,7 @@ function isInPeriod(dateStr: string, periodStr?: string): boolean {
     return year === py && month === pm;
 }
 
-export function SalesList({ period, selectedProjects, selectedCostCenters, onEdit }: Props) {
+export function SalesList({ period, selectedProjects, selectedCostCenters, selectedEstado, onEdit, onClientClick }: Props) {
     const [sales, setSales] = useState<Venta[]>([]);
     const [search, setSearch] = useState('');
     const [loading, setLoading] = useState(true);
@@ -90,7 +92,8 @@ export function SalesList({ period, selectedProjects, selectedCostCenters, onEdi
         const matchesPeriod = isInPeriod(s.fecha_factura || s.created_at, period);
         const matchesProject = !selectedProjects || selectedProjects.length === 0 || selectedProjects.includes(s.proyecto?.name ?? '');
         const matchesCostCenter = !selectedCostCenters || selectedCostCenters.length === 0 || selectedCostCenters.includes(s.cost_center ?? '');
-        return matchesSearch && matchesPeriod && matchesProject && matchesCostCenter;
+        const matchesEstado = !selectedEstado || selectedEstado.length === 0 || selectedEstado.some(e => s.estado_pago === e.toLowerCase().replace(/ /g, '_'));
+        return matchesSearch && matchesPeriod && matchesProject && matchesCostCenter && matchesEstado;
     });
 
     const payingSale = sales.find(s => s.id === payingId);
@@ -194,10 +197,20 @@ export function SalesList({ period, selectedProjects, selectedCostCenters, onEdi
                                     <td className="px-4 py-3.5 font-mono text-slate-700 text-xs font-bold overflow-hidden">
                                         <span className="block truncate">{sale.numero_factura || '—'}</span>
                                     </td>
-                                    <td className="px-4 py-3.5 font-semibold text-blue-600 text-xs overflow-hidden">
-                                        <span className="block truncate" title={sale.cliente?.business_name ?? ''}>
-                                            {sale.cliente?.business_name || 'Sin cliente'}
-                                        </span>
+                                    <td className="px-4 py-3.5 font-semibold text-xs overflow-hidden">
+                                        {sale.cliente?.id && onClientClick ? (
+                                            <button
+                                                onClick={() => onClientClick?.(sale.cliente!.id)}
+                                                className="block truncate text-blue-600 hover:underline hover:text-blue-700 transition-colors"
+                                                title={sale.cliente?.business_name ?? ''}
+                                            >
+                                                {sale.cliente?.business_name || 'Sin cliente'}
+                                            </button>
+                                        ) : (
+                                            <span className="block truncate" title={sale.cliente?.business_name ?? ''}>
+                                                {sale.cliente?.business_name || 'Sin cliente'}
+                                            </span>
+                                        )}
                                     </td>
                                     <td className="px-4 py-3.5 text-slate-600 text-xs overflow-hidden">
                                         <span className="block truncate" title={sale.proyecto?.name ?? ''}>

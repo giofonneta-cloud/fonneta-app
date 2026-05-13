@@ -7,6 +7,7 @@ import { SalesList } from '@/features/finance/components/SalesList';
 import { ExpensesList } from '@/features/finance/components/ExpensesList';
 import { CXCList } from '@/features/finance/components/CXCList';
 import { CXPList } from '@/features/finance/components/CXPList';
+import { ProviderDetailModal } from '@/features/finance/components/ProviderDetailModal';
 import { PurchaseOrdersList } from '@/features/finance/components/PurchaseOrdersList';
 import { PurchaseOrderForm } from '@/features/finance/components/PurchaseOrderForm';
 import { PurchaseOrderPreview } from '@/features/finance/components/PurchaseOrderPreview';
@@ -110,7 +111,6 @@ export default function FinancePage() {
     const [view, setView] = useState<View>('dashboard');
     const [tab, setTab] = useState<Tab>('resumen');
     const [period, setPeriod] = useState('all');
-    const [kpis, setKpis] = useState<KpiData[]>([]);
     const [loadingKpis, setLoadingKpis] = useState(true);
     const [isMounted, setIsMounted] = useState(false);
     const [editingSale, setEditingSale] = useState<Venta | null>(null);
@@ -119,8 +119,10 @@ export default function FinancePage() {
     const [previewPO, setPreviewPO] = useState<PurchaseOrder | null>(null);
     const [selectedProjects, setSelectedProjects] = useState<string[]>([]);
     const [selectedCostCenters, setSelectedCostCenters] = useState<string[]>([]);
+    const [selectedEstado, setSelectedEstado] = useState<string[]>([]);
     const [allSales, setAllSales] = useState<Venta[]>([]);
     const [allExpenses, setAllExpenses] = useState<GastoExtendido[]>([]);
+    const [viewingProviderId, setViewingProviderId] = useState<string | null>(null);
 
     useEffect(() => { setIsMounted(true); }, []);
 
@@ -144,75 +146,87 @@ export default function FinancePage() {
                 salesService.getAllSales(),
                 expensesService.getAllExpenses(),
             ]);
-
             setAllSales(sales);
             setAllExpenses(expenses);
-
-            const fs = sales.filter(s => isInPeriod(s.fecha_factura || s.created_at, period));
-            const fe = expenses.filter(e => isInPeriod(e.fecha_radicado || e.created_at, period));
-
-            const income = fs.reduce((a, s) => a + (Number(s.valor_venta_neto) || 0), 0);
-            const exp = fe.reduce((a, e) => a + (Number(e.valor_neto) || 0), 0);
-            const net = income - exp;
-            const margin = income > 0 ? (net / income) * 100 : 0;
-            const goalPct = Math.min((income / GOAL_AMOUNT) * 100, 100);
-
-            setKpis([
-                {
-                    label: 'Ingresos Totales',
-                    value: fmt(income),
-                    sub: `${fs.length} facturas`,
-                    Icon: TrendingUp,
-                    iconBg: 'bg-emerald-50',
-                    iconColor: 'text-emerald-600',
-                },
-                {
-                    label: 'Gastos Totales',
-                    value: fmt(exp),
-                    sub: `${fe.length} pagos`,
-                    Icon: CreditCard,
-                    iconBg: 'bg-rose-50',
-                    iconColor: 'text-rose-600',
-                },
-                {
-                    label: 'Utilidad Neta',
-                    value: fmt(net),
-                    sub: net >= 0 ? 'Resultado positivo' : 'Resultado negativo',
-                    Icon: DollarSign,
-                    iconBg: net >= 0 ? 'bg-blue-50' : 'bg-rose-50',
-                    iconColor: net >= 0 ? 'text-blue-600' : 'text-rose-600',
-                },
-                {
-                    label: 'Margen de Utilidad',
-                    value: `${margin.toFixed(1)}%`,
-                    sub: 'Sobre ingresos brutos',
-                    Icon: Percent,
-                    iconBg: 'bg-violet-50',
-                    iconColor: 'text-violet-600',
-                },
-                {
-                    label: 'Meta Anual',
-                    value: `${goalPct.toFixed(0)}%`,
-                    sub: goalPct >= 100 ? 'Meta alcanzada' : `Faltan ${fmt(GOAL_AMOUNT - income)}`,
-                    Icon: Target,
-                    iconBg: 'bg-amber-50',
-                    iconColor: 'text-amber-600',
-                    extra: (
-                        <div className="mt-2.5 h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
-                            <div
-                                className="h-full bg-amber-400 rounded-full transition-all duration-700"
-                                style={{ width: `${goalPct}%` }}
-                            />
-                        </div>
-                    ),
-                },
-            ]);
         } catch (e) {
             console.error('Error loading KPIs', e);
         } finally {
             setLoadingKpis(false);
         }
-    }, [period]);
+    }, []);
+
+    const kpisCalculated = useMemo((): KpiData[] => {
+        const fs = allSales.filter(s => {
+            const matchesPeriod = isInPeriod(s.fecha_factura || s.created_at, period);
+            const matchesProject = !selectedProjects.length || selectedProjects.includes(s.proyecto?.name ?? '');
+            const matchesCostCenter = !selectedCostCenters.length || selectedCostCenters.includes(s.cost_center ?? '');
+            const matchesEstado = !selectedEstado.length || selectedEstado.some(e => s.estado_pago === e.toLowerCase().replace(/ /g, '_'));
+            return matchesPeriod && matchesProject && matchesCostCenter && matchesEstado;
+        });
+        const fe = allExpenses.filter(e => {
+            const matchesPeriod = isInPeriod(e.fecha_radicado || e.created_at, period);
+            const matchesCostCenter = !selectedCostCenters.length || selectedCostCenters.includes(e.cost_center ?? '');
+            const matchesEstado = !selectedEstado.length || selectedEstado.includes(e.estado_pago);
+            return matchesPeriod && matchesCostCenter && matchesEstado;
+        });
+
+        const income = fs.reduce((a, s) => a + (Number(s.valor_venta_neto) || 0), 0);
+        const exp = fe.reduce((a, e) => a + (Number(e.valor_neto) || 0), 0);
+        const net = income - exp;
+        const margin = income > 0 ? (net / income) * 100 : 0;
+        const goalPct = Math.min((income / GOAL_AMOUNT) * 100, 100);
+
+        return [
+            {
+                label: 'Ingresos Totales',
+                value: fmt(income),
+                sub: `${fs.length} facturas`,
+                Icon: TrendingUp,
+                iconBg: 'bg-emerald-50',
+                iconColor: 'text-emerald-600',
+            },
+            {
+                label: 'Gastos Totales',
+                value: fmt(exp),
+                sub: `${fe.length} pagos`,
+                Icon: CreditCard,
+                iconBg: 'bg-rose-50',
+                iconColor: 'text-rose-600',
+            },
+            {
+                label: 'Utilidad Neta',
+                value: fmt(net),
+                sub: net >= 0 ? 'Resultado positivo' : 'Resultado negativo',
+                Icon: DollarSign,
+                iconBg: net >= 0 ? 'bg-blue-50' : 'bg-rose-50',
+                iconColor: net >= 0 ? 'text-blue-600' : 'text-rose-600',
+            },
+            {
+                label: 'Margen de Utilidad',
+                value: `${margin.toFixed(1)}%`,
+                sub: 'Sobre ingresos brutos',
+                Icon: Percent,
+                iconBg: 'bg-violet-50',
+                iconColor: 'text-violet-600',
+            },
+            {
+                label: 'Meta Anual',
+                value: `${goalPct.toFixed(0)}%`,
+                sub: goalPct >= 100 ? 'Meta alcanzada' : `Faltan ${fmt(GOAL_AMOUNT - income)}`,
+                Icon: Target,
+                iconBg: 'bg-amber-50',
+                iconColor: 'text-amber-600',
+                extra: (
+                    <div className="mt-2.5 h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
+                        <div
+                            className="h-full bg-amber-400 rounded-full transition-all duration-700"
+                            style={{ width: `${goalPct}%` }}
+                        />
+                    </div>
+                ),
+            },
+        ];
+    }, [allSales, allExpenses, period, selectedProjects, selectedCostCenters, selectedEstado]);
 
     useEffect(() => {
         if (isMounted) loadKPIs();
@@ -336,6 +350,14 @@ export default function FinancePage() {
                                     onChange={setSelectedCostCenters}
                                 />
 
+                                {/* Estado Filter */}
+                                <MultiSelectFilter
+                                    label="Estado"
+                                    options={['Pendiente', 'Parcial', 'Pagado', 'Solicite documentos']}
+                                    selectedValues={selectedEstado}
+                                    onChange={setSelectedEstado}
+                                />
+
                                 {/* Export dropdown */}
                                 <DropdownMenu>
                                     <DropdownMenuTrigger asChild>
@@ -386,7 +408,7 @@ export default function FinancePage() {
                                         <div className="h-2 bg-slate-200 rounded w-1/2" />
                                     </div>
                                 ))
-                                : kpis.map((kpi, i) => (
+                                : kpisCalculated.map((kpi, i) => (
                                     <div
                                         key={i}
                                         className="bg-slate-50 rounded-lg border border-slate-100 shadow-sm p-3 hover:shadow-md transition-all duration-200 group"
@@ -477,11 +499,11 @@ export default function FinancePage() {
 
                     {/* Content */}
                     <div className="p-6 bg-white rounded-b-2xl border border-slate-100 border-t-0 shadow-sm">
-                        {tab === 'resumen' && <FinanceReportCenter period={period} selectedProjects={selectedProjects} selectedCostCenters={selectedCostCenters} />}
-                        {tab === 'ventas' && <SalesList period={period} selectedProjects={selectedProjects} selectedCostCenters={selectedCostCenters} onEdit={handleEditSale} />}
-                        {tab === 'gastos' && <ExpensesList period={period} selectedProjects={selectedProjects} selectedCostCenters={selectedCostCenters} onEdit={handleEditExpense} />}
-                        {tab === 'cxc' && <CXCList period={period} selectedProjects={selectedProjects} selectedCostCenters={selectedCostCenters} />}
-                        {tab === 'cxp' && <CXPList period={period} selectedProjects={selectedProjects} selectedCostCenters={selectedCostCenters} />}
+                        {tab === 'resumen' && <FinanceReportCenter period={period} selectedProjects={selectedProjects} selectedCostCenters={selectedCostCenters} selectedEstado={selectedEstado} />}
+                        {tab === 'ventas' && <SalesList period={period} selectedProjects={selectedProjects} selectedCostCenters={selectedCostCenters} selectedEstado={selectedEstado} onEdit={handleEditSale} onClientClick={setViewingProviderId} />}
+                        {tab === 'gastos' && <ExpensesList period={period} selectedProjects={selectedProjects} selectedCostCenters={selectedCostCenters} selectedEstado={selectedEstado} onEdit={handleEditExpense} onProviderClick={setViewingProviderId} />}
+                        {tab === 'cxc' && <CXCList period={period} selectedProjects={selectedProjects} selectedCostCenters={selectedCostCenters} selectedEstado={selectedEstado} onClientClick={setViewingProviderId} />}
+                        {tab === 'cxp' && <CXPList period={period} selectedProjects={selectedProjects} selectedCostCenters={selectedCostCenters} selectedEstado={selectedEstado} onProviderClick={setViewingProviderId} />}
                         {tab === 'oc' && (
                             <PurchaseOrdersList
                                 period={period}
@@ -529,6 +551,12 @@ export default function FinancePage() {
                     onSent={handlePOSent}
                 />
             )}
+
+            {/* Provider Detail Modal */}
+            <ProviderDetailModal
+                providerId={viewingProviderId}
+                onClose={() => setViewingProviderId(null)}
+            />
         </div>
     );
 }

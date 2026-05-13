@@ -1,10 +1,16 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { PieChart as PieChartIcon } from 'lucide-react';
 import { salesService } from '../services/salesService';
 import { expensesService } from '../services/expensesService';
+import { Venta, GastoExtendido } from '../types/sales-expenses.types';
 import { MonthlyTrendChart } from './MonthlyTrendChart';
+import { CarteraStatusChart } from './CarteraStatusChart';
+import { ObligacionesStatusChart } from './ObligacionesStatusChart';
+import { GastosCategoriaChart } from './GastosCategoriaChart';
+import { TopClientesChart } from './TopClientesChart';
+import { TopProveedoresChart } from './TopProveedoresChart';
 import {
     BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
     ResponsiveContainer, Legend,
@@ -14,6 +20,7 @@ interface Props {
     period: string;
     selectedProjects?: string[];
     selectedCostCenters?: string[];
+    selectedEstado?: string[];
 }
 
 // Parsea año y mes directamente del string para evitar bugs de zona horaria
@@ -69,11 +76,13 @@ interface ProjectRow {
     utilidad: number;
 }
 
-export function FinanceReportCenter({ period, selectedProjects, selectedCostCenters }: Props) {
+export function FinanceReportCenter({ period, selectedProjects, selectedCostCenters, selectedEstado }: Props) {
     const [data, setData] = useState<ProjectRow[]>([]);
     const [totalIncome, setTotalIncome] = useState(0);
     const [totalExp, setTotalExp] = useState(0);
     const [loading, setLoading] = useState(true);
+    const [allSales, setAllSales] = useState<Venta[]>([]);
+    const [allExpenses, setAllExpenses] = useState<GastoExtendido[]>([]);
 
     useEffect(() => {
         const load = async () => {
@@ -84,16 +93,22 @@ export function FinanceReportCenter({ period, selectedProjects, selectedCostCent
                     expensesService.getAllExpenses(),
                 ]);
 
+                // Guardar datos originales para los gráficos
+                setAllSales(sales);
+                setAllExpenses(expenses);
+
                 const fs = sales.filter(s => {
                     if (!isInPeriod(s.fecha_factura || s.created_at, period)) return false;
                     const matchesProject = !selectedProjects || selectedProjects.length === 0 || selectedProjects.includes(s.proyecto?.name ?? '');
                     const matchesCostCenter = !selectedCostCenters || selectedCostCenters.length === 0 || selectedCostCenters.includes(s.cost_center ?? '');
-                    return matchesProject && matchesCostCenter;
+                    const matchesEstado = !selectedEstado || selectedEstado.length === 0 || selectedEstado.some(e => s.estado_pago === e.toLowerCase().replace(/ /g, '_'));
+                    return matchesProject && matchesCostCenter && matchesEstado;
                 });
                 const fe = expenses.filter(e => {
                     if (!isInPeriod(e.fecha_radicado || e.created_at, period)) return false;
                     const matchesCostCenter = !selectedCostCenters || selectedCostCenters.length === 0 || selectedCostCenters.includes(e.cost_center ?? '');
-                    return matchesCostCenter;
+                    const matchesEstado = !selectedEstado || selectedEstado.length === 0 || selectedEstado.some(es => e.estado_pago === es.toLowerCase().replace(/ /g, '_'));
+                    return matchesCostCenter && matchesEstado;
                 });
 
                 const income = fs.reduce((a, s) => a + (Number(s.valor_venta_neto) || 0), 0);
@@ -126,14 +141,60 @@ export function FinanceReportCenter({ period, selectedProjects, selectedCostCent
             }
         };
         load();
-    }, [period, selectedProjects, selectedCostCenters]);
+    }, [period, selectedProjects, selectedCostCenters, selectedEstado]);
 
     const net = totalIncome - totalExp;
 
+    // Filtrar datos para los gráficos (aplicar todos los filtros)
+    const filteredSales = useMemo(() => {
+        if (!allSales || allSales.length === 0) return [];
+        return allSales.filter(s => {
+            if (!isInPeriod(s.fecha_factura || s.created_at, period)) return false;
+            const matchesProject = !selectedProjects || selectedProjects.length === 0 || selectedProjects.includes(s.proyecto?.name ?? '');
+            const matchesCostCenter = !selectedCostCenters || selectedCostCenters.length === 0 || selectedCostCenters.includes(s.cost_center ?? '');
+            const matchesEstado = !selectedEstado || selectedEstado.length === 0 || selectedEstado.some(e => s.estado_pago === e.toLowerCase().replace(/ /g, '_'));
+            return matchesProject && matchesCostCenter && matchesEstado;
+        });
+    }, [allSales, period, selectedProjects, selectedCostCenters, selectedEstado]);
+
+    const filteredExpenses = useMemo(() => {
+        if (!allExpenses || allExpenses.length === 0) return [];
+        return allExpenses.filter(e => {
+            if (!isInPeriod(e.fecha_radicado || e.created_at, period)) return false;
+            const matchesCostCenter = !selectedCostCenters || selectedCostCenters.length === 0 || selectedCostCenters.includes(e.cost_center ?? '');
+            const matchesEstado = !selectedEstado || selectedEstado.length === 0 || selectedEstado.some(es => e.estado_pago === es.toLowerCase().replace(/ /g, '_'));
+            return matchesCostCenter && matchesEstado;
+        });
+    }, [allExpenses, period, selectedCostCenters, selectedEstado]);
+
     return (
         <div className="space-y-6">
-            <MonthlyTrendChart />
+            {/* Nivel 1: Tendencia Mensual */}
+            <MonthlyTrendChart period={period} selectedProjects={selectedProjects} selectedCostCenters={selectedCostCenters} />
 
+            {/* Nivel 1: Estado de Cartera y Obligaciones */}
+            {!loading && (
+                <div className="grid grid-cols-2 gap-6">
+                    <CarteraStatusChart sales={filteredSales} />
+                    <ObligacionesStatusChart expenses={filteredExpenses} />
+                </div>
+            )}
+
+            {/* Nivel 2: Análisis Detallado */}
+            <div>
+                <h3 className="text-base font-bold text-slate-800">Análisis Detallado de Ingresos y Gastos</h3>
+                <p className="text-xs text-slate-400 mt-0.5">Distribución por categoría, clientes y proveedores</p>
+            </div>
+
+            {!loading && (
+                <div className="grid grid-cols-3 gap-6">
+                    <GastosCategoriaChart expenses={filteredExpenses} />
+                    <TopClientesChart sales={filteredSales} />
+                    <TopProveedoresChart expenses={filteredExpenses} />
+                </div>
+            )}
+
+            {/* Ingresos vs Gastos por Proyecto */}
             <div>
                 <h3 className="text-base font-bold text-slate-800">Ingresos vs Gastos por Proyecto</h3>
                 <p className="text-xs text-slate-400 mt-0.5">Comparativa de rentabilidad en el periodo seleccionado</p>

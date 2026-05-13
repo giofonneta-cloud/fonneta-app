@@ -34,7 +34,9 @@ interface Props {
     period?: string;
     selectedProjects?: string[];
     selectedCostCenters?: string[];
+    selectedEstado?: string[];
     onEdit?: (expense: GastoExtendido) => void;
+    onProviderClick?: (providerId: string) => void;
 }
 
 function getYearMonth(dateStr: string): { year: number; month: number } | null {
@@ -61,7 +63,7 @@ function isInPeriod(dateStr: string, periodStr?: string): boolean {
     return year === py && month === pm;
 }
 
-export function ExpensesList({ period, selectedProjects, selectedCostCenters, onEdit }: Props) {
+export function ExpensesList({ period, selectedProjects, selectedCostCenters, selectedEstado, onEdit, onProviderClick }: Props) {
     const [expenses, setExpenses] = useState<GastoExtendido[]>([]);
     const [search, setSearch] = useState('');
     const [loading, setLoading] = useState(true);
@@ -83,7 +85,8 @@ export function ExpensesList({ period, selectedProjects, selectedCostCenters, on
         const matchesPeriod = isInPeriod(e.fecha_radicado || e.created_at, period);
         const matchesProject = !selectedProjects || selectedProjects.length === 0 || !e.proyecto_id || true; // TODO: implement project filtering when proyecto is available
         const matchesCostCenter = !selectedCostCenters || selectedCostCenters.length === 0 || selectedCostCenters.includes(e.cost_center ?? '');
-        return matchesSearch && matchesPeriod && matchesProject && matchesCostCenter;
+        const matchesEstado = !selectedEstado || selectedEstado.length === 0 || selectedEstado.some(es => e.estado_pago === es.toLowerCase().replace(/ /g, '_'));
+        return matchesSearch && matchesPeriod && matchesProject && matchesCostCenter && matchesEstado;
     });
 
     const headers = [
@@ -165,9 +168,19 @@ export function ExpensesList({ period, selectedProjects, selectedCostCenters, on
                                         <span className="block truncate">{e.numero_factura_proveedor || '—'}</span>
                                     </td>
                                     <td className="px-4 py-3.5 text-xs text-slate-700 font-medium overflow-hidden">
-                                        <span className="block truncate" title={e.proveedor_nombre ?? ''}>
-                                            {e.proveedor_nombre || <span className="text-slate-300">—</span>}
-                                        </span>
+                                        {e.proveedor_id && onProviderClick ? (
+                                            <button
+                                                onClick={() => onProviderClick(e.proveedor_id)}
+                                                className="block truncate text-blue-600 hover:underline hover:text-blue-700 transition-colors"
+                                                title={e.proveedor_nombre ?? ''}
+                                            >
+                                                {e.proveedor_nombre}
+                                            </button>
+                                        ) : (
+                                            <span className="block truncate" title={e.proveedor_nombre ?? ''}>
+                                                {e.proveedor_nombre || <span className="text-slate-300">—</span>}
+                                            </span>
+                                        )}
                                     </td>
                                     <td className="px-4 py-3.5 text-xs text-slate-700 font-medium overflow-hidden">
                                         <span className="inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-bold bg-slate-100 text-slate-700 capitalize">

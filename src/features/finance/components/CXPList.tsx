@@ -67,9 +67,11 @@ interface Props {
     period: string;
     selectedProjects?: string[];
     selectedCostCenters?: string[];
+    selectedEstado?: string[];
+    onProviderClick?: (providerId: string) => void;
 }
 
-export function CXPList({ period, selectedProjects, selectedCostCenters }: Props) {
+export function CXPList({ period, selectedProjects, selectedCostCenters, selectedEstado, onProviderClick }: Props) {
     const [expenses, setExpenses] = useState<GastoExtendido[]>([]);
     const [loading, setLoading] = useState(true);
     const { widths, startResize } = useResizableColumns(INITIAL_WIDTHS);
@@ -89,7 +91,8 @@ export function CXPList({ period, selectedProjects, selectedCostCenters }: Props
                         const matchesPeriod = e.estado_pago !== 'pagado' && isInPeriod(e.fecha_limite_pago, period);
                         const matchesProject = !selectedProjects || selectedProjects.length === 0 || !e.proyecto_id || true; // TODO: implement project filtering when proyecto is available
                         const matchesCostCenter = !selectedCostCenters || selectedCostCenters.length === 0 || selectedCostCenters.includes(e.cost_center ?? '');
-                        return matchesPeriod && matchesProject && matchesCostCenter;
+                        const matchesEstado = !selectedEstado || selectedEstado.length === 0 || selectedEstado.some(es => e.estado_pago === es.toLowerCase().replace(/ /g, '_'));
+                        return matchesPeriod && matchesProject && matchesCostCenter && matchesEstado;
                     })
                     .sort((a, b) => {
                         const da = getDaysUntil(a.fecha_limite_pago) ?? 9999;
@@ -102,7 +105,7 @@ export function CXPList({ period, selectedProjects, selectedCostCenters }: Props
             .finally(() => setLoading(false));
     };
 
-    useEffect(() => { loadData(); }, [period, selectedProjects, selectedCostCenters]);
+    useEffect(() => { loadData(); }, [period, selectedProjects, selectedCostCenters, selectedEstado]);
 
     const thisWeek = expenses.filter(e => {
         const d = getDaysUntil(e.fecha_limite_pago);
@@ -226,9 +229,19 @@ export function CXPList({ period, selectedProjects, selectedCostCenters }: Props
                                             <span className="block truncate">{e.numero_factura_proveedor || '—'}</span>
                                         </td>
                                         <td className="px-4 py-3.5 text-xs text-slate-700 font-medium overflow-hidden">
-                                            <span className="block truncate" title={e.proveedor_nombre ?? ''}>
-                                                {e.proveedor_nombre || <span className="text-slate-300">—</span>}
-                                            </span>
+                                            {e.proveedor_id && onProviderClick ? (
+                                                <button
+                                                    onClick={() => onProviderClick(e.proveedor_id)}
+                                                    className="block truncate text-blue-600 hover:underline hover:text-blue-700 transition-colors"
+                                                    title={e.proveedor_nombre ?? ''}
+                                                >
+                                                    {e.proveedor_nombre}
+                                                </button>
+                                            ) : (
+                                                <span className="block truncate" title={e.proveedor_nombre ?? ''}>
+                                                    {e.proveedor_nombre || <span className="text-slate-300">—</span>}
+                                                </span>
+                                            )}
                                         </td>
                                         <td className="px-4 py-3.5 text-xs text-slate-700 font-medium overflow-hidden">
                                             <span className="inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-bold bg-slate-100 text-slate-700 capitalize">

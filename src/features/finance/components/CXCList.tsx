@@ -10,7 +10,7 @@ import { AlertCircle, CheckCircle2, X } from 'lucide-react';
 import { useResizableColumns } from '@/shared/hooks/useResizableColumns';
 
 // [col]: Cliente | Factura | Proyecto | C. Costo | Total Factura | Saldo por Cobrar | Fecha Cobro Est. | Vencimiento | Acción
-const INITIAL_WIDTHS = [180, 140, 160, 120, 130, 130, 140, 120, 100];
+const INITIAL_WIDTHS = [160, 120, 140, 110, 130, 130, 140, 110, 90];
 
 const fmt = (n: number) =>
     n.toLocaleString('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 });
@@ -65,9 +65,11 @@ interface Props {
     period: string;
     selectedProjects?: string[];
     selectedCostCenters?: string[];
+    selectedEstado?: string[];
+    onClientClick?: (clientId: string) => void;
 }
 
-export function CXCList({ period, selectedProjects, selectedCostCenters }: Props) {
+export function CXCList({ period, selectedProjects, selectedCostCenters, selectedEstado, onClientClick }: Props) {
     const [sales, setSales] = useState<Venta[]>([]);
     const [loading, setLoading] = useState(true);
     const { widths, startResize } = useResizableColumns(INITIAL_WIDTHS);
@@ -87,7 +89,8 @@ export function CXCList({ period, selectedProjects, selectedCostCenters }: Props
                         const matchesPeriod = s.estado_pago !== 'pagado' && isInPeriod(s.fecha_cobro_estimada, period);
                         const matchesProject = !selectedProjects || selectedProjects.length === 0 || selectedProjects.includes(s.proyecto?.name ?? '');
                         const matchesCostCenter = !selectedCostCenters || selectedCostCenters.length === 0 || selectedCostCenters.includes(s.cost_center ?? '');
-                        return matchesPeriod && matchesProject && matchesCostCenter;
+                        const matchesEstado = !selectedEstado || selectedEstado.length === 0 || selectedEstado.some(es => s.estado_pago === es.toLowerCase().replace(/ /g, '_'));
+                        return matchesPeriod && matchesProject && matchesCostCenter && matchesEstado;
                     })
                     .sort((a, b) => {
                         const da = getDaysUntil(a.fecha_cobro_estimada) ?? 9999;
@@ -100,7 +103,7 @@ export function CXCList({ period, selectedProjects, selectedCostCenters }: Props
             .finally(() => setLoading(false));
     };
 
-    useEffect(() => { loadData(); }, [period, selectedProjects, selectedCostCenters]);
+    useEffect(() => { loadData(); }, [period, selectedProjects, selectedCostCenters, selectedEstado]);
 
     const thisWeek = sales.filter(s => {
         const d = getDaysUntil(s.fecha_cobro_estimada);
@@ -223,10 +226,20 @@ export function CXCList({ period, selectedProjects, selectedCostCenters }: Props
                                             'hover:bg-slate-50/60'
                                         }`}
                                     >
-                                        <td className="px-4 py-3.5 font-semibold text-blue-600 text-xs overflow-hidden">
-                                            <span className="block truncate" title={s.cliente?.business_name ?? ''}>
-                                                {s.cliente?.business_name || 'Sin cliente'}
-                                            </span>
+                                        <td className="px-4 py-3.5 font-semibold text-xs overflow-hidden">
+                                            {s.cliente?.id && onClientClick ? (
+                                                <button
+                                                    onClick={() => onClientClick?.(s.cliente!.id)}
+                                                    className="block truncate text-blue-600 hover:underline hover:text-blue-700 transition-colors"
+                                                    title={s.cliente?.business_name ?? ''}
+                                                >
+                                                    {s.cliente?.business_name || 'Sin cliente'}
+                                                </button>
+                                            ) : (
+                                                <span className="block truncate" title={s.cliente?.business_name ?? ''}>
+                                                    {s.cliente?.business_name || 'Sin cliente'}
+                                                </span>
+                                            )}
                                         </td>
                                         <td className="px-4 py-3.5 font-mono text-xs font-bold text-slate-700 overflow-hidden">
                                             <span className="block truncate">{s.numero_factura || '—'}</span>
@@ -234,6 +247,11 @@ export function CXCList({ period, selectedProjects, selectedCostCenters }: Props
                                         <td className="px-4 py-3.5 text-xs text-slate-500 overflow-hidden">
                                             <span className="block truncate" title={s.proyecto?.name ?? ''}>
                                                 {s.proyecto?.name || '—'}
+                                            </span>
+                                        </td>
+                                        <td className="px-4 py-3.5 text-xs text-slate-700 font-medium overflow-hidden">
+                                            <span className="inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-bold bg-slate-100 text-slate-700 capitalize">
+                                                {s.cost_center || '—'}
                                             </span>
                                         </td>
                                         <td className="px-4 py-3.5 text-right font-mono text-xs text-slate-600 overflow-hidden">

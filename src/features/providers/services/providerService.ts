@@ -42,6 +42,17 @@ export const providerService = {
         return data as Provider[];
     },
 
+    async getProviderById(id: string) {
+        const { data, error } = await supabase
+            .from('providers')
+            .select('*')
+            .eq('id', id)
+            .single();
+
+        if (error) throw error;
+        return data as Provider;
+    },
+
     async getClients() {
         const { data, error } = await supabase
             .from('providers')
