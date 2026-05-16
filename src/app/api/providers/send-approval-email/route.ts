@@ -153,26 +153,36 @@ export async function POST(request: NextRequest) {
       host: process.env.SMTP_HOST,
       port: process.env.SMTP_PORT,
       user: process.env.SMTP_USER ? 'set' : 'not set',
-      password: process.env.SMTP_PASSWORD ? 'set' : 'not set'
+      password: process.env.SMTP_PASSWORD ? `${String(process.env.SMTP_PASSWORD).substring(0, 4)}...` : 'not set'
     });
 
-    const transporter = nodemailer.createTransport({
-      host: process.env.SMTP_HOST,
-      port: parseInt(process.env.SMTP_PORT || '587'),
-      secure: false, // true for 465, false for other ports
-      auth: {
-        user: process.env.SMTP_USER,
-        pass: process.env.SMTP_PASSWORD
-      }
-    });
+    let transporter;
 
-    // Verify transporter connection
     try {
+      transporter = nodemailer.createTransport({
+        host: process.env.SMTP_HOST,
+        port: parseInt(process.env.SMTP_PORT || '587'),
+        secure: false,
+        auth: {
+          user: process.env.SMTP_USER,
+          pass: process.env.SMTP_PASSWORD
+        },
+        logger: true,
+        debug: true
+      });
+
+      // Verify transporter connection
+      console.log('Verifying SMTP connection...');
       await transporter.verify();
-      console.log('SMTP connection verified successfully');
+      console.log('✓ SMTP connection verified successfully');
     } catch (verifyError) {
-      console.error('SMTP verification failed:', verifyError);
-      throw new Error(`SMTP connection failed: ${String(verifyError)}`);
+      console.error('✗ SMTP verification failed:', {
+        error: String(verifyError),
+        message: verifyError instanceof Error ? verifyError.message : 'Unknown error',
+        code: verifyError instanceof Error && 'code' in verifyError ? (verifyError as any).code : undefined
+      });
+
+      throw new Error(`SMTP connection failed: ${verifyError instanceof Error ? verifyError.message : String(verifyError)}`);
     }
 
     // Send email
