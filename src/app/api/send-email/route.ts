@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '@/shared/lib/supabase';
 import nodemailer from 'nodemailer';
 
+// Force Vercel rebuild - cache bust (2026-05-16)
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
