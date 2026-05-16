@@ -2,6 +2,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '@/shared/lib/supabase';
 import nodemailer from 'nodemailer';
 
+// Health check endpoint
+export async function GET() {
+  return NextResponse.json({ status: 'ok', timestamp: new Date().toISOString() });
+}
+
 // Force Vercel rebuild - cache bust (2026-05-16)
 export async function POST(request: NextRequest) {
   try {
