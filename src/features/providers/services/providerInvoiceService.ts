@@ -198,6 +198,24 @@ export const providerInvoiceService = {
             // No bloqueamos el flujo si falla la notificación
         }
 
+        // 1.5. Si se aprueba, enviar correo a contabilidad con documentos
+        if (status === 'aprobado') {
+          try {
+            await fetch('/api/providers/send-approval-email', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                invoiceId: updatedInvoice.id,
+                providerId: updatedInvoice.provider_id,
+                invoiceNumber: updatedInvoice.invoice_number
+              })
+            });
+          } catch (emailError) {
+            console.error('Error enviando correo de aprobación:', emailError);
+            // No bloqueamos el flujo si falla el email
+          }
+        }
+
         // 2. Si se aprueba y NO tiene gasto vinculado, crear el Gasto
         if (status === 'aprobado' && !updatedInvoice.expense_id && updatedInvoice.project_id) {
             try {
