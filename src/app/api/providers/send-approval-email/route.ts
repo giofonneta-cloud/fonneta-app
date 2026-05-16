@@ -149,6 +149,13 @@ export async function POST(request: NextRequest) {
     `;
 
     // Prepare nodemailer transporter
+    console.log('Creating SMTP transporter with:', {
+      host: process.env.SMTP_HOST,
+      port: process.env.SMTP_PORT,
+      user: process.env.SMTP_USER ? 'set' : 'not set',
+      password: process.env.SMTP_PASSWORD ? 'set' : 'not set'
+    });
+
     const transporter = nodemailer.createTransport({
       host: process.env.SMTP_HOST,
       port: parseInt(process.env.SMTP_PORT || '587'),
@@ -159,6 +166,15 @@ export async function POST(request: NextRequest) {
       }
     });
 
+    // Verify transporter connection
+    try {
+      await transporter.verify();
+      console.log('SMTP connection verified successfully');
+    } catch (verifyError) {
+      console.error('SMTP verification failed:', verifyError);
+      throw new Error(`SMTP connection failed: ${String(verifyError)}`);
+    }
+
     // Send email
     const mailOptions = {
       from: process.env.SMTP_USER,
@@ -168,13 +184,21 @@ export async function POST(request: NextRequest) {
       html: htmlBody
     };
 
+    console.log('Sending email with options:', {
+      from: mailOptions.from,
+      to: mailOptions.to,
+      cc: mailOptions.cc,
+      subject: mailOptions.subject
+    });
+
     const info = await transporter.sendMail(mailOptions);
 
     console.log('Email sent successfully:', {
       messageId: info.messageId,
       to: mailOptions.to,
       cc: mailOptions.cc,
-      subject: mailOptions.subject
+      subject: mailOptions.subject,
+      response: info.response
     });
 
     return NextResponse.json({
