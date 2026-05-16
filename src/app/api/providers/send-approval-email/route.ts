@@ -71,6 +71,21 @@ export async function POST(request: NextRequest) {
       <p><strong>Monto:</strong> $${Number(invoice.amount).toLocaleString('es-CO')}</p>
     `;
 
+    // Preparar adjuntos
+    const attachments = [];
+    if (invoice.document_url) {
+      attachments.push({ filename: `Factura_${invoiceNumber}.pdf`, path: invoice.document_url });
+    }
+    if (invoice.orden_compra_url) {
+      attachments.push({ filename: `Orden_Compra_${invoiceNumber}.pdf`, path: invoice.orden_compra_url });
+    }
+    if (invoice.seguridad_social_url) {
+      attachments.push({ filename: `Seguridad_Social_${invoiceNumber}.pdf`, path: invoice.seguridad_social_url });
+    }
+    if (invoice.release_url) {
+      attachments.push({ filename: `Release_${invoiceNumber}.pdf`, path: invoice.release_url });
+    }
+
     // Send email
     try {
       const info = await transporter.sendMail({
@@ -78,7 +93,8 @@ export async function POST(request: NextRequest) {
         to: 'contabilidad@fonneta.com',
         cc: process.env.ADMIN_EMAIL || 'giofonneta@gmail.com',
         subject: `Aprobación de Factura ${invoiceNumber} - ${provider.business_name}`,
-        html: htmlBody
+        html: htmlBody,
+        attachments: attachments
       });
 
       return NextResponse.json({

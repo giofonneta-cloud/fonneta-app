@@ -2,21 +2,28 @@ import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '@/shared/lib/supabase';
 import nodemailer from 'nodemailer';
 
-// Health check endpoint
+export const dynamic = 'force-dynamic';
+
 export async function GET() {
-  return NextResponse.json({ status: 'ok', timestamp: new Date().toISOString() });
+  return NextResponse.json({
+    status: 'ok',
+    endpoint: '/api/send-email',
+    timestamp: new Date().toISOString(),
+    version: '1.0'
+  });
 }
 
-// Force Vercel rebuild - cache bust (2026-05-16)
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     const { type, invoiceId, providerId, invoiceNumber } = body;
 
-    // Verificar vars de entorno
     if (!process.env.SMTP_HOST || !process.env.SMTP_PORT || !process.env.SMTP_USER || !process.env.SMTP_PASSWORD) {
       return NextResponse.json(
-        { success: false, error: 'Missing SMTP environment variables' },
+        {
+          success: false,
+          error: 'Missing SMTP environment variables'
+        },
         { status: 500 }
       );
     }
@@ -26,7 +33,6 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
       }
 
-      // Get invoice
       const { data: invoice } = await supabase
         .from('provider_invoices')
         .select('*')
@@ -37,7 +43,6 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'Invoice not found' }, { status: 404 });
       }
 
-      // Get provider
       const { data: provider } = await supabase
         .from('providers')
         .select('*')
@@ -48,7 +53,6 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'Provider not found' }, { status: 404 });
       }
 
-      // Create transporter
       const transporter = nodemailer.createTransport({
         host: process.env.SMTP_HOST,
         port: parseInt(process.env.SMTP_PORT || '587'),
@@ -59,7 +63,6 @@ export async function POST(request: NextRequest) {
         }
       });
 
-      // Build HTML
       const htmlBody = `
         <h2>Aprobación de Factura</h2>
         <p><strong>Proveedor:</strong> ${provider.business_name}</p>
@@ -67,7 +70,6 @@ export async function POST(request: NextRequest) {
         <p><strong>Monto:</strong> $${Number(invoice.amount).toLocaleString('es-CO')}</p>
       `;
 
-      // Send email
       try {
         const info = await transporter.sendMail({
           from: process.env.SMTP_USER,
