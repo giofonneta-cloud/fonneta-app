@@ -316,6 +316,16 @@ test('should calculate total with tax', () => {
 - **Fix**: Siempre usar `npm run dev` (auto-detecta puerto)
 - **Aplicar en**: Todos los proyectos
 
+### 2026-05-16: API Routes SIEMPRE usan createAdminClient, nunca el cliente anon
+- **Error**: API route importaba `supabase` (browser client / anon key). En el servidor no hay sesión → RLS bloquea las queries → retorna `null` silenciosamente → el endpoint retornaba 404 sin error visible
+- **Fix**: Importar `createAdminClient` de `@/lib/supabase/admin` e instanciar dentro del handler
+- **Aplicar en**: TODOS los `src/app/api/**/route.ts` que necesiten leer la BD
+
+### 2026-05-16: Verificar build local antes de pushear a GitHub/Vercel
+- **Error**: Template literals con backticks escapados (`\``) causaban Turbopack parse error → Vercel build fallaba → endpoint retornaba 404
+- **Fix**: Ejecutar `npm run build` localmente y confirmar que el endpoint aparece en el output antes de hacer push
+- **Aplicar en**: Cualquier cambio en API routes o archivos con template literals complejos
+
 ---
 
 *Este archivo es el cerebro de la fábrica. Cada error documentado la hace más fuerte.*
