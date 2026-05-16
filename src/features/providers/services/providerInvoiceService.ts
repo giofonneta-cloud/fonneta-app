@@ -201,10 +201,11 @@ export const providerInvoiceService = {
         // 1.5. Si se aprueba, enviar correo a contabilidad con documentos
         if (status === 'aprobado') {
           try {
-            await fetch('/api/providers/send-approval-email', {
+            await fetch('/api/send-email', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
+                type: 'invoice-approval',
                 invoiceId: updatedInvoice.id,
                 providerId: updatedInvoice.provider_id,
                 invoiceNumber: updatedInvoice.invoice_number
