@@ -4,6 +4,26 @@ import nodemailer from 'nodemailer';
 
 export async function POST(request: NextRequest) {
   try {
+    // Verificar variables de entorno
+    const smtpConfig = {
+      host: process.env.SMTP_HOST,
+      port: process.env.SMTP_PORT,
+      user: process.env.SMTP_USER,
+      pass: process.env.SMTP_PASSWORD ? '***' : 'NOT SET'
+    };
+
+    if (!process.env.SMTP_HOST || !process.env.SMTP_PORT || !process.env.SMTP_USER || !process.env.SMTP_PASSWORD) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Missing SMTP environment variables',
+          config: smtpConfig,
+          timestamp: new Date().toISOString()
+        },
+        { status: 500 }
+      );
+    }
+
     const body = await request.json();
     const { invoiceId, providerId, invoiceNumber } = body;
 
@@ -223,9 +243,16 @@ export async function POST(request: NextRequest) {
     });
 
   } catch (error) {
-    console.error('Error en send-approval-email:', error);
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    console.error('Error en send-approval-email:', errorMessage);
+
     return NextResponse.json(
-      { error: 'Error al procesar correo de aprobación', details: String(error) },
+      {
+        success: false,
+        error: 'Error al procesar correo de aprobación',
+        details: errorMessage,
+        timestamp: new Date().toISOString()
+      },
       { status: 500 }
     );
   }
