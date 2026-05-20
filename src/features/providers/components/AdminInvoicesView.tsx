@@ -9,8 +9,10 @@ import { EXPENSE_CATEGORIES } from '@/shared/constants/expenses';
 import {
     Loader2, FileText, Download, CheckCircle, XCircle, Clock,
     DollarSign, Filter, Search, RotateCcw, Eye, MessageSquare, TrendingUp,
-    ExternalLink, FileCheck, ShieldCheck, Truck
+    ExternalLink, FileCheck, ShieldCheck, Truck, Plus
 } from 'lucide-react';
+import { AdminCreateInvoiceModal } from './AdminCreateInvoiceModal';
+import { useResizableColumns } from '@/shared/hooks/useResizableColumns';
 
 const STATUS_CONFIG = {
     'pendiente': { icon: Clock, color: 'text-yellow-600', bg: 'bg-yellow-50', border: 'border-yellow-200', label: 'Pendiente' },
@@ -30,13 +32,17 @@ interface InvoiceWithProvider extends ProviderInvoice {
     };
 }
 
+const INITIAL_WIDTHS = [120, 220, 180, 140, 120, 160, 100];
+
 export function AdminInvoicesView() {
+    const { widths, startResize } = useResizableColumns(INITIAL_WIDTHS);
     const [invoices, setInvoices] = useState<InvoiceWithProvider[]>([]);
     const [projects, setProjects] = useState<Project[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [filterStatus, setFilterStatus] = useState<InvoiceStatus | 'all'>('all');
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedInvoice, setSelectedInvoice] = useState<InvoiceWithProvider | null>(null);
+    const [showCreateModal, setShowCreateModal] = useState(false);
     const [isUpdating, setIsUpdating] = useState(false);
     const [updateData, setUpdateData] = useState({
         status: 'pendiente' as InvoiceStatus,
@@ -132,7 +138,8 @@ export function AdminInvoicesView() {
         <div className="space-y-6">
             {/* Filters */}
             <div className="bg-white rounded-3xl border border-gray-100 p-6 shadow-sm">
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <div className="flex items-end justify-between gap-4 flex-wrap">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 flex-1">
                     <div className="relative">
                         <label className="text-xs font-black text-gray-400 uppercase tracking-wider block mb-2 px-1">Buscar Factura</label>
                         <div className="relative">
@@ -163,24 +170,47 @@ export function AdminInvoicesView() {
                         </div>
                     </div>
                 </div>
+                <button
+                    onClick={() => setShowCreateModal(true)}
+                    className="flex items-center gap-2 px-5 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl font-black text-sm transition-all border-b-4 border-blue-800 whitespace-nowrap shrink-0"
+                >
+                    <Plus className="w-4 h-4" />
+                    Nueva Factura
+                </button>
+                </div>
             </div>
 
+            {showCreateModal && (
+                <AdminCreateInvoiceModal
+                    onClose={() => setShowCreateModal(false)}
+                    onCreated={() => { setShowCreateModal(false); loadInvoices(); }}
+                />
+            )}
+
             {/* Invoices Table */}
-            <div className="bg-white rounded-[2rem] border border-gray-100 overflow-hidden shadow-sm">
-                <div className="overflow-x-auto">
-                    <table className="w-full border-collapse">
-                        <thead>
-                            <tr className="bg-gray-50/50 border-b border-gray-100">
-                                <th className="px-6 py-5 text-left text-xs font-black text-gray-400 uppercase tracking-wider">Radicado</th>
-                                <th className="px-6 py-5 text-left text-xs font-black text-gray-400 uppercase tracking-wider">Proveedor</th>
-                                <th className="px-6 py-5 text-left text-xs font-black text-gray-400 uppercase tracking-wider">Documento</th>
-                                <th className="px-6 py-5 text-left text-xs font-black text-gray-400 uppercase tracking-wider">Monto</th>
-                                <th className="px-6 py-5 text-left text-xs font-black text-gray-400 uppercase tracking-wider">Fecha</th>
-                                <th className="px-6 py-5 text-left text-xs font-black text-gray-400 uppercase tracking-wider">Estado</th>
-                                <th className="px-6 py-5 text-right text-xs font-black text-gray-400 uppercase tracking-wider">Acciones</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-gray-50">
+            <div className="overflow-x-auto rounded-xl border border-slate-100">
+                <table className="text-sm text-left" style={{ tableLayout: 'fixed', width: widths.reduce((a, b) => a + b, 0) }}>
+                    <colgroup>
+                        {widths.map((w, i) => <col key={i} style={{ width: w }} />)}
+                    </colgroup>
+                    <thead className="text-[10px] text-slate-500 uppercase bg-slate-50 border-b border-slate-100">
+                        <tr>
+                            {(['Radicado', 'Proveedor', 'Documento', 'Monto', 'Fecha', 'Estado', 'Acciones'] as const).map((label, i) => (
+                                <th
+                                    key={i}
+                                    className={`px-4 py-3 font-black tracking-widest relative select-none overflow-hidden ${label === 'Monto' || label === 'Acciones' ? 'text-right' : ''}`}
+                                    style={{ width: widths[i] }}
+                                >
+                                    <span className="block truncate">{label}</span>
+                                    <div
+                                        onMouseDown={startResize(i)}
+                                        className="absolute right-0 top-0 h-full w-1.5 cursor-col-resize hover:bg-blue-400 transition-colors z-10"
+                                    />
+                                </th>
+                            ))}
+                        </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-50">
                             {filteredInvoices.length === 0 ? (
                                 <tr>
                                     <td colSpan={7} className="px-6 py-20 text-center">
@@ -198,44 +228,44 @@ export function AdminInvoicesView() {
                                     const StatusIcon = statusConfig.icon;
 
                                     return (
-                                        <tr key={invoice.id} className="hover:bg-gray-50/50 transition-colors group">
-                                            <td className="px-6 py-4">
-                                                <span className="text-xs font-black text-blue-600 bg-blue-50 px-3 py-1.5 rounded-xl border border-blue-100 shadow-sm">
+                                        <tr key={invoice.id} className="hover:bg-slate-50/60 transition-colors group">
+                                            <td className="px-4 py-3.5 font-semibold text-xs overflow-hidden">
+                                                <span className="inline-flex text-xs font-black text-blue-600 bg-blue-50 px-2 py-1 rounded-lg border border-blue-100 shadow-sm truncate">
                                                     {invoice.radicado_number || 'SIN RADICAR'}
                                                 </span>
                                             </td>
-                                            <td className="px-6 py-4">
-                                                <div className="font-black text-gray-900 group-hover:text-blue-600 transition-colors">{invoice.provider?.business_name}</div>
-                                                <div className="text-[10px] font-black text-gray-400 uppercase tracking-tighter mt-0.5">
+                                            <td className="px-4 py-3.5 font-semibold text-xs overflow-hidden">
+                                                <div className="font-bold text-slate-800 truncate" title={invoice.provider?.business_name}>{invoice.provider?.business_name}</div>
+                                                <div className="text-[10px] font-bold text-slate-400 uppercase mt-0.5 truncate">
                                                     {invoice.provider?.document_type?.toUpperCase()} {invoice.provider?.document_number}
                                                 </div>
                                             </td>
-                                            <td className="px-6 py-4 font-bold text-gray-900">
-                                                <div className="flex items-center gap-2">
-                                                    <FileText className="w-4 h-4 text-gray-300" />
-                                                    {invoice.invoice_number}
+                                            <td className="px-4 py-3.5 font-mono text-xs font-bold text-slate-700 overflow-hidden">
+                                                <div className="flex items-center gap-1.5 truncate">
+                                                    <FileText className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                                                    <span className="truncate">{invoice.invoice_number}</span>
                                                 </div>
-                                                <div className="text-[10px] text-gray-400 uppercase font-black">{invoice.invoice_type === 'factura' ? 'Factura' : 'Cuenta de Cobro'}</div>
+                                                <div className="text-[9px] text-slate-400 uppercase font-black truncate">{invoice.invoice_type === 'factura' ? 'Factura' : 'C. Cobro'}</div>
                                             </td>
-                                            <td className="px-6 py-4 font-black text-gray-900 text-lg">
-                                                ${invoice.amount.toLocaleString('es-CO')}
+                                            <td className="px-4 py-3.5 text-right font-mono text-xs text-slate-600 overflow-hidden">
+                                                <span className="block truncate">${invoice.amount.toLocaleString('es-CO')}</span>
                                             </td>
-                                            <td className="px-6 py-4 text-xs font-bold text-gray-500 uppercase">
-                                                {new Date(invoice.issue_date).toLocaleDateString('es-CO')}
+                                            <td className="px-4 py-3.5 text-xs text-slate-500 font-medium overflow-hidden">
+                                                <span className="block truncate">{new Date(invoice.issue_date).toLocaleDateString('es-CO')}</span>
                                             </td>
-                                            <td className="px-6 py-4">
-                                                <div className={`inline-flex items-center gap-2 px-4 py-1.5 ${statusConfig.bg} ${statusConfig.border} border rounded-full shadow-sm`}>
-                                                    <StatusIcon className={`w-3 h-3 ${statusConfig.color}`} />
-                                                    <span className={`text-[10px] font-black uppercase tracking-wider ${statusConfig.color}`}>
+                                            <td className="px-4 py-3.5 text-center overflow-hidden">
+                                                <div className={`inline-flex items-center gap-1.5 px-2 py-1 ${statusConfig.bg} ${statusConfig.border} border rounded-full shadow-sm truncate`}>
+                                                    <StatusIcon className={`w-3 h-3 shrink-0 ${statusConfig.color}`} />
+                                                    <span className={`text-[9px] font-black uppercase tracking-wider ${statusConfig.color} truncate`}>
                                                         {statusConfig.label}
                                                     </span>
                                                 </div>
                                             </td>
-                                            <td className="px-6 py-4 text-right">
-                                                <div className="flex items-center justify-end gap-2">
+                                            <td className="px-4 py-3.5 text-right">
+                                                <div className="flex items-center justify-end gap-1.5">
                                                     <button
                                                         onClick={() => setSelectedInvoice(invoice)}
-                                                        className="p-3 bg-white hover:bg-blue-50 border border-gray-100 rounded-2xl transition-all text-blue-600 shadow-sm hover:shadow-md hover:-translate-y-0.5"
+                                                        className="p-1.5 hover:bg-blue-50 rounded-lg transition-colors text-blue-600"
                                                         title="Gestionar y Revisar"
                                                     >
                                                         <Eye className="w-4 h-4" />
@@ -245,7 +275,7 @@ export function AdminInvoicesView() {
                                                             href={invoice.document_url}
                                                             target="_blank"
                                                             rel="noopener noreferrer"
-                                                            className="p-3 bg-white hover:bg-gray-50 border border-gray-100 rounded-2xl transition-all text-gray-600 shadow-sm hover:shadow-md hover:-translate-y-0.5"
+                                                            className="p-1.5 hover:bg-slate-100 rounded-lg transition-colors text-slate-600"
                                                             title="Ver Soporte PDF"
                                                         >
                                                             <Download className="w-4 h-4" />
@@ -260,7 +290,6 @@ export function AdminInvoicesView() {
                         </tbody>
                     </table>
                 </div>
-            </div>
 
             {/* Update Modal */}
             {selectedInvoice && (
