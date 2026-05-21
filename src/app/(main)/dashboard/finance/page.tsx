@@ -18,6 +18,7 @@ import { COST_CENTERS } from '@/features/tarifario/types/tarifario.types';
 import { salesService } from '@/features/finance/services/salesService';
 import { expensesService } from '@/features/finance/services/expensesService';
 import { purchaseOrderService } from '@/features/finance/services/purchaseOrderService';
+import { getSystemModules } from '@/features/admin/services/adminService';
 import {
     Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/shared/components/ui/select';
@@ -84,7 +85,8 @@ function isInPeriod(dateStr: string, periodStr: string): boolean {
     return year === py && month === pm;
 }
 
-const GOAL_AMOUNT = 5_000_000_000;
+// Meta anual se carga desde system_config
+const DEFAULT_GOAL_AMOUNT = 5_000_000_000;
 
 const fmt = (n: number) =>
     n.toLocaleString('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 });
@@ -113,6 +115,7 @@ export default function FinancePage() {
     const [period, setPeriod] = useState('all');
     const [loadingKpis, setLoadingKpis] = useState(true);
     const [isMounted, setIsMounted] = useState(false);
+    const [goalAmount, setGoalAmount] = useState(DEFAULT_GOAL_AMOUNT);
     const [editingSale, setEditingSale] = useState<Venta | null>(null);
     const [editingExpense, setEditingExpense] = useState<GastoExtendido | null>(null);
     const [editingPO, setEditingPO] = useState<PurchaseOrder | null>(null);
@@ -125,6 +128,23 @@ export default function FinancePage() {
     const [viewingProviderId, setViewingProviderId] = useState<string | null>(null);
 
     useEffect(() => { setIsMounted(true); }, []);
+
+    // Cargar meta anual desde system_config
+    useEffect(() => {
+        const loadGoalAmount = async () => {
+            try {
+                const modules = await getSystemModules();
+                const finanzasConfig = modules.find(m => m.module_name === 'finanzas_config');
+                if (finanzasConfig?.config_data?.meta_anual) {
+                    setGoalAmount(Number(finanzasConfig.config_data.meta_anual));
+                }
+            } catch (error) {
+                console.error('Error loading goal amount:', error);
+                setGoalAmount(DEFAULT_GOAL_AMOUNT);
+            }
+        };
+        loadGoalAmount();
+    }, []);
 
     const projectNames = useMemo(() =>
         [...new Set([
@@ -174,7 +194,7 @@ export default function FinancePage() {
         const exp = fe.reduce((a, e) => a + (Number(e.valor_neto) || 0), 0);
         const net = income - exp;
         const margin = income > 0 ? (net / income) * 100 : 0;
-        const goalPct = Math.min((income / GOAL_AMOUNT) * 100, 100);
+        const goalPct = Math.min((income / goalAmount) * 100, 100);
 
         return [
             {
@@ -212,7 +232,7 @@ export default function FinancePage() {
             {
                 label: 'Meta Anual',
                 value: `${goalPct.toFixed(0)}%`,
-                sub: goalPct >= 100 ? 'Meta alcanzada' : `Faltan ${fmt(GOAL_AMOUNT - income)}`,
+                sub: goalPct >= 100 ? 'Meta alcanzada' : `Faltan ${fmt(goalAmount - income)}`,
                 Icon: Target,
                 iconBg: 'bg-amber-50',
                 iconColor: 'text-amber-600',
@@ -226,7 +246,7 @@ export default function FinancePage() {
                 ),
             },
         ];
-    }, [allSales, allExpenses, period, selectedProjects, selectedCostCenters, selectedEstado]);
+    }, [allSales, allExpenses, period, selectedProjects, selectedCostCenters, selectedEstado, goalAmount]);
 
     useEffect(() => {
         if (isMounted) loadKPIs();
