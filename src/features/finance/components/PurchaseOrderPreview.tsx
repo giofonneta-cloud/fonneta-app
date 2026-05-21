@@ -15,7 +15,17 @@ async function generatePdfBlob(html: string): Promise<Blob> {
   // Fix: usar onclone de html2canvas para reposicionar el contenedor en el
   // documento clonado (antes del pintado) a position:fixed top:0 left:0,
   // así Chrome lo pinta correctamente y html2pdf puede aplicar sus page-breaks.
-  const html2pdf = (await import('html2pdf.js')).default;
+  let html2pdf;
+  try {
+    const module = await import('html2pdf.js');
+    html2pdf = module.default;
+  } catch (error) {
+    const err = error as Error;
+    if (err.name === 'ChunkLoadError' || err.message.includes('Failed to load chunk')) {
+      throw new Error('La plataforma ha sido actualizada. Por favor, recarga la página (F5 o Ctrl+R) e intenta nuevamente.');
+    }
+    throw err;
+  }
 
   const container = document.createElement('div');
   container.innerHTML = html;
