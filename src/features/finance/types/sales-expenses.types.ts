@@ -33,6 +33,7 @@ export interface Venta {
     responsable_comision_id?: string;
     notas_internas?: string;
     cost_center?: string;
+    nota_credito?: boolean;
     created_at: string;
     updated_at: string;
 }

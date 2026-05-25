@@ -181,7 +181,8 @@ export default function FinancePage() {
             const matchesProject = !selectedProjects.length || selectedProjects.includes(s.proyecto?.name ?? '');
             const matchesCostCenter = !selectedCostCenters.length || selectedCostCenters.includes(s.cost_center ?? '');
             const matchesEstado = !selectedEstado.length || selectedEstado.some(e => s.estado_pago === e.toLowerCase().replace(/ /g, '_'));
-            return matchesPeriod && matchesProject && matchesCostCenter && matchesEstado;
+            const isNotCreditNote = !s.nota_credito;
+            return matchesPeriod && matchesProject && matchesCostCenter && matchesEstado && isNotCreditNote;
         });
         const fe = allExpenses.filter(e => {
             const matchesPeriod = isInPeriod(e.fecha_radicado || e.created_at, period);

@@ -6,11 +6,11 @@ import { salesService } from '../services/salesService';
 import { Input } from '@/shared/components/ui/input';
 import { Badge } from '@/shared/components/ui/badge';
 import { Button } from '@/shared/components/ui/button';
-import { Search, AlertCircle, Pencil, DollarSign, X } from 'lucide-react';
+import { Search, AlertCircle, Pencil, DollarSign, X, ReceiptText } from 'lucide-react';
 import { useResizableColumns } from '@/shared/hooks/useResizableColumns';
 
-// [col]: Fecha | Factura | Cliente | Proyecto | C. Costo | Valor Neto | Total+IVA | Estado | Acciones
-const INITIAL_WIDTHS = [110, 140, 180, 180, 120, 120, 120, 100, 100];
+// [col]: Fecha | Factura | Cliente | Proyecto | C. Costo | Valor Neto | Total+IVA | Estado | Nota Crédito | Acciones
+const INITIAL_WIDTHS = [110, 140, 180, 180, 120, 120, 120, 100, 100, 100];
 
 const fmt = (n: number) =>
     n.toLocaleString('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 });
@@ -153,7 +153,7 @@ export function SalesList({ period, selectedProjects, selectedCostCenters, selec
                     </colgroup>
                     <thead className="text-[10px] text-slate-500 uppercase bg-slate-50 border-b border-slate-100">
                         <tr>
-                            {(['Fecha', 'Factura', 'Cliente', 'Proyecto', 'C. Costo', 'Valor Neto', 'Total + IVA', 'Estado', 'Acciones'] as const).map((label, i) => (
+                            {(['Fecha', 'Factura', 'Cliente', 'Proyecto', 'C. Costo', 'Valor Neto', 'Total + IVA', 'Estado', 'Nota Crédito', 'Acciones'] as const).map((label, i) => (
                                 <th
                                     key={i}
                                     className="px-4 py-3 font-black tracking-widest relative select-none overflow-hidden"
@@ -172,7 +172,7 @@ export function SalesList({ period, selectedProjects, selectedCostCenters, selec
                         {loading ? (
                             Array.from({ length: 5 }).map((_, i) => (
                                 <tr key={i}>
-                                    {Array.from({ length: 9 }).map((__, j) => (
+                                    {Array.from({ length: 10 }).map((__, j) => (
                                         <td key={j} className="px-4 py-4">
                                             <div className="h-3 bg-slate-100 rounded animate-pulse w-full" />
                                         </td>
@@ -181,7 +181,7 @@ export function SalesList({ period, selectedProjects, selectedCostCenters, selec
                             ))
                         ) : filtered.length === 0 ? (
                             <tr>
-                                <td colSpan={9} className="py-16 text-center">
+                                <td colSpan={10} className="py-16 text-center">
                                     <AlertCircle className="w-8 h-8 text-slate-200 mx-auto mb-2" />
                                     <p className="text-sm text-slate-400 font-medium">
                                         {search ? 'Sin resultados' : 'No hay ventas registradas'}
@@ -190,7 +190,7 @@ export function SalesList({ period, selectedProjects, selectedCostCenters, selec
                             </tr>
                         ) : (
                             filtered.map(sale => (
-                                <tr key={sale.id} className="hover:bg-slate-50/60 transition-colors">
+                                <tr key={sale.id} className={`transition-colors ${sale.nota_credito ? 'bg-slate-50/60 opacity-60 hover:bg-slate-100/60' : 'hover:bg-slate-50/60'}`}>
                                     <td className="px-4 py-3.5 text-slate-600 font-medium text-xs overflow-hidden">
                                         <span className="block truncate">{formatDate(sale.fecha_factura ?? sale.created_at)}</span>
                                     </td>
@@ -232,8 +232,17 @@ export function SalesList({ period, selectedProjects, selectedCostCenters, selec
                                         {estadoBadge(sale.estado_pago)}
                                     </td>
                                     <td className="px-4 py-3.5 text-center">
+                                        <button
+                                            onClick={() => salesService.updateSale(sale.id, { nota_credito: !sale.nota_credito }).then(() => loadSales()).catch(e => alert('Error: ' + e.message))}
+                                            className={`p-1.5 rounded-lg transition-colors ${sale.nota_credito ? 'bg-red-100 text-red-600 hover:bg-red-200' : 'bg-slate-100 text-slate-400 hover:bg-slate-200'}`}
+                                            title={sale.nota_credito ? 'Marcar como venta normal' : 'Marcar como nota de crédito'}
+                                        >
+                                            <ReceiptText className="w-4 h-4" />
+                                        </button>
+                                    </td>
+                                    <td className="px-4 py-3.5 text-center">
                                         <div className="flex items-center justify-center gap-1">
-                                            {sale.estado_pago !== 'pagado' && (
+                                            {sale.estado_pago !== 'pagado' && !sale.nota_credito && (
                                                 <Button
                                                     variant="ghost"
                                                     size="sm"
@@ -268,12 +277,12 @@ export function SalesList({ period, selectedProjects, selectedCostCenters, selec
                     <div className="flex gap-6 text-xs">
                         <span className="text-slate-500">
                             Neto: <span className="font-black text-slate-800">
-                                {fmt(filtered.reduce((a, s) => a + (Number(s.valor_venta_neto) || 0), 0))}
+                                {fmt(filtered.filter(s => !s.nota_credito).reduce((a, s) => a + (Number(s.valor_venta_neto) || 0), 0))}
                             </span>
                         </span>
                         <span className="text-slate-500">
                             Total + IVA: <span className="font-black text-emerald-600">
-                                {fmt(filtered.reduce((a, s) => a + (Number(s.total_con_iva) || 0), 0))}
+                                {fmt(filtered.filter(s => !s.nota_credito).reduce((a, s) => a + (Number(s.total_con_iva) || 0), 0))}
                             </span>
                         </span>
                     </div>
