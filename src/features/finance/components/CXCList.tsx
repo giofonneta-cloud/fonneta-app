@@ -6,11 +6,11 @@ import { salesService } from '../services/salesService';
 import { Badge } from '@/shared/components/ui/badge';
 import { Button } from '@/shared/components/ui/button';
 import { Input } from '@/shared/components/ui/input';
-import { AlertCircle, CheckCircle2, X } from 'lucide-react';
+import { AlertCircle, CheckCircle2, X, MessageSquare, MessageSquarePlus } from 'lucide-react';
 import { useResizableColumns } from '@/shared/hooks/useResizableColumns';
 
-// [col]: Cliente | Factura | Proyecto | C. Costo | Total Factura | Saldo por Cobrar | Fecha Cobro Est. | Vencimiento | Acción
-const INITIAL_WIDTHS = [160, 120, 140, 110, 130, 130, 140, 110, 90];
+// [col]: Cliente | Factura | Proyecto | C. Costo | Total Factura | Saldo por Cobrar | Fecha Cobro Est. | Vencimiento | Seguimiento | Acción
+const INITIAL_WIDTHS = [160, 120, 140, 110, 130, 130, 140, 110, 90, 90];
 
 const fmt = (n: number) =>
     n.toLocaleString('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 });
@@ -80,6 +80,11 @@ export function CXCList({ period, selectedProjects, selectedCostCenters, selecte
     const [payDate, setPayDate] = useState(new Date().toISOString().split('T')[0]);
     const [saving, setSaving] = useState(false);
 
+    // Estado del modal de notas de seguimiento
+    const [notesModalId, setNotesModalId] = useState<string | null>(null);
+    const [notesModalValue, setNotesModalValue] = useState('');
+    const [savingNotes, setSavingNotes] = useState(false);
+
     const loadData = () => {
         setLoading(true);
         salesService.getAllSales()
@@ -144,6 +149,25 @@ export function CXCList({ period, selectedProjects, selectedCostCenters, selecte
         }
     };
 
+    const openNotesModal = (sale: Venta) => {
+        setNotesModalId(sale.id);
+        setNotesModalValue(sale.notas_internas || '');
+    };
+
+    const handleSaveNotes = async () => {
+        if (!notesModalId) return;
+        setSavingNotes(true);
+        try {
+            await salesService.updateSale(notesModalId, { notas_internas: notesModalValue || undefined });
+            setNotesModalId(null);
+            loadData();
+        } catch (err: unknown) {
+            alert('Error al guardar notas: ' + (err instanceof Error ? err.message : String(err)));
+        } finally {
+            setSavingNotes(false);
+        }
+    };
+
     return (
         <div className="space-y-5">
             {/* Header */}
@@ -178,7 +202,7 @@ export function CXCList({ period, selectedProjects, selectedCostCenters, selecte
                     </colgroup>
                     <thead className="text-[10px] text-slate-500 uppercase bg-slate-50 border-b border-slate-100">
                         <tr>
-                            {(['Cliente', 'Factura', 'Proyecto', 'C. Costo', 'Total Factura', 'Saldo por Cobrar', 'Fecha Cobro Est.', 'Vencimiento', 'Acción'] as const).map((label, i) => (
+                            {(['Cliente', 'Factura', 'Proyecto', 'C. Costo', 'Total Factura', 'Saldo por Cobrar', 'Fecha Cobro Est.', 'Vencimiento', 'Seguimiento', 'Acción'] as const).map((label, i) => (
                                 <th
                                     key={i}
                                     className="px-4 py-3 font-black tracking-widest relative select-none overflow-hidden"
@@ -197,7 +221,7 @@ export function CXCList({ period, selectedProjects, selectedCostCenters, selecte
                         {loading ? (
                             Array.from({ length: 4 }).map((_, i) => (
                                 <tr key={i}>
-                                    {Array.from({ length: 9 }).map((__, j) => (
+                                    {Array.from({ length: 10 }).map((__, j) => (
                                         <td key={j} className="px-4 py-4">
                                             <div className="h-3 bg-slate-100 rounded animate-pulse" />
                                         </td>
@@ -206,7 +230,7 @@ export function CXCList({ period, selectedProjects, selectedCostCenters, selecte
                             ))
                         ) : sales.length === 0 ? (
                             <tr>
-                                <td colSpan={9} className="py-16 text-center">
+                                <td colSpan={10} className="py-16 text-center">
                                     <CheckCircle2 className="w-10 h-10 text-emerald-200 mx-auto mb-3" />
                                     <p className="text-sm font-bold text-slate-400">¡Todo cobrado! No hay cuentas por cobrar pendientes.</p>
                                 </td>
@@ -265,6 +289,19 @@ export function CXCList({ period, selectedProjects, selectedCostCenters, selecte
                                         </td>
                                         <td className="px-4 py-3.5 text-center">
                                             {urgencyBadge(days, s.estado_pago)}
+                                        </td>
+                                        <td className="px-4 py-3.5 text-center">
+                                            <button
+                                                onClick={() => openNotesModal(s)}
+                                                className="inline-flex justify-center items-center transition-colors"
+                                                title={s.notas_internas ? `Notas: ${s.notas_internas.substring(0, 50)}...` : 'Agregar notas'}
+                                            >
+                                                {s.notas_internas ? (
+                                                    <MessageSquare className="w-4 h-4 text-blue-600 hover:text-blue-700" />
+                                                ) : (
+                                                    <MessageSquarePlus className="w-4 h-4 text-slate-400 hover:text-slate-600" />
+                                                )}
+                                            </button>
                                         </td>
                                         <td className="px-4 py-3.5 text-center">
                                             <Button
@@ -341,6 +378,46 @@ export function CXCList({ period, selectedProjects, selectedCostCenters, selecte
                                 className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white"
                             >
                                 {saving ? 'Guardando...' : 'Confirmar Cobro'}
+                            </Button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Modal Notas de Seguimiento */}
+            {notesModalId && (
+                <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 space-y-4">
+                        <div className="flex items-center justify-between">
+                            <h4 className="font-black text-slate-800 text-base flex items-center gap-2">
+                                <MessageSquare className="w-5 h-5 text-blue-600" />
+                                Notas de Seguimiento
+                            </h4>
+                            <button onClick={() => setNotesModalId(null)} className="text-slate-400 hover:text-slate-600">
+                                <X className="w-5 h-5" />
+                            </button>
+                        </div>
+                        <div>
+                            <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Notas internas de gestión</label>
+                            <textarea
+                                value={notesModalValue}
+                                onChange={e => setNotesModalValue(e.target.value)}
+                                placeholder="Registra tus notas de seguimiento de cobro..."
+                                className="w-full mt-2 p-3 border border-slate-200 rounded-lg text-sm font-normal resize-none focus:outline-none focus:ring-2 focus:ring-blue-400"
+                                rows={4}
+                                autoFocus
+                            />
+                        </div>
+                        <div className="flex gap-2 pt-2">
+                            <Button variant="outline" onClick={() => setNotesModalId(null)} className="flex-1">
+                                Cancelar
+                            </Button>
+                            <Button
+                                onClick={handleSaveNotes}
+                                disabled={savingNotes}
+                                className="flex-1 bg-blue-600 hover:bg-blue-700 text-white"
+                            >
+                                {savingNotes ? 'Guardando...' : 'Guardar Notas'}
                             </Button>
                         </div>
                     </div>
