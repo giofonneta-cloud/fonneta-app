@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabase } from '@/shared/lib/supabase';
+import { createAdminClient } from '@/lib/supabase/admin';
 import nodemailer from 'nodemailer';
 
 export const dynamic = 'force-dynamic';
@@ -30,8 +30,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
 
+    const adminClient = createAdminClient();
+
     // Get invoice
-    const { data: invoice } = await supabase
+    const { data: invoice } = await adminClient
       .from('provider_invoices')
       .select('*')
       .eq('id', invoiceId)
@@ -42,7 +44,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Get provider
-    const { data: provider } = await supabase
+    const { data: provider } = await adminClient
       .from('providers')
       .select('*')
       .eq('id', providerId)

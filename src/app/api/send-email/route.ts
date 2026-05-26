@@ -73,7 +73,7 @@ export async function POST(request: NextRequest) {
         : 'N/A';
 
       const docLink = (label: string, url: string | null | undefined) =>
-        url ? `<tr><td style="padding:6px 0;color:#555;width:200px">${label}</td><td style="padding:6px 0"><a href="${url}" style="color:#1a56db;text-decoration:none;font-weight:600">Ver documento →</a></td></tr>` : '';
+        url ? `<tr><td style="padding:6px 0;color:#555;width:200px">${label}</td><td style="padding:6px 0"><a href="${url}" style="color:#1a56db;text-decoration:none;font-weight:600">Ver documento</a></td></tr>` : '';
 
       const invoiceTypeLabel = invoice.invoice_type === 'cuenta_cobro' ? 'Cuenta de Cobro' : 'Factura';
 
@@ -86,7 +86,7 @@ export async function POST(request: NextRequest) {
 
     <!-- Header -->
     <div style="background:#1a56db;padding:24px 32px">
-      <h1 style="color:#fff;margin:0;font-size:20px">✅ ${invoiceTypeLabel} Aprobada para Pago</h1>
+      <h1 style="color:#fff;margin:0;font-size:20px">${invoiceTypeLabel} Aprobada para Pago</h1>
       <p style="color:#bfdbfe;margin:6px 0 0;font-size:14px">Radicado: <strong>${invoice.radicado_number || invoiceNumber}</strong></p>
     </div>
 
@@ -131,14 +131,14 @@ export async function POST(request: NextRequest) {
       <!-- Documentos soporte -->
       <h2 style="font-size:15px;color:#1e3a5f;border-bottom:2px solid #e5e7eb;padding-bottom:8px">Documentos Soporte</h2>
       <table style="width:100%;border-collapse:collapse;font-size:14px;margin-bottom:8px">
-        ${docLink('📄 ' + invoiceTypeLabel, invoice.document_url)}
-        ${docLink('📋 Orden de compra', invoice.orden_compra_url)}
-        ${docLink('🏥 Seguridad social', invoice.seguridad_social_url)}
-        ${docLink('📝 Release', invoice.release_url)}
-        ${docLink('📜 RUT proveedor', provider.rut_url)}
-        ${docLink('🪪 Cédula / Rep. Legal', provider.cedula_url)}
-        ${docLink('🏢 Cámara de Comercio', provider.camara_comercio_url)}
-        ${docLink('🏦 Certificado bancario', provider.cert_bancaria_url)}
+        ${docLink(invoiceTypeLabel, invoice.document_url)}
+        ${docLink('Orden de compra', invoice.orden_compra_url)}
+        ${docLink('Seguridad social', invoice.seguridad_social_url)}
+        ${docLink('Release', invoice.release_url)}
+        ${docLink('RUT proveedor', provider.rut_url)}
+        ${docLink('Cédula / Rep. Legal', provider.cedula_url)}
+        ${docLink('Cámara de Comercio', provider.camara_comercio_url)}
+        ${docLink('Certificado bancario', provider.cert_bancaria_url)}
       </table>
 
     </div>

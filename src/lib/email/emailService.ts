@@ -71,7 +71,7 @@ export class EmailService {
     const start = Date.now();
     try {
       const info = await this.transporter.sendMail({
-        from: `"${this.fromName}" <${this.fromEmail}>`,
+        from: this.fromEmail,
         to: Array.isArray(options.to) ? options.to.join(', ') : options.to,
         ...(options.cc ? { cc: Array.isArray(options.cc) ? options.cc.join(', ') : options.cc } : {}),
         subject: options.subject,
@@ -82,6 +82,10 @@ export class EmailService {
           content: a.content,
           contentType: a.contentType,
         })),
+        headers: {
+          'X-Mailer': 'Fonneta',
+          'X-Priority': '3 (Normal)',
+        },
       });
       console.log('[emailService] sendMail OK', {
         messageId: info.messageId,
@@ -200,7 +204,7 @@ export class EmailService {
     // Lista de documentos adjuntos
     const documentsList = documents
       .filter(d => d.uploaded)
-      .map(d => `<li style="margin: 5px 0;">✓ ${d.name}</li>`)
+      .map(d => `<li style="margin: 5px 0;">${d.name}</li>`)
       .join('');
 
     const html = `
@@ -287,7 +291,7 @@ export class EmailService {
 
     const documentsList = documents
       .filter(d => d.uploaded)
-      .map(d => `<li style="margin: 5px 0;">✓ ${d.name}</li>`)
+      .map(d => `<li style="margin: 5px 0;">${d.name}</li>`)
       .join('');
 
     const html = `
