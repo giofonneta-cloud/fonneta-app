@@ -76,6 +76,10 @@ export async function POST(request: NextRequest) {
         url ? `<tr><td style="padding:6px 0;color:#555;width:200px">${label}</td><td style="padding:6px 0"><a href="${url}" style="color:#1a56db;text-decoration:none;font-weight:600">Ver documento</a></td></tr>` : '';
 
       const invoiceTypeLabel = invoice.invoice_type === 'cuenta_cobro' ? 'Cuenta de Cobro' : 'Factura';
+      const isCuentaCobro = invoice.invoice_type === 'cuenta_cobro';
+      const headerBg = isCuentaCobro ? '#16a34a' : '#1a56db';
+      const headerLight = isCuentaCobro ? '#dcfce7' : '#dbeafe';
+      const typeBadgeColor = isCuentaCobro ? '#15803d' : '#1e40af';
 
       const htmlBody = `
 <!DOCTYPE html>
@@ -85,19 +89,31 @@ export async function POST(request: NextRequest) {
   <div style="max-width:680px;margin:0 auto;background:#fff;border-radius:8px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.1)">
 
     <!-- Header -->
-    <div style="background:#1a56db;padding:24px 32px">
-      <h1 style="color:#fff;margin:0;font-size:20px">${invoiceTypeLabel} Aprobada para Pago</h1>
-      <p style="color:#bfdbfe;margin:6px 0 0;font-size:14px">Radicado: <strong>${invoice.radicado_number || invoiceNumber}</strong></p>
+    <div style="background:${headerBg};padding:24px 32px">
+      <div style="background:${headerLight};padding:8px 12px;border-radius:6px;margin-bottom:16px;display:inline-block">
+        <span style="color:${typeBadgeColor};font-weight:900;font-size:12px;text-transform:uppercase;letter-spacing:1px">${invoiceTypeLabel}</span>
+      </div>
+      <h1 style="color:#fff;margin:0;font-size:22px;font-weight:900">${invoiceTypeLabel} Aprobada para Pago</h1>
+      <p style="color:${isCuentaCobro ? 'rgba(255,255,255,0.85)' : '#bfdbfe'};margin:12px 0 0;font-size:14px">Radicado: <strong>${invoice.radicado_number || invoiceNumber}</strong></p>
     </div>
 
     <div style="padding:28px 32px">
+
+      <!-- Tipo de Documento Destacado -->
+      <div style="background:${isCuentaCobro ? '#f0fdf4' : '#f0f9ff'};border:2px solid ${isCuentaCobro ? '#22c55e' : '#0284c7'};border-radius:8px;padding:16px;margin-bottom:24px">
+        <p style="margin:0;color:${isCuentaCobro ? '#166534' : '#0c4a6e'};font-size:12px;font-weight:900;text-transform:uppercase;letter-spacing:1px">Tipo de Documento</p>
+        <p style="margin:8px 0 0 0;color:${isCuentaCobro ? '#15803d' : '#1e40af'};font-size:18px;font-weight:900">${invoiceTypeLabel}</p>
+        <p style="margin:6px 0 0 0;color:${isCuentaCobro ? '#166534' : '#0c4a6e'};font-size:13px">
+          ${isCuentaCobro ? 'Persona Natural - Servicios Profesionales' : 'Persona Jurídica / Empresa'}
+        </p>
+      </div>
 
       <!-- Proveedor -->
       <h2 style="font-size:15px;color:#1e3a5f;border-bottom:2px solid #e5e7eb;padding-bottom:8px;margin-top:0">Información del Proveedor</h2>
       <table style="width:100%;border-collapse:collapse;font-size:14px;margin-bottom:24px">
         <tr><td style="padding:5px 0;color:#555;width:200px">Nombre / Razón Social</td><td style="padding:5px 0;font-weight:600">${provider.business_name}</td></tr>
-        ${provider.document_type && provider.document_number ? `<tr><td style="padding:5px 0;color:#555">Identificación</td><td style="padding:5px 0">${provider.document_type.toUpperCase()} ${provider.document_number}</td></tr>` : ''}
-        ${provider.person_type ? `<tr><td style="padding:5px 0;color:#555">Tipo de persona</td><td style="padding:5px 0">${provider.person_type === 'juridica' ? 'Persona Jurídica' : 'Persona Natural'}</td></tr>` : ''}
+        ${provider.document_type && provider.document_number ? `<tr><td style="padding:5px 0;color:#555">Identificación</td><td style="padding:5px 0;font-weight:600">${provider.document_type.toUpperCase()} ${provider.document_number}</td></tr>` : ''}
+        ${provider.person_type ? `<tr><td style="padding:5px 0;color:#555">Tipo de Persona</td><td style="padding:5px 0;font-weight:600">${provider.person_type === 'juridica' ? 'Persona Jurídica (Empresa)' : 'Persona Natural (Profesional/Independiente)'}</td></tr>` : ''}
         ${provider.contact_name ? `<tr><td style="padding:5px 0;color:#555">Contacto</td><td style="padding:5px 0">${provider.contact_name}</td></tr>` : ''}
         ${provider.contact_email ? `<tr><td style="padding:5px 0;color:#555">Email</td><td style="padding:5px 0">${provider.contact_email}</td></tr>` : ''}
         ${provider.contact_phone ? `<tr><td style="padding:5px 0;color:#555">Teléfono</td><td style="padding:5px 0">${provider.contact_phone}</td></tr>` : ''}
@@ -152,11 +168,12 @@ export async function POST(request: NextRequest) {
 </html>`;
 
       try {
+        const documentType = isCuentaCobro ? 'CUENTA DE COBRO' : 'FACTURA';
         const info = await transporter.sendMail({
           from: process.env.SMTP_USER,
           to: 'contabilidad@fonneta.com',
           cc: process.env.ADMIN_EMAIL || 'giofonneta@gmail.com',
-          subject: `Aprobación de Factura ${invoiceNumber} - ${provider.business_name}`,
+          subject: `[${documentType}] Aprobada para Pago - ${invoiceNumber} - ${provider.business_name}`,
           html: htmlBody
         });
 
