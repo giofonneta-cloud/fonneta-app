@@ -34,23 +34,31 @@ export async function POST(req: Request) {
     const inviteLink = `${process.env.NEXT_PUBLIC_APP_URL || 'https://fonneta-app.vercel.app'}/register/provider`;
     const htmlContent = generateProviderInvitationEmail(providerName, inviteLink);
 
-    // Configurar transporte SMTP
+    // Configurar transporte SMTP para Gmail
     const transporter = nodemailer.createTransport({
-      host: process.env.SMTP_HOST,
-      port: parseInt(process.env.SMTP_PORT),
-      secure: process.env.SMTP_SECURE === 'true',
+      host: process.env.SMTP_HOST || 'smtp.gmail.com',
+      port: parseInt(process.env.SMTP_PORT || '587'),
+      secure: false, // TLS, no SSL
       auth: {
         user: process.env.SMTP_USER,
-        pass: process.env.SMTP_PASSWORD,
+        pass: process.env.SMTP_PASSWORD, // Debe ser App Password para Gmail
       },
     });
 
-    // Enviar email
+    // Enviar email con headers optimizados para evitar spam
     const result = await transporter.sendMail({
-      from: process.env.SMTP_FROM || 'Fonnettapp <noreply@fonneta.com>',
+      from: process.env.SMTP_USER,
+      replyTo: 'noreply@fonneta.com',
       to: email,
-      subject: '🚀 Invitación a Fonnettapp - Portal de Proveedores',
+      subject: 'Invitación a Fonnettapp - Portal de Proveedores',
       html: htmlContent,
+      text: `Invitación a Fonnettapp\n\nHas sido invitado a registrarte como proveedor en Fonnettapp.\n\nPara completar tu registro, haz clic en el siguiente enlace:\n${inviteLink}\n\nSaludos,\nEquipo Fonnettapp`,
+      headers: {
+        'X-Mailer': 'Fonnettapp',
+        'X-Priority': '3 (Normal)',
+        'Importance': 'normal',
+      },
+      priority: 'normal',
     });
 
     console.log(`Invitación enviada a ${email}:`, result.messageId);

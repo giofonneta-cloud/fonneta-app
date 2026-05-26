@@ -309,6 +309,21 @@ test('should calculate total with tax', () => {
 - **Fix**: NUNCA usar `.select()` encadenado a un `.update()` si la condición de filtro incluye el mismo campo que está siendo actualizado. En su lugar, usar el parámetro `{ count: 'exact' }` en la función `.update()` y validar el éxito de la consulta confirmando que `count === 1`.
 - **Aplicar en**: Todos los endpoints o mutaciones que requieran validación estricta de concurrencia y actualización atómica usando filtros en Supabase (especialmente timestamp cooldown locks).
 
+### 2026-05-19: Manejo de ChunkLoadError en Dynamic Imports (Next.js/Vercel)
+- **Error**: Al usar `await import('modulo')` (dynamic imports), si hay un nuevo despliegue en Vercel, los chunks antiguos desaparecen. Los clientes que tienen la app abierta y gatillan la importación reciben un error 404 (`Failed to load chunk /_next/static/chunks/....js`). Esto rompe el flujo con un error no controlado en pantalla.
+- **Fix**: Siempre envolver los `await import(...)` dinámicos del lado del cliente en un bloque `try/catch` para interceptar el `ChunkLoadError` y devolver un mensaje claro y amigable al usuario indicándole que recargue la página.
+```typescript
+  try {
+    const modulo = await import('modulo');
+  } catch (err: any) {
+    if (err?.name === 'ChunkLoadError' || err?.message?.includes('Failed to load chunk')) {
+      throw new Error('La plataforma ha sido actualizada. Por favor, recarga la página e intenta nuevamente.');
+    }
+    throw err;
+  }
+```
+- **Aplicar en**: Todos los componentes del cliente que usen lazy loading o dynamic imports (especialmente librerías pesadas como `html2pdf.js`, editores WYSIWYG, etc).
+
 ---
 
 *Este archivo es el cerebro de la fábrica. Cada error documentado la hace más fuerte.*
