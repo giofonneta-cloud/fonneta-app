@@ -13,23 +13,23 @@ export function generateProviderInvitationEmail(providerName: string, inviteLink
     <!-- Header -->
     <div style="background-color: #5b4b9d; padding: 40px 30px; text-align: center; border-bottom: 1px solid #4a3a8a;">
       <div style="font-size: 28px; font-weight: 700; color: white; margin-bottom: 8px; letter-spacing: 0;">FONNETTAPP</div>
-      <p style="color: rgba(255,255,255,0.85); font-size: 13px; margin: 0; font-weight: 400;">Portal de Gestión para Proveedores</p>
+      <p style="color: rgba(255,255,255,0.85); font-size: 13px; margin: 0; font-weight: 400;">Portal de Gestión para Proveedores y Clientes</p>
     </div>
 
     <!-- Content -->
     <div style="padding: 50px 30px;">
 
       <!-- Greeting -->
-      <h1 style="color: #1a202c; font-size: 24px; margin: 0 0 10px 0; font-weight: 900;">Buenas tardes ${providerName}</h1>
+      <h1 style="color: #1a202c; font-size: 24px; margin: 0 0 10px 0; font-weight: 900;">Hola ${providerName}</h1>
       <p style="color: #4a5568; font-size: 16px; margin: 0 0 30px 0; line-height: 1.6;">
-        <strong>Cordial saludo,</strong>
+        <strong>Te damos la bienvenida a Fonnettapp</strong>
       </p>
 
       <!-- Main message -->
       <div style="background: #f7fafc; border-left: 4px solid #667eea; padding: 20px; margin-bottom: 30px; border-radius: 8px;">
         <p style="color: #2d3748; font-size: 15px; margin: 0; line-height: 1.8;">
-          Solicitamos realizar tu registro como <strong>proveedor en nuestro sistema Fonnettapp</strong>.
-          Esto te permitirá gestionar órdenes de compra, radicaciones de facturas y pagos de forma segura y eficiente.
+          Te invitamos a registrarte en <strong>Fonnettapp</strong>, nuestro portal integral de gestión para proveedores y clientes.
+          Esto te permitirá gestionar órdenes de compra, radicaciones de facturas, cartera, obligaciones y pagos de forma segura y eficiente.
         </p>
       </div>
 
@@ -120,7 +120,7 @@ export function generateProviderInvitationEmail(providerName: string, inviteLink
       <p style="color: #a0aec0; font-size: 11px; margin: 0;">
         © 2026 Fonneta. Todos los derechos reservados.
         <br/>
-        Este correo fue enviado porque fuiste invitado a registrarte como proveedor.
+        Este correo fue enviado porque fuiste invitado a registrarte en nuestro portal.
       </p>
     </div>
 
