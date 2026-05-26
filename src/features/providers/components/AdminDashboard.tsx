@@ -4,9 +4,9 @@ import { useState, useEffect } from 'react';
 import { ProvidersTable } from './ProvidersList';
 import { AdminInvoicesView } from './AdminInvoicesView';
 import { ProviderForm } from './ProviderForm';
-import { 
-    Building2, FileText, CheckCircle2, Clock, AlertCircle, 
-    TrendingUp, Plus, UserPlus, Copy, Check, X, Info
+import {
+    Building2, FileText, CheckCircle2, Clock, AlertCircle,
+    TrendingUp, Plus, UserPlus, Copy, Check, X, Info, Mail, Send
 } from 'lucide-react';
 import { providerService } from '../services/providerService';
 import { providerInvoiceService } from '../services/providerInvoiceService';
@@ -36,6 +36,10 @@ export function AdminDashboard() {
     const [selectedProvider, setSelectedProvider] = useState<Provider | undefined>(undefined);
     const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
     const [copied, setCopied] = useState(false);
+    const [inviteEmail, setInviteEmail] = useState('');
+    const [inviteProviderName, setInviteProviderName] = useState('');
+    const [inviteSending, setInviteSending] = useState(false);
+    const [inviteMessage, setInviteMessage] = useState('');
 
     const inviteLink = typeof window !== 'undefined' 
         ? `${window.location.origin}/register/provider`
@@ -75,6 +79,47 @@ export function AdminDashboard() {
         navigator.clipboard.writeText(inviteLink);
         setCopied(true);
         setTimeout(() => setCopied(false), 2000);
+    };
+
+    const handleSendInvitation = async () => {
+        if (!inviteEmail || !inviteProviderName) {
+            setInviteMessage('Por favor completa todos los campos');
+            return;
+        }
+
+        setInviteSending(true);
+        setInviteMessage('');
+
+        try {
+            const response = await fetch('/api/providers/send-invitation', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    email: inviteEmail,
+                    providerName: inviteProviderName,
+                }),
+            });
+
+            const data = await response.json();
+
+            if (!response.ok) {
+                setInviteMessage(data.error || 'Error al enviar la invitación');
+                return;
+            }
+
+            setInviteMessage('✓ Invitación enviada exitosamente');
+            setInviteEmail('');
+            setInviteProviderName('');
+            setTimeout(() => {
+                setIsInviteModalOpen(false);
+                setInviteMessage('');
+            }, 2000);
+        } catch (error) {
+            setInviteMessage('Error al enviar la invitación');
+            console.error('Error:', error);
+        } finally {
+            setInviteSending(false);
+        }
     };
 
     const handleSuccess = () => {
@@ -217,40 +262,108 @@ export function AdminDashboard() {
                 </div>
             )}
 
-            {/* Invite Modal - Stays Premium but matches compactness */}
+            {/* Invite Modal - Tabs for Link & Email */}
             <Dialog open={isInviteModalOpen} onOpenChange={setIsInviteModalOpen}>
-                <DialogContent className="sm:max-w-md bg-white rounded-[2rem] border-none shadow-2xl p-0 overflow-hidden">
-                    <div className="p-8 pb-5 bg-blue-600 text-white">
+                <DialogContent className="sm:max-w-2xl bg-white rounded-[2rem] border-none shadow-2xl p-0 overflow-hidden">
+                    <div className="p-8 pb-5 bg-gradient-to-r from-blue-600 to-violet-600 text-white">
                         <DialogHeader>
                             <DialogTitle className="text-2xl font-black italic tracking-tight uppercase">Invitar Proveedor</DialogTitle>
                             <DialogDescription className="text-blue-100 font-bold mt-1 text-sm">
-                                Comparte este enlace con tu proveedor.
+                                Elige entre compartir un enlace o enviar invitación por correo.
                             </DialogDescription>
                         </DialogHeader>
                     </div>
-                    
-                    <div className="p-8 space-y-6">
-                        <div className="flex items-center space-x-2">
-                            <Input
-                                id="link"
-                                defaultValue={inviteLink}
-                                readOnly
-                                className="bg-gray-50 border-transparent rounded-xl h-12 font-bold text-gray-900 focus:ring-blue-500/20"
-                            />
-                            <Button
-                                type="submit"
-                                size="sm"
-                                className={`h-12 w-12 rounded-xl transition-all shadow-md ${copied ? 'bg-green-600 hover:bg-green-700' : 'bg-blue-600 hover:bg-blue-700'}`}
-                                onClick={handleCopyLink}
-                            >
-                                {copied ? <Check className="h-5 w-5" /> : <Copy className="h-5 w-5" />}
-                            </Button>
+
+                    <div className="p-8 space-y-8">
+                        {/* Link Section */}
+                        <div>
+                            <h3 className="text-sm font-black text-gray-900 uppercase tracking-widest mb-4">Opción 1: Compartir Enlace</h3>
+                            <div className="flex items-center space-x-2">
+                                <Input
+                                    id="link"
+                                    defaultValue={inviteLink}
+                                    readOnly
+                                    className="bg-gray-50 border-transparent rounded-xl h-12 font-bold text-gray-900 focus:ring-blue-500/20"
+                                />
+                                <Button
+                                    type="submit"
+                                    size="sm"
+                                    className={`h-12 w-12 rounded-xl transition-all shadow-md ${copied ? 'bg-green-600 hover:bg-green-700' : 'bg-blue-600 hover:bg-blue-700'}`}
+                                    onClick={handleCopyLink}
+                                >
+                                    {copied ? <Check className="h-5 w-5" /> : <Copy className="h-5 w-5" />}
+                                </Button>
+                            </div>
+                        </div>
+
+                        {/* Email Section */}
+                        <div className="border-t border-gray-200 pt-8">
+                            <h3 className="text-sm font-black text-gray-900 uppercase tracking-widest mb-4 flex items-center gap-2">
+                                <Mail className="w-4 h-4" />
+                                Opción 2: Enviar por Correo
+                            </h3>
+
+                            <div className="space-y-4">
+                                <div>
+                                    <label className="text-xs font-black text-gray-600 uppercase tracking-widest block mb-2">
+                                        Nombre del Proveedor
+                                    </label>
+                                    <Input
+                                        placeholder="Ej: Juan Pérez o Empresa XYZ"
+                                        value={inviteProviderName}
+                                        onChange={(e) => setInviteProviderName(e.target.value)}
+                                        className="rounded-xl h-11 bg-gray-50 border-gray-200"
+                                    />
+                                </div>
+
+                                <div>
+                                    <label className="text-xs font-black text-gray-600 uppercase tracking-widest block mb-2">
+                                        Correo Electrónico
+                                    </label>
+                                    <Input
+                                        type="email"
+                                        placeholder="proveedor@empresa.com"
+                                        value={inviteEmail}
+                                        onChange={(e) => setInviteEmail(e.target.value)}
+                                        className="rounded-xl h-11 bg-gray-50 border-gray-200"
+                                    />
+                                </div>
+
+                                {inviteMessage && (
+                                    <div className={`p-3 rounded-lg text-sm font-bold ${inviteMessage.includes('✓') ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}>
+                                        {inviteMessage}
+                                    </div>
+                                )}
+
+                                <Button
+                                    onClick={handleSendInvitation}
+                                    disabled={inviteSending}
+                                    className="w-full bg-gradient-to-r from-blue-600 to-violet-600 hover:from-blue-700 hover:to-violet-700 text-white font-black h-11 rounded-xl shadow-lg flex items-center justify-center gap-2"
+                                >
+                                    {inviteSending ? (
+                                        <>
+                                            <div className="animate-spin">⏳</div>
+                                            Enviando...
+                                        </>
+                                    ) : (
+                                        <>
+                                            <Send className="w-4 h-4" />
+                                            Enviar Invitación
+                                        </>
+                                    )}
+                                </Button>
+                            </div>
                         </div>
                     </div>
 
-                    <div className="p-8 pt-0 flex justify-end">
-                        <button 
-                            onClick={() => setIsInviteModalOpen(false)}
+                    <div className="p-8 pt-0 flex justify-end border-t border-gray-200">
+                        <button
+                            onClick={() => {
+                                setIsInviteModalOpen(false);
+                                setInviteEmail('');
+                                setInviteProviderName('');
+                                setInviteMessage('');
+                            }}
                             className="text-gray-400 font-black text-[10px] uppercase tracking-widest hover:text-gray-900 transition-all px-4 py-2"
                         >
                             Cerrar
