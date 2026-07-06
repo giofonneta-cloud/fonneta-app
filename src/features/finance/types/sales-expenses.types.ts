@@ -1,11 +1,18 @@
 import { Project } from '../../projects/types/project.types';
 import { Provider } from '../../providers/types/provider.types';
+import { Comercial } from '../services/comercialesService';
 
 export type PaymentStatus = 'pendiente' | 'parcial' | 'pagado';
 export type OCStatus = 'oc_recibida' | 'facturar_sin_oc';
 export type ComplianceRating = 'puntual' | 'impuntual';
 export type GastoEstado = 'pendiente' | 'solicite_documentos' | 'pagado';
 export type EntregableEstado = 'pendiente' | 'recibido' | 'aprobado';
+
+export interface Retencion {
+    tipo: 'retefuente' | 'reteica' | 'reteiva' | 'otro';
+    descripcion: string;
+    valor: number;
+}
 
 export interface Venta {
     id: string;
@@ -31,9 +38,12 @@ export interface Venta {
     porcentaje_comision?: number;
     valor_comision?: number;
     responsable_comision_id?: string;
+    comercial_id?: string;
+    comercial?: Comercial;
     notas_internas?: string;
     cost_center?: string;
     nota_credito?: boolean;
+    retenciones?: Retencion[];
     created_at: string;
     updated_at: string;
 }

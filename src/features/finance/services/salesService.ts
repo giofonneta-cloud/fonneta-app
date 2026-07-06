@@ -1,5 +1,5 @@
 import { supabase } from '@/shared/lib/supabase';
-import { Venta, PaymentStatus } from '../types/sales-expenses.types';
+import { Venta, PaymentStatus, Retencion } from '../types/sales-expenses.types';
 
 export const salesService = {
     async getAllSales() {
@@ -8,7 +8,8 @@ export const salesService = {
             .select(`
                 *,
                 proyecto:projects(*),
-                cliente:providers(*)
+                cliente:providers(*),
+                comercial:comerciales(*)
             `)
             .order('created_at', { ascending: false });
 
@@ -106,11 +107,11 @@ export const salesService = {
     },
 
     /**
-     * Registra un pago para una venta
-     * Calcula automáticamente el estado (pendiente, parcial, pagado)
+     * Registra un pago para una venta.
+     * valorPagado = valor físicamente recibido + sum(retenciones).
+     * Calcula automáticamente el estado (pendiente, parcial, pagado).
      */
-    async recordPayment(id: string, valorPagado: number, fechaPago: string) {
-        // Obtener la venta actual para calcular el total
+    async recordPayment(id: string, valorPagado: number, fechaPago: string, retenciones?: Retencion[]) {
         const { data: currentSale, error: fetchError } = await supabase
             .from('ventas')
             .select('valor_venta_neto, iva_valor, valor_pagado')
@@ -122,7 +123,6 @@ export const salesService = {
         const total = (currentSale?.valor_venta_neto || 0) + (currentSale?.iva_valor || 0);
         const nuevoValorPagado = (currentSale?.valor_pagado || 0) + valorPagado;
 
-        // Determinar estado de pago
         let status: PaymentStatus = 'pendiente';
         if (nuevoValorPagado >= total) {
             status = 'pagado';
@@ -133,7 +133,8 @@ export const salesService = {
         return this.updateSale(id, {
             valor_pagado: nuevoValorPagado,
             fecha_pago_real: fechaPago,
-            estado_pago: status
+            estado_pago: status,
+            retenciones: retenciones ?? []
         });
     }
 };

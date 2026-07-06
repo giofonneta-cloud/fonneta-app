@@ -9,8 +9,8 @@ import { Button } from '@/shared/components/ui/button';
 import { Search, AlertCircle, Pencil, DollarSign, X, ReceiptText } from 'lucide-react';
 import { useResizableColumns } from '@/shared/hooks/useResizableColumns';
 
-// [col]: Fecha | Factura | Cliente | Proyecto | C. Costo | Valor Neto | Total+IVA | Estado | Nota Crédito | Acciones
-const INITIAL_WIDTHS = [110, 140, 180, 180, 120, 120, 120, 100, 100, 100];
+// [col]: Fecha | Factura | Cliente | Proyecto | Comercial | C. Costo | Valor Neto | Total+IVA | Estado | Nota Crédito | Acciones
+const INITIAL_WIDTHS = [110, 140, 170, 150, 130, 110, 120, 120, 100, 100, 100];
 
 const fmt = (n: number) =>
     n.toLocaleString('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 });
@@ -35,6 +35,7 @@ interface Props {
     selectedProjects?: string[];
     selectedCostCenters?: string[];
     selectedEstado?: string[];
+    selectedComerciales?: string[];
     onEdit?: (sale: Venta) => void;
     onClientClick?: (clientId: string) => void;
 }
@@ -63,7 +64,7 @@ function isInPeriod(dateStr: string, periodStr?: string): boolean {
     return year === py && month === pm;
 }
 
-export function SalesList({ period, selectedProjects, selectedCostCenters, selectedEstado, onEdit, onClientClick }: Props) {
+export function SalesList({ period, selectedProjects, selectedCostCenters, selectedEstado, selectedComerciales, onEdit, onClientClick }: Props) {
     const [sales, setSales] = useState<Venta[]>([]);
     const [search, setSearch] = useState('');
     const [loading, setLoading] = useState(true);
@@ -93,7 +94,8 @@ export function SalesList({ period, selectedProjects, selectedCostCenters, selec
         const matchesProject = !selectedProjects || selectedProjects.length === 0 || selectedProjects.includes(s.proyecto?.name ?? '');
         const matchesCostCenter = !selectedCostCenters || selectedCostCenters.length === 0 || selectedCostCenters.includes(s.cost_center ?? '');
         const matchesEstado = !selectedEstado || selectedEstado.length === 0 || selectedEstado.some(e => s.estado_pago === e.toLowerCase().replace(/ /g, '_'));
-        return matchesSearch && matchesPeriod && matchesProject && matchesCostCenter && matchesEstado;
+        const matchesComercial = !selectedComerciales || selectedComerciales.length === 0 || selectedComerciales.includes(s.comercial?.nombre ?? '');
+        return matchesSearch && matchesPeriod && matchesProject && matchesCostCenter && matchesEstado && matchesComercial;
     });
 
     const payingSale = sales.find(s => s.id === payingId);
@@ -153,7 +155,7 @@ export function SalesList({ period, selectedProjects, selectedCostCenters, selec
                     </colgroup>
                     <thead className="text-[10px] text-slate-500 uppercase bg-slate-50 border-b border-slate-100">
                         <tr>
-                            {(['Fecha', 'Factura', 'Cliente', 'Proyecto', 'C. Costo', 'Valor Neto', 'Total + IVA', 'Estado', 'Nota Crédito', 'Acciones'] as const).map((label, i) => (
+                            {(['Fecha', 'Factura', 'Cliente', 'Proyecto', 'Comercial', 'C. Costo', 'Valor Neto', 'Total + IVA', 'Estado', 'Nota Crédito', 'Acciones'] as const).map((label, i) => (
                                 <th
                                     key={i}
                                     className="px-4 py-3 font-black tracking-widest relative select-none overflow-hidden"
@@ -172,7 +174,7 @@ export function SalesList({ period, selectedProjects, selectedCostCenters, selec
                         {loading ? (
                             Array.from({ length: 5 }).map((_, i) => (
                                 <tr key={i}>
-                                    {Array.from({ length: 10 }).map((__, j) => (
+                                    {Array.from({ length: 11 }).map((__, j) => (
                                         <td key={j} className="px-4 py-4">
                                             <div className="h-3 bg-slate-100 rounded animate-pulse w-full" />
                                         </td>
@@ -181,7 +183,7 @@ export function SalesList({ period, selectedProjects, selectedCostCenters, selec
                             ))
                         ) : filtered.length === 0 ? (
                             <tr>
-                                <td colSpan={10} className="py-16 text-center">
+                                <td colSpan={11} className="py-16 text-center">
                                     <AlertCircle className="w-8 h-8 text-slate-200 mx-auto mb-2" />
                                     <p className="text-sm text-slate-400 font-medium">
                                         {search ? 'Sin resultados' : 'No hay ventas registradas'}
@@ -215,6 +217,11 @@ export function SalesList({ period, selectedProjects, selectedCostCenters, selec
                                     <td className="px-4 py-3.5 text-slate-600 text-xs overflow-hidden">
                                         <span className="block truncate" title={sale.proyecto?.name ?? ''}>
                                             {sale.proyecto?.name || '—'}
+                                        </span>
+                                    </td>
+                                    <td className="px-4 py-3.5 text-slate-600 text-xs overflow-hidden">
+                                        <span className="block truncate" title={sale.comercial?.nombre ?? ''}>
+                                            {sale.comercial?.nombre || '—'}
                                         </span>
                                     </td>
                                     <td className="px-4 py-3.5 text-slate-600 text-xs overflow-hidden">

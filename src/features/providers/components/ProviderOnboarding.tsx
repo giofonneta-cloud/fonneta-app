@@ -102,6 +102,7 @@ export function ProviderOnboarding() {
         setIsSubmitting(true);
         setError(null);
         let createdUserId: string | null = null;
+        let providerId: string | null = null;
         try {
             // Validar documentos obligatorios
             if (!uploadedFiles.RUT) {
@@ -203,7 +204,7 @@ export function ProviderOnboarding() {
             const providerData = createProviderData;
 
             // 4. Subir documentos a Google Drive vía API y guardar enlaces
-            const providerId = providerData.id;
+            providerId = providerData.id;
             const providerNIT = formData.document_number;
             const providerBusinessName = formData.business_name;
 
@@ -213,7 +214,7 @@ export function ProviderOnboarding() {
             const uploadDocument = async (file: File, documentType: string): Promise<string> => {
                 const formData = new FormData();
                 formData.append('file', file);
-                formData.append('providerId', providerId);
+                formData.append('providerId', providerId as string);
                 formData.append('providerName', providerBusinessName);
                 formData.append('providerNIT', providerNIT);
                 formData.append('documentType', documentType);
@@ -287,13 +288,16 @@ export function ProviderOnboarding() {
         } catch (err: unknown) {
             console.error('Error al registrar proveedor:', err);
 
-            // Rollback: eliminar el auth user si fue creado pero el registro no se completó
+            // Rollback: eliminar el auth user y el proveedor si fue creado pero el registro no se completó
             if (createdUserId) {
                 try {
                     await fetch('/api/providers/delete-auth-user', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ userId: createdUserId }),
+                        body: JSON.stringify({ 
+                            userId: createdUserId,
+                            providerId: providerId
+                        }),
                     });
                 } catch (rollbackErr) {
                     console.error('Rollback fallido:', rollbackErr);

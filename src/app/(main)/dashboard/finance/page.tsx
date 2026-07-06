@@ -123,6 +123,7 @@ export default function FinancePage() {
     const [selectedProjects, setSelectedProjects] = useState<string[]>([]);
     const [selectedCostCenters, setSelectedCostCenters] = useState<string[]>([]);
     const [selectedEstado, setSelectedEstado] = useState<string[]>([]);
+    const [selectedComerciales, setSelectedComerciales] = useState<string[]>([]);
     const [allSales, setAllSales] = useState<Venta[]>([]);
     const [allExpenses, setAllExpenses] = useState<GastoExtendido[]>([]);
     const [viewingProviderId, setViewingProviderId] = useState<string | null>(null);
@@ -157,6 +158,11 @@ export default function FinancePage() {
             }).filter(Boolean),
         ])].sort() as string[],
         [allSales, allExpenses],
+    );
+
+    const comercialNames = useMemo(() =>
+        [...new Set(allSales.map(s => s.comercial?.nombre).filter(Boolean))].sort() as string[],
+        [allSales],
     );
 
     const loadKPIs = useCallback(async () => {
@@ -379,6 +385,16 @@ export default function FinancePage() {
                                     onChange={setSelectedEstado}
                                 />
 
+                                {/* Comercial Filter — solo aplica a Ventas */}
+                                {tab === 'ventas' && (
+                                    <MultiSelectFilter
+                                        label="Comercial"
+                                        options={comercialNames}
+                                        selectedValues={selectedComerciales}
+                                        onChange={setSelectedComerciales}
+                                    />
+                                )}
+
                                 {/* Export dropdown */}
                                 <DropdownMenu>
                                     <DropdownMenuTrigger asChild>
@@ -521,7 +537,7 @@ export default function FinancePage() {
                     {/* Content */}
                     <div className="p-6 bg-white rounded-b-2xl border border-slate-100 border-t-0 shadow-sm">
                         {tab === 'resumen' && <FinanceReportCenter period={period} selectedProjects={selectedProjects} selectedCostCenters={selectedCostCenters} selectedEstado={selectedEstado} />}
-                        {tab === 'ventas' && <SalesList period={period} selectedProjects={selectedProjects} selectedCostCenters={selectedCostCenters} selectedEstado={selectedEstado} onEdit={handleEditSale} onClientClick={setViewingProviderId} />}
+                        {tab === 'ventas' && <SalesList period={period} selectedProjects={selectedProjects} selectedCostCenters={selectedCostCenters} selectedEstado={selectedEstado} selectedComerciales={selectedComerciales} onEdit={handleEditSale} onClientClick={setViewingProviderId} />}
                         {tab === 'gastos' && <ExpensesList period={period} selectedProjects={selectedProjects} selectedCostCenters={selectedCostCenters} selectedEstado={selectedEstado} onEdit={handleEditExpense} onProviderClick={setViewingProviderId} />}
                         {tab === 'cxc' && <CXCList period={period} selectedProjects={selectedProjects} selectedCostCenters={selectedCostCenters} selectedEstado={selectedEstado} onClientClick={setViewingProviderId} />}
                         {tab === 'cxp' && <CXPList period={period} selectedProjects={selectedProjects} selectedCostCenters={selectedCostCenters} selectedEstado={selectedEstado} onProviderClick={setViewingProviderId} />}

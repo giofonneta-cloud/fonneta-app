@@ -1,16 +1,23 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Venta } from '../types/sales-expenses.types';
+import { Venta, Retencion } from '../types/sales-expenses.types';
 import { salesService } from '../services/salesService';
 import { Badge } from '@/shared/components/ui/badge';
 import { Button } from '@/shared/components/ui/button';
 import { Input } from '@/shared/components/ui/input';
-import { AlertCircle, CheckCircle2, X, MessageSquare, MessageSquarePlus } from 'lucide-react';
+import { CheckCircle2, X, MessageSquare, MessageSquarePlus, Plus, Trash2 } from 'lucide-react';
 import { useResizableColumns } from '@/shared/hooks/useResizableColumns';
 
 // [col]: Cliente | Factura | Proyecto | C. Costo | Total Factura | Saldo por Cobrar | Fecha Cobro Est. | Vencimiento | Seguimiento | Acción
 const INITIAL_WIDTHS = [160, 120, 140, 110, 130, 130, 140, 110, 90, 90];
+
+const TIPOS_RETENCION: { value: Retencion['tipo']; label: string }[] = [
+    { value: 'retefuente', label: 'Retención en la Fuente' },
+    { value: 'reteica', label: 'Retención ICA' },
+    { value: 'reteiva', label: 'Retención IVA' },
+    { value: 'otro', label: 'Otro' },
+];
 
 const fmt = (n: number) =>
     n.toLocaleString('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 });
@@ -78,6 +85,7 @@ export function CXCList({ period, selectedProjects, selectedCostCenters, selecte
     const [confirmingId, setConfirmingId] = useState<string | null>(null);
     const [payAmount, setPayAmount] = useState('');
     const [payDate, setPayDate] = useState(new Date().toISOString().split('T')[0]);
+    const [retenciones, setRetenciones] = useState<Retencion[]>([]);
     const [saving, setSaving] = useState(false);
 
     // Estado del modal de notas de seguimiento
@@ -125,21 +133,47 @@ export function CXCList({ period, selectedProjects, selectedCostCenters, selecte
     const saldoPendiente = confirmingSale
         ? Number(confirmingSale.total_con_iva) - Number(confirmingSale.valor_pagado || 0)
         : 0;
+    const totalRetenciones = retenciones.reduce((s, r) => s + r.valor, 0);
+    const totalCobrado = (Number(payAmount) || 0) + totalRetenciones;
 
     const openConfirmModal = (sale: Venta) => {
         const saldo = Number(sale.total_con_iva) - Number(sale.valor_pagado || 0);
         setConfirmingId(sale.id);
         setPayAmount(String(Math.round(saldo)));
         setPayDate(new Date().toISOString().split('T')[0]);
+        setRetenciones([]);
     };
+
+    const addRetencion = () =>
+        setRetenciones(prev => [...prev, { tipo: 'retefuente', descripcion: 'Retención en la Fuente', valor: 0 }]);
+
+    const removeRetencion = (i: number) =>
+        setRetenciones(prev => prev.filter((_, idx) => idx !== i));
+
+    const updateRetencion = (i: number, field: 'tipo' | 'valor', raw: string) =>
+        setRetenciones(prev => prev.map((r, idx) => {
+            if (idx !== i) return r;
+            if (field === 'tipo') {
+                const found = TIPOS_RETENCION.find(t => t.value === raw);
+                return { ...r, tipo: raw as Retencion['tipo'], descripcion: found?.label ?? raw };
+            }
+            return { ...r, valor: Number(raw) || 0 };
+        }));
 
     const handleConfirmCobro = async () => {
         if (!confirmingId) return;
-        const amount = Number(payAmount);
-        if (!amount || amount <= 0) { alert('Ingresa un valor válido'); return; }
+        const valorRecibido = Number(payAmount);
+        if (!valorRecibido || valorRecibido <= 0) { alert('Ingresa un valor recibido válido'); return; }
+        const totalRetenciones = retenciones.reduce((s, r) => s + r.valor, 0);
+        const totalCobrado = valorRecibido + totalRetenciones;
         setSaving(true);
         try {
-            await salesService.recordPayment(confirmingId, amount, payDate);
+            await salesService.recordPayment(
+                confirmingId,
+                totalCobrado,
+                payDate,
+                retenciones.length > 0 ? retenciones : undefined
+            );
             setConfirmingId(null);
             loadData();
         } catch (err: unknown) {
@@ -333,22 +367,23 @@ export function CXCList({ period, selectedProjects, selectedCostCenters, selecte
 
             {/* Modal Confirmar Cobro */}
             {confirmingId && confirmingSale && (
-                <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
-                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 space-y-4">
-                        <div className="flex items-center justify-between">
-                            <h4 className="font-black text-slate-800 text-base">Confirmar Cobro</h4>
-                            <button onClick={() => setConfirmingId(null)} className="text-slate-400 hover:text-slate-600">
-                                <X className="w-5 h-5" />
-                            </button>
-                        </div>
-                        <div className="bg-slate-50 rounded-xl p-3 space-y-1 text-xs">
-                            <p className="text-slate-500">Cliente: <span className="font-bold text-slate-800">{confirmingSale.cliente?.business_name}</span></p>
-                            <p className="text-slate-500">Factura: <span className="font-bold text-slate-800">{confirmingSale.numero_factura || '—'}</span></p>
-                            <p className="text-slate-500">Saldo por cobrar: <span className="font-black text-emerald-600">{fmt(saldoPendiente)}</span></p>
-                        </div>
-                        <div className="space-y-3">
+                    <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+                        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 space-y-4">
+                            <div className="flex items-center justify-between">
+                                <h4 className="font-black text-slate-800 text-base">Confirmar Cobro</h4>
+                                <button onClick={() => setConfirmingId(null)} className="text-slate-400 hover:text-slate-600">
+                                    <X className="w-5 h-5" />
+                                </button>
+                            </div>
+
+                            <div className="bg-slate-50 rounded-xl p-3 space-y-1 text-xs">
+                                <p className="text-slate-500">Cliente: <span className="font-bold text-slate-800">{confirmingSale.cliente?.business_name}</span></p>
+                                <p className="text-slate-500">Factura: <span className="font-bold text-slate-800">{confirmingSale.numero_factura || '—'}</span></p>
+                                <p className="text-slate-500">Saldo por cobrar: <span className="font-black text-emerald-600">{fmt(saldoPendiente)}</span></p>
+                            </div>
+
                             <div>
-                                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Valor Recibido (COP)</label>
+                                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Valor Recibido en Cuenta (COP)</label>
                                 <Input
                                     type="number"
                                     value={payAmount}
@@ -358,6 +393,69 @@ export function CXCList({ period, selectedProjects, selectedCostCenters, selecte
                                     autoFocus
                                 />
                             </div>
+
+                            {/* Retenciones */}
+                            <div className="space-y-2">
+                                <div className="flex items-center justify-between">
+                                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Retenciones Aplicadas</label>
+                                    <button
+                                        onClick={addRetencion}
+                                        className="flex items-center gap-1 text-[10px] font-bold text-blue-600 hover:text-blue-700"
+                                    >
+                                        <Plus className="w-3 h-3" /> Agregar
+                                    </button>
+                                </div>
+                                {retenciones.length === 0 && (
+                                    <p className="text-[10px] text-slate-400 italic">Sin retenciones — haz clic en Agregar si aplican.</p>
+                                )}
+                                {retenciones.map((r, i) => (
+                                    <div key={i} className="flex gap-1.5 items-center">
+                                        <select
+                                            value={r.tipo}
+                                            onChange={e => updateRetencion(i, 'tipo', e.target.value)}
+                                            className="flex-1 min-w-0 text-xs border border-slate-200 rounded-lg px-2 py-1.5 bg-white focus:outline-none focus:ring-1 focus:ring-blue-400"
+                                        >
+                                            {TIPOS_RETENCION.map(t => (
+                                                <option key={t.value} value={t.value}>{t.label}</option>
+                                            ))}
+                                        </select>
+                                        <Input
+                                            type="number"
+                                            value={r.valor || ''}
+                                            onChange={e => updateRetencion(i, 'valor', e.target.value)}
+                                            placeholder="0"
+                                            className="w-32 text-xs"
+                                        />
+                                        <button onClick={() => removeRetencion(i)} className="text-slate-300 hover:text-red-500 flex-shrink-0 transition-colors">
+                                            <Trash2 className="w-4 h-4" />
+                                        </button>
+                                    </div>
+                                ))}
+                            </div>
+
+                            {/* Resumen */}
+                            <div className="bg-slate-50 rounded-xl p-3 text-xs space-y-1.5 border border-slate-100">
+                                <div className="flex justify-between text-slate-500">
+                                    <span>Valor recibido en cuenta</span>
+                                    <span className="font-mono font-bold">{fmt(Number(payAmount) || 0)}</span>
+                                </div>
+                                {retenciones.length > 0 && (
+                                    <div className="flex justify-between text-amber-600">
+                                        <span>+ Retenciones ({retenciones.length})</span>
+                                        <span className="font-mono font-bold">{fmt(totalRetenciones)}</span>
+                                    </div>
+                                )}
+                                <div className={`flex justify-between font-black pt-1 border-t border-slate-200 ${Math.abs(totalCobrado - saldoPendiente) < 1 ? 'text-emerald-700' : 'text-amber-600'}`}>
+                                    <span>= Total cobrado</span>
+                                    <span className="font-mono">{fmt(totalCobrado)}</span>
+                                </div>
+                                {Math.abs(totalCobrado - saldoPendiente) >= 1 && (
+                                    <p className="text-[10px] text-amber-500 italic">
+                                        Diferencia de {fmt(Math.abs(totalCobrado - saldoPendiente))} vs saldo ({fmt(saldoPendiente)})
+                                    </p>
+                                )}
+                            </div>
+
                             <div>
                                 <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Fecha de Cobro</label>
                                 <Input
@@ -367,21 +465,21 @@ export function CXCList({ period, selectedProjects, selectedCostCenters, selecte
                                     className="mt-1"
                                 />
                             </div>
-                        </div>
-                        <div className="flex gap-2 pt-2">
-                            <Button variant="outline" onClick={() => setConfirmingId(null)} className="flex-1">
-                                Cancelar
-                            </Button>
-                            <Button
-                                onClick={handleConfirmCobro}
-                                disabled={saving}
-                                className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white"
-                            >
-                                {saving ? 'Guardando...' : 'Confirmar Cobro'}
-                            </Button>
+
+                            <div className="flex gap-2 pt-1">
+                                <Button variant="outline" onClick={() => setConfirmingId(null)} className="flex-1">
+                                    Cancelar
+                                </Button>
+                                <Button
+                                    onClick={handleConfirmCobro}
+                                    disabled={saving}
+                                    className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white"
+                                >
+                                    {saving ? 'Guardando...' : 'Confirmar Cobro'}
+                                </Button>
+                            </div>
                         </div>
                     </div>
-                </div>
             )}
 
             {/* Modal Notas de Seguimiento */}

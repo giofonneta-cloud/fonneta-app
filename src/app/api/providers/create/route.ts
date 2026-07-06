@@ -17,11 +17,88 @@ export async function PATCH(request: NextRequest) {
         ...(cedula_url !== undefined && { cedula_url }),
         ...(camara_comercio_url !== undefined && { camara_comercio_url }),
         ...(cert_bancaria_url !== undefined && { cert_bancaria_url }),
+        updated_at: new Date().toISOString()
       })
       .eq('id', providerId);
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 400 });
+    }
+
+    // Sincronizar de forma consistente con la tabla relacional provider_documents
+    const documentsToInsert = [];
+    const documentTypesToClean = [];
+
+    if (rut_url) {
+      documentTypesToClean.push('RUT');
+      documentsToInsert.push({
+        provider_id: providerId,
+        tipo_documento: 'RUT',
+        archivo_url: rut_url,
+        estado: 'en_revision',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      });
+    }
+
+    if (cedula_url) {
+      documentTypesToClean.push('Cedula_Rep_Legal');
+      documentsToInsert.push({
+        provider_id: providerId,
+        tipo_documento: 'Cedula_Rep_Legal',
+        archivo_url: cedula_url,
+        estado: 'en_revision',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      });
+    }
+
+    if (camara_comercio_url) {
+      documentTypesToClean.push('Camara_Comercio');
+      documentsToInsert.push({
+        provider_id: providerId,
+        tipo_documento: 'Camara_Comercio',
+        archivo_url: camara_comercio_url,
+        estado: 'en_revision',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      });
+    }
+
+    if (cert_bancaria_url) {
+      documentTypesToClean.push('Cert_Bancaria');
+      documentsToInsert.push({
+        provider_id: providerId,
+        tipo_documento: 'Cert_Bancaria',
+        archivo_url: cert_bancaria_url,
+        estado: 'en_revision',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      });
+    }
+
+    if (documentsToInsert.length > 0) {
+      // 1. Limpiar registros previos del mismo tipo para este proveedor
+      const { error: deleteError } = await adminClient
+        .from('provider_documents')
+        .delete()
+        .eq('provider_id', providerId)
+        .in('tipo_documento', documentTypesToClean);
+
+      if (deleteError) {
+        console.error('Error cleaning previous provider documents in sync:', deleteError.message);
+      }
+
+      // 2. Insertar los nuevos documentos
+      const { error: insertError } = await adminClient
+        .from('provider_documents')
+        .insert(documentsToInsert);
+
+      if (insertError) {
+        console.error('Error inserting provider documents in sync:', insertError.message);
+      } else {
+        console.log(`Successfully synced ${documentsToInsert.length} documents for provider ${providerId}`);
+      }
     }
 
     return NextResponse.json({ success: true });
