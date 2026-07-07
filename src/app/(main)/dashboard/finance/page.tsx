@@ -187,8 +187,9 @@ export default function FinancePage() {
             const matchesProject = !selectedProjects.length || selectedProjects.includes(s.proyecto?.name ?? '');
             const matchesCostCenter = !selectedCostCenters.length || selectedCostCenters.includes(s.cost_center ?? '');
             const matchesEstado = !selectedEstado.length || selectedEstado.some(e => s.estado_pago === e.toLowerCase().replace(/ /g, '_'));
+            const matchesComercial = !selectedComerciales.length || selectedComerciales.includes(s.comercial?.nombre ?? '');
             const isNotCreditNote = !s.nota_credito;
-            return matchesPeriod && matchesProject && matchesCostCenter && matchesEstado && isNotCreditNote;
+            return matchesPeriod && matchesProject && matchesCostCenter && matchesEstado && matchesComercial && isNotCreditNote;
         });
         const fe = allExpenses.filter(e => {
             const matchesPeriod = isInPeriod(e.fecha_radicado || e.created_at, period);
@@ -253,7 +254,7 @@ export default function FinancePage() {
                 ),
             },
         ];
-    }, [allSales, allExpenses, period, selectedProjects, selectedCostCenters, selectedEstado, goalAmount]);
+    }, [allSales, allExpenses, period, selectedProjects, selectedCostCenters, selectedEstado, selectedComerciales, goalAmount]);
 
     useEffect(() => {
         if (isMounted) loadKPIs();
