@@ -9,6 +9,7 @@ export interface EmailAttachment {
 export interface EmailOptions {
   to: string | string[];
   cc?: string | string[];
+  replyTo?: string;
   subject: string;
   html: string;
   text?: string;
@@ -54,7 +55,7 @@ export class EmailService {
     });
 
     this.fromEmail = process.env.NOTIFICATION_FROM_EMAIL || process.env.SMTP_USER!;
-    this.fromName = process.env.NOTIFICATION_FROM_NAME || 'Fonneta';
+    this.fromName = process.env.NOTIFICATION_FROM_NAME || 'Fonneta Comunicaciones';
   }
 
   /**
@@ -70,8 +71,13 @@ export class EmailService {
   async sendEmail(options: EmailOptions): Promise<void> {
     const start = Date.now();
     try {
+      // Formatear remitente según RFC 5322: "Nombre Remitente" <correo@ejemplo.com>
+      const formattedFrom = `"${this.fromName.replace(/"/g, '')}" <${this.fromEmail}>`;
+      const replyToAddress = options.replyTo || this.fromEmail;
+
       const info = await this.transporter.sendMail({
-        from: this.fromEmail,
+        from: formattedFrom,
+        replyTo: replyToAddress,
         to: Array.isArray(options.to) ? options.to.join(', ') : options.to,
         ...(options.cc ? { cc: Array.isArray(options.cc) ? options.cc.join(', ') : options.cc } : {}),
         subject: options.subject,
@@ -83,7 +89,6 @@ export class EmailService {
           contentType: a.contentType,
         })),
         headers: {
-          'X-Mailer': 'Fonneta',
           'X-Priority': '3 (Normal)',
         },
       });
@@ -526,7 +531,7 @@ export class EmailService {
     }).format(total);
 
     const html = `
-      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; color: #1f2937;">
         <h2 style="color: #1d4ed8;">Orden de Compra ${poNumber}</h2>
         <p>Estimado(a) <strong>${recipientName}</strong>,</p>
         <p>Le informamos que Fonneta Comunicaciones S.A.S. ha emitido la siguiente orden de compra a su nombre:</p>
@@ -541,7 +546,7 @@ export class EmailService {
         </div>
 
         <p style="margin-top: 16px; font-size: 14px; color: #374151;">
-          Encontrara la orden de compra adjunta a este correo en formato PDF.
+          Encontrará la orden de compra adjunta a este correo en formato PDF.
         </p>
 
         ${documentUrl ? `
@@ -553,22 +558,36 @@ export class EmailService {
         </p>
         ` : ''}
 
-        <p style="margin-top: 20px;">Por favor confirme la recepcion de esta orden respondiendo a este correo.</p>
+        <p style="margin-top: 20px;">Por favor confirme la recepción de esta orden respondiendo a este correo.</p>
 
         <hr style="border: 1px solid #e5e7eb; margin: 20px 0;">
         <p style="color: #6b7280; font-size: 12px;">
           Fonneta Comunicaciones S.A.S. &middot; NIT 901.362.051-7<br>
-          Carrera 6 #123A-74, Bogota D.C. &middot; Cel: 318 254 4377
+          Carrera 6 #123A-74, Bogotá D.C. &middot; Cel: 318 254 4377
         </p>
       </div>
     `;
+
+    const textAlternative = `Estimado(a) ${recipientName},
+
+Fonneta Comunicaciones S.A.S. ha emitido la Orden de Compra ${poNumber} a su nombre por un valor total de ${formattedTotal}.
+
+Encontrará la orden de compra adjunta a este correo en formato PDF.
+${documentUrl ? `También puede verla en Google Drive: ${documentUrl}\n` : ''}
+Por favor confirme la recepción de esta orden de compra respondiendo a este correo.
+
+Cordialmente,
+Fonneta Comunicaciones S.A.S.
+NIT 901.362.051-7
+Carrera 6 #123A-74, Bogotá D.C.
+Cel: 318 254 4377`;
 
     await this.sendEmail({
       to: recipientEmail,
       ...(ccEmail ? { cc: ccEmail } : {}),
       subject: `Orden de Compra ${poNumber} - Fonneta Comunicaciones`,
       html,
-      text: `Estimado(a) ${recipientName}, Fonneta Comunicaciones S.A.S. ha emitido la orden de compra ${poNumber} por un total de ${formattedTotal}. La orden de compra se encuentra adjunta en formato PDF. ${documentUrl ? `Tambien puede verla en: ${documentUrl}` : ''} Por favor confirme la recepcion.`,
+      text: textAlternative,
       attachments,
     });
   }

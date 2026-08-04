@@ -128,6 +128,7 @@ export function CXCList({ period, selectedProjects, selectedCostCenters, selecte
     });
 
     const totalPendiente = sales.reduce((a, s) => a + (Number(s.total_con_iva) - Number(s.valor_pagado || 0)), 0);
+    const totalVencido = overdue.reduce((a, s) => a + (Number(s.total_con_iva) - Number(s.valor_pagado || 0)), 0);
 
     const confirmingSale = sales.find(s => s.id === confirmingId);
     const saldoPendiente = confirmingSale
@@ -220,6 +221,10 @@ export function CXCList({ period, selectedProjects, selectedCostCenters, selecte
                     <div className="text-center px-4 py-2 bg-red-50 rounded-xl border border-red-100">
                         <p className="text-[10px] font-black text-red-500 uppercase tracking-widest">Vencidas</p>
                         <p className="text-lg font-black text-red-700">{overdue.length}</p>
+                    </div>
+                    <div className="text-center px-4 py-2 bg-red-50 rounded-xl border border-red-100">
+                        <p className="text-[10px] font-black text-red-500 uppercase tracking-widest">Total vencido</p>
+                        <p className="text-sm font-black text-red-700">{fmt(totalVencido)}</p>
                     </div>
                     <div className="text-center px-4 py-2 bg-slate-50 rounded-xl border border-slate-100">
                         <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Total pendiente</p>
