@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -11,10 +11,11 @@ import { Button } from '@/shared/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/shared/components/ui/select';
 import { Separator } from '@/shared/components/ui/separator';
 import { Textarea } from '@/shared/components/ui/textarea';
-import { DollarSign, FileText, BadgeCheck, Users, Calendar, UserCircle } from 'lucide-react';
+import { DollarSign, FileText, BadgeCheck, Users, Calendar, UserCircle, Upload, Loader2, ExternalLink, X } from 'lucide-react';
 import { salesService } from '../services/salesService';
 import { comercialesService, Comercial } from '../services/comercialesService';
 import { providerService } from '@/features/providers/services/providerService';
+import { providerInvoiceService } from '@/features/providers/services/providerInvoiceService';
 import { Provider } from '@/features/providers/types/provider.types';
 import { projectService } from '@/features/projects/services/projectService';
 import { Project } from '@/features/projects/types/project.types';
@@ -58,6 +59,11 @@ export function SalesForm({ onSuccess, onCancel, initialProjectId, initialClient
     const [clients, setClients] = useState<Provider[]>([]);
     const [projects, setProjects] = useState<Project[]>([]);
     const [comerciales, setComerciales] = useState<Comercial[]>([]);
+    const [facturaUrl, setFacturaUrl] = useState(initialData?.factura_url || '');
+    const [facturaFileName, setFacturaFileName] = useState('');
+    const [uploadingFactura, setUploadingFactura] = useState(false);
+    const [uploadError, setUploadError] = useState('');
+    const facturaInputRef = useRef<HTMLInputElement>(null);
     const { opciones: lineasNegocio } = useParametros('lineas_negocio');
     const { opciones: centrosCosto } = useParametros('centros_costo');
     const { opciones: plazosPagoVentas } = useParametros('plazos_pago_ventas');
@@ -138,6 +144,26 @@ export function SalesForm({ onSuccess, onCancel, initialProjectId, initialClient
         });
     }, [fechaFactura, plazoDias]);
 
+    const handleFacturaUpload = async (file: File) => {
+        const clienteId = form.getValues('cliente_id');
+        if (!clienteId) {
+            setUploadError('Selecciona primero un cliente para cargar el soporte');
+            return;
+        }
+        setUploadError('');
+        setUploadingFactura(true);
+        try {
+            const numeroFactura = form.getValues('numero_factura') || `VENTA-${Date.now()}`;
+            const url = await providerInvoiceService.uploadInvoiceDocument(clienteId, numeroFactura, file);
+            setFacturaUrl(url);
+            setFacturaFileName(file.name);
+        } catch (err: unknown) {
+            setUploadError(err instanceof Error ? err.message : 'Error al subir el soporte');
+        } finally {
+            setUploadingFactura(false);
+        }
+    };
+
     const onSubmit = async (values: SalesFormValues) => {
         setIsSubmitting(true);
         try {
@@ -161,6 +187,7 @@ export function SalesForm({ onSuccess, onCancel, initialProjectId, initialClient
                 numero_oc: values.numero_oc || undefined,
                 numero_factura: values.numero_factura || undefined,
                 fecha_factura: values.fecha_factura || undefined,
+                factura_url: facturaUrl || undefined,
                 plazo_pago_dias: values.plazo_pago_dias,
                 fecha_cobro_estimada: fechaCobroEstimadaISO,
                 comercial_id: values.tiene_comision && values.comercial_id ? values.comercial_id : undefined,
@@ -188,6 +215,8 @@ export function SalesForm({ onSuccess, onCancel, initialProjectId, initialClient
                 alert("Venta registrada exitosamente");
             }
             form.reset();
+            setFacturaUrl('');
+            setFacturaFileName('');
             if (onSuccess) onSuccess();
         } catch (error: any) {
             console.error("❌ Error CRÍTICO al guardar venta:", error);
@@ -469,6 +498,60 @@ export function SalesForm({ onSuccess, onCancel, initialProjectId, initialClient
                                         {fechaCobroEstimada}
                                     </div>
                                 </div>
+                            </div>
+
+                            {/* Soporte de la factura */}
+                            <div className="p-4 bg-purple-50/20 rounded-xl border border-purple-100/50">
+                                <label className="text-xs font-bold text-slate-500 block mb-2">Soporte de la Factura (PDF, PNG, JPG)</label>
+                                <input
+                                    ref={facturaInputRef}
+                                    type="file"
+                                    accept=".pdf,.jpg,.jpeg,.png"
+                                    className="hidden"
+                                    onChange={(e) => {
+                                        const f = e.target.files?.[0];
+                                        if (f) handleFacturaUpload(f);
+                                    }}
+                                />
+                                <div
+                                    onClick={() => facturaInputRef.current?.click()}
+                                    className={`flex items-center gap-3 border-2 border-dashed rounded-xl px-4 py-3 cursor-pointer transition-all hover:border-purple-400 hover:bg-purple-50/40 ${facturaUrl ? 'border-emerald-300 bg-emerald-50/40' : 'border-slate-200 bg-white'}`}
+                                >
+                                    <div className={`shrink-0 ${facturaUrl ? 'text-emerald-500' : 'text-slate-400'}`}>
+                                        {uploadingFactura ? <Loader2 className="w-5 h-5 animate-spin text-purple-500" /> : <Upload className="w-5 h-5" />}
+                                    </div>
+                                    <div className="min-w-0 flex-1">
+                                        <p className="text-xs font-semibold text-slate-700 truncate">
+                                            {uploadingFactura ? 'Subiendo...' : facturaUrl ? 'Soporte cargado' : 'Selecciona un archivo'}
+                                        </p>
+                                        <p className="text-[10px] text-slate-400 truncate">
+                                            {facturaFileName || (facturaUrl ? 'Documento existente' : 'Factura, cuenta de cobro o soporte de la venta')}
+                                        </p>
+                                    </div>
+                                    {facturaUrl && (
+                                        <>
+                                            <a
+                                                href={facturaUrl}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                onClick={(e) => e.stopPropagation()}
+                                                className="p-1.5 rounded-lg text-purple-600 hover:bg-purple-100 transition-colors shrink-0"
+                                                title="Ver documento"
+                                            >
+                                                <ExternalLink className="w-4 h-4" />
+                                            </a>
+                                            <button
+                                                type="button"
+                                                onClick={(e) => { e.stopPropagation(); setFacturaUrl(''); setFacturaFileName(''); }}
+                                                className="p-1.5 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors shrink-0"
+                                                title="Quitar documento"
+                                            >
+                                                <X className="w-4 h-4" />
+                                            </button>
+                                        </>
+                                    )}
+                                </div>
+                                {uploadError && <p className="text-[10px] text-red-500 font-medium mt-1.5">{uploadError}</p>}
                             </div>
                         </section>
 

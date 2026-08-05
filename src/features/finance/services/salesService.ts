@@ -41,6 +41,7 @@ export const salesService = {
         numero_oc?: string;
         numero_factura?: string;
         fecha_factura?: string;
+        factura_url?: string;
         plazo_pago_dias?: number;
         fecha_cobro_estimada?: string;
         comercial_id?: string;
@@ -67,6 +68,7 @@ export const salesService = {
             numero_oc: input.numero_oc || null,
             numero_factura: input.numero_factura || null,
             fecha_factura: input.fecha_factura || null,
+            factura_url: input.factura_url || null,
             plazo_pago_dias: input.plazo_pago_dias || 30,
             fecha_cobro_estimada: input.fecha_cobro_estimada || null,
             comercial_id: input.comercial_id || null,

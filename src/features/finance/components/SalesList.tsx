@@ -6,7 +6,7 @@ import { salesService } from '../services/salesService';
 import { Input } from '@/shared/components/ui/input';
 import { Badge } from '@/shared/components/ui/badge';
 import { Button } from '@/shared/components/ui/button';
-import { Search, AlertCircle, Pencil, DollarSign, X, ReceiptText } from 'lucide-react';
+import { Search, AlertCircle, Pencil, DollarSign, X, ReceiptText, Paperclip } from 'lucide-react';
 import { useResizableColumns } from '@/shared/hooks/useResizableColumns';
 
 // [col]: Fecha | Factura | Cliente | Proyecto | Comercial | C. Costo | Valor Neto | Total+IVA | Estado | Nota Crédito | Acciones
@@ -197,7 +197,20 @@ export function SalesList({ period, selectedProjects, selectedCostCenters, selec
                                         <span className="block truncate">{formatDate(sale.fecha_factura ?? sale.created_at)}</span>
                                     </td>
                                     <td className="px-4 py-3.5 font-mono text-slate-700 text-xs font-bold overflow-hidden">
-                                        <span className="block truncate">{sale.numero_factura || '—'}</span>
+                                        <div className="flex items-center gap-1.5 truncate">
+                                            <span className="truncate">{sale.numero_factura || '—'}</span>
+                                            {sale.factura_url && (
+                                                <a
+                                                    href={sale.factura_url}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    title="Ver soporte de factura"
+                                                    className="text-purple-500 hover:text-purple-700 shrink-0"
+                                                >
+                                                    <Paperclip className="w-3.5 h-3.5" />
+                                                </a>
+                                            )}
+                                        </div>
                                     </td>
                                     <td className="px-4 py-3.5 font-semibold text-xs overflow-hidden">
                                         {sale.cliente?.id && onClientClick ? (

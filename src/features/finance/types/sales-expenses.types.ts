@@ -29,6 +29,7 @@ export interface Venta {
     numero_oc?: string;
     numero_factura?: string;
     fecha_factura?: string;
+    factura_url?: string;
     plazo_pago_dias: number;
     fecha_cobro_estimada?: string;
     fecha_pago_real?: string;
