@@ -113,6 +113,18 @@ export class DriveStorageService {
   }
 
   /**
+   * Obtener o crear carpeta con nombre arbitrario dentro de un parent
+   * (a diferencia de getOrCreateDateFolder, que fija el nombre a YYYYMMDD)
+   */
+  async getOrCreateNamedFolder(name: string, parentId: string): Promise<string> {
+    let folder = await this.findFolder(name, parentId);
+    if (!folder) {
+      folder = await this.createFolder(name, parentId);
+    }
+    return folder;
+  }
+
+  /**
    * Obtener o crear estructura de carpetas para un proveedor
    * Estructura: Fonneta/Proveedores/{NIT_NOMBRE}/Documentos e Invoices
    */
