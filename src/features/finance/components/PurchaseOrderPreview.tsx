@@ -36,6 +36,9 @@ export function PurchaseOrderPreview({ po, onClose, onEdit, onSent }: PurchaseOr
   // Guard sincrónico contra doble-clic. setState es async y no protege en clicks rápidos consecutivos.
   const sendingRef = useRef(false);
 
+  // Releases preparados en el panel, listos para adjuntarse al correo de la OC.
+  const [preparedReleases, setPreparedReleases] = useState<{ id: string; releaseNumber: string; file: File }[]>([]);
+
   const items = po.items ?? [];
 
   const [downloading, setDownloading] = useState(false);
@@ -89,7 +92,7 @@ export function PurchaseOrderPreview({ po, onClose, onEdit, onSent }: PurchaseOr
 
     // Validar el tamaño total de los adjuntos (Max 20MB para envíos de correo)
     const MAX_MB = 20;
-    const totalSize = attachments.reduce((sum, file) => sum + file.size, 0);
+    const totalSize = [...attachments, ...preparedReleases.map((r) => r.file)].reduce((sum, file) => sum + file.size, 0);
     if (totalSize > MAX_MB * 1024 * 1024) {
       sendingRef.current = false;
       setSendError(`El tamaño total de los adjuntos excede los ${MAX_MB}MB permitidos por los servidores de correo.`);
@@ -114,6 +117,8 @@ export function PurchaseOrderPreview({ po, onClose, onEdit, onSent }: PurchaseOr
       const finalCc = [ccAdmin ? ADMIN_CC : '', ccCustom.trim()].filter(Boolean).join(',');
       if (finalCc) formData.append('ccEmail', finalCc);
       attachments.forEach((file) => formData.append('attachments', file));
+      // Adjuntar los Releases preparados al MISMO correo de la OC.
+      preparedReleases.forEach((r) => formData.append('attachments', r.file));
 
       const res = await fetch('/api/purchase-orders/send', {
         method: 'POST',
@@ -135,6 +140,19 @@ export function PurchaseOrderPreview({ po, onClose, onEdit, onSent }: PurchaseOr
         }
         throw new Error(errorMsg);
       }
+
+      // 3. Archivar cada Release en Drive y marcarlo como enviado (sin correo aparte).
+      for (const r of preparedReleases) {
+        try {
+          const archiveData = new FormData();
+          archiveData.append('releaseDocumentId', r.id);
+          archiveData.append('pdfFile', r.file);
+          await fetch('/api/release-documents/archive', { method: 'POST', body: archiveData });
+        } catch (archiveErr) {
+          console.error('Error archivando release (no bloqueante):', archiveErr);
+        }
+      }
+      setPreparedReleases([]);
 
       onSent();
     } catch (err) {
@@ -316,7 +334,28 @@ export function PurchaseOrderPreview({ po, onClose, onEdit, onSent }: PurchaseOr
           </div>
 
           {/* Release Documents */}
-          <ReleaseDocumentPanel po={po} />
+          <ReleaseDocumentPanel
+            po={po}
+            onReleasePrepared={(r) => setPreparedReleases((prev) => [...prev, r])}
+          />
+
+          {preparedReleases.length > 0 && (
+            <div className="rounded-lg border border-purple-200 bg-purple-50/40 px-3 py-2 space-y-1">
+              <p className="text-[11px] font-semibold text-purple-700 uppercase tracking-wider">Releases que se adjuntarán al correo de la OC</p>
+              {preparedReleases.map((r) => (
+                <div key={r.id} className="flex items-center justify-between text-xs">
+                  <span className="font-mono text-gray-700 truncate">{r.releaseNumber}.pdf</span>
+                  <button
+                    onClick={() => setPreparedReleases((prev) => prev.filter((x) => x.id !== r.id))}
+                    className="p-0.5 text-gray-400 hover:text-red-500 transition-colors"
+                    title="Quitar del correo"
+                  >
+                    <Trash2 className="w-3 h-3" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Attachments + CC — for draft and enviada */}

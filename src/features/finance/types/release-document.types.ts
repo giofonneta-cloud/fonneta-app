@@ -46,6 +46,7 @@ export interface ReleaseObrCampos {
     obras: ReleaseObra[];
     forma_pago: 'gratuito' | 'oneroso';
     valor_pago?: number;
+    fecha_firma?: string;
 }
 
 export interface ReleaseCoeObra {
@@ -58,6 +59,7 @@ export interface ReleaseCoeCampos {
     obras: ReleaseCoeObra[];
     valor_pago: number;
     representante_fonneta: string;
+    fecha_firma?: string;
 }
 
 export type ReleaseCampos = ReleaseAimCampos | ReleaseObrCampos | ReleaseCoeCampos;

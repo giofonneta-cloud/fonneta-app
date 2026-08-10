@@ -1,10 +1,28 @@
+interface GeneratePdfOptions {
+    // Estampa "N de M páginas" al pie de cada página (para documentos legales).
+    pageNumbers?: boolean;
+}
+
+// Interfaz mínima del objeto jsPDF que expone html2pdf vía .get('pdf').
+interface JsPdfLike {
+    internal: {
+        getNumberOfPages(): number;
+        pageSize: { getWidth(): number; getHeight(): number };
+    };
+    setPage(n: number): void;
+    setFontSize(n: number): void;
+    setTextColor(r: number, g?: number, b?: number): void;
+    text(txt: string, x: number, y: number, opts?: { align?: string }): void;
+    output(type: string): Blob;
+}
+
 /**
  * Genera un Blob PDF desde HTML usando html2pdf.js (client-side).
  * Reutilizado por cualquier flujo que construya un documento imprimible
  * (Órdenes de Compra, Releases, etc.) para evitar reimplementar el
  * workaround de renderizado.
  */
-export async function generatePdfBlob(html: string): Promise<Blob> {
+export async function generatePdfBlob(html: string, opts?: GeneratePdfOptions): Promise<Blob> {
     // html2pdf.js mueve su contenedor a coords negativas ANTES de llamar html2canvas
     // → Chrome no pinta esa área → canvas en blanco.
     // Fix: usar onclone de html2canvas para reposicionar el contenedor en el
@@ -52,10 +70,24 @@ export async function generatePdfBlob(html: string): Promise<Blob> {
             jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' as const },
             pagebreak: { mode: ['css', 'legacy'] },
         };
-        const blob: Blob = await html2pdf()
-            .set(options)
-            .from(container)
-            .outputPdf('blob');
+        const worker = html2pdf().set(options).from(container);
+
+        if (opts?.pageNumbers) {
+            // Renderiza el PDF y estampa "N de M páginas" en cada página vía jsPDF.
+            const pdf = (await worker.toPdf().get('pdf')) as JsPdfLike;
+            const total = pdf.internal.getNumberOfPages();
+            const width = pdf.internal.pageSize.getWidth();
+            const height = pdf.internal.pageSize.getHeight();
+            for (let i = 1; i <= total; i++) {
+                pdf.setPage(i);
+                pdf.setFontSize(8);
+                pdf.setTextColor(120, 120, 120);
+                pdf.text(`${i} de ${total} páginas`, width / 2, height - 5, { align: 'center' });
+            }
+            return pdf.output('blob');
+        }
+
+        const blob: Blob = await worker.outputPdf('blob');
         return blob;
     } finally {
         document.body.removeChild(container);

@@ -1,7 +1,8 @@
 import type { PurchaseOrder } from '../../types/purchase-order.types';
 import type { Provider } from '@/features/providers/types/provider.types';
 import type { MarcaRelease, ReleaseObrCampos, ReleaseObra } from '../../types/release-document.types';
-import { buildReleaseLetterhead, buildReleaseFooter, RELEASE_BASE_STYLES } from './releaseShared';
+import { buildReleaseLetterhead, buildReleaseFooter, RELEASE_BASE_STYLES, fechaEnPalabras } from './releaseShared';
+import { valorEnLetrasCOP } from '@/shared/lib/numeroALetras';
 
 export interface ObrTemplateParams {
     marca: MarcaRelease;
@@ -24,6 +25,10 @@ function obraRow(o: ReleaseObra): string {
 export function buildObrReleaseHTML({ marca, releaseNumber, campos }: ObrTemplateParams): string {
     const obrasRows = campos.obras.map(obraRow).join('');
     const tipoCheck = (t: 'fonograma' | 'obra') => (campos.tipo_derecho === t ? '&#9746;' : '&#9744;');
+    const valorTexto = campos.forma_pago === 'oneroso' && campos.valor_pago
+        ? `${fmtCOP(campos.valor_pago)} <em>(${valorEnLetrasCOP(campos.valor_pago)})</em>`
+        : '________________';
+    const f = fechaEnPalabras(campos.fecha_firma);
 
     return `
 <!DOCTYPE html>
@@ -50,14 +55,14 @@ export function buildObrReleaseHTML({ marca, releaseNumber, campos }: ObrTemplat
   <p>La presente autorización de uso se otorga a título:</p>
   <p style="font-size:10.5px;">
     ${campos.forma_pago === 'gratuito' ? '&#9746;' : '&#9744;'}&nbsp; Gratuito &nbsp;&nbsp;&nbsp;
-    ${campos.forma_pago === 'oneroso' ? '&#9746;' : '&#9744;'}&nbsp; Oneroso por un valor de <strong>${campos.forma_pago === 'oneroso' && campos.valor_pago ? fmtCOP(campos.valor_pago) : '________________'}</strong>
+    ${campos.forma_pago === 'oneroso' ? '&#9746;' : '&#9744;'}&nbsp; Oneroso por un valor de <strong>${valorTexto}</strong>
   </p>
 
   <p>Adicionalmente, reconozco que el fuero legal del presente contrato es el de la República de Colombia, por lo cual renuncio expresamente a cualquier otro fuero legal, tribunal o jurisdicción diferente, para la resolución de disputas relativas a materias de derecho de autor, conexos o imagen. En caso de que la entrega se realice mediante el uso de redes globales o internet, ratifico que garantizaré que la remisión de las obras se efectúa a través de proveedores de servicios de conectividad colombianos; de lo contrario, acepto que cualquier controversia se someta a las disposiciones legales colombianas en materia de propiedad intelectual y derechos afines.</p>
 
   <p>De igual forma, autorizo el tratamiento de mis datos personales en los sistemas de información de SEMANA Y FONNETA para finalidades de consulta y gestiones comerciales, así como los demás propósitos y prerrogativas detalladas en la &ldquo;Política de tratamiento de información personal&rdquo; publicada en: https://s3-aws-semana.s3.amazonaws.com/semana/upload/legal/habeas-data.pdf</p>
 
-  <p>En constancia de aceptación y conformidad, se suscribe el presente instrumento a los <span style="border-bottom:1px solid #9ca3af;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span> días del mes de <span style="border-bottom:1px solid #9ca3af;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span> del año <span style="border-bottom:1px solid #9ca3af;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span>.</p>
+  <p>En constancia de aceptación y conformidad, se suscribe el presente instrumento a los <strong>${f ? f.dia : '<span style="border-bottom:1px solid #9ca3af;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span>'}</strong> días del mes de <strong>${f ? f.mes : '<span style="border-bottom:1px solid #9ca3af;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span>'}</strong> del año <strong>${f ? f.anio : '<span style="border-bottom:1px solid #9ca3af;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span>'}</strong>.</p>
 
   <p>Atentamente,</p>
 

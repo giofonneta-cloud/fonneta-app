@@ -1,7 +1,8 @@
 import type { PurchaseOrder } from '../../types/purchase-order.types';
 import type { Provider } from '@/features/providers/types/provider.types';
 import type { MarcaRelease, ReleaseCoeCampos } from '../../types/release-document.types';
-import { buildReleaseLetterhead, buildReleaseFooter, RELEASE_BASE_STYLES } from './releaseShared';
+import { buildReleaseLetterhead, buildReleaseFooter, RELEASE_BASE_STYLES, fechaEnPalabras } from './releaseShared';
+import { valorEnLetrasCOP } from '@/shared/lib/numeroALetras';
 
 export interface CoeTemplateParams {
     marca: MarcaRelease;
@@ -17,6 +18,8 @@ const fmtCOP = (n: number) =>
 export function buildCoeReleaseHTML({ marca, releaseNumber, campos }: CoeTemplateParams): string {
     const obrasRows = campos.obras.map((o) => `<tr><td>${o.descripcion}</td></tr>`).join('');
     const tipoCheck = (t: 'fonograma' | 'obra') => (campos.tipo_derecho === t ? '&#9746;' : '&#9744;');
+    const valorTexto = `${fmtCOP(campos.valor_pago)} <em>(${valorEnLetrasCOP(campos.valor_pago)})</em>`;
+    const f = fechaEnPalabras(campos.fecha_firma);
 
     return `
 <!DOCTYPE html>
@@ -36,7 +39,7 @@ export function buildCoeReleaseHTML({ marca, releaseNumber, campos }: CoeTemplat
 
   <p>A través de este contrato, el AUTOR ENCARGADO de las obras o fonogramas antes relacionados, hace entrega formal y transfiere todos y cada uno de los derechos patrimoniales sobre las mismas a SEMANA. Las Partes reconocen que el presente contrato tiene como objeto una obra por encargo, por lo tanto, operan según lo establecido por la Ley 1450 de 2011 art. 28 y siguientes. En virtud del desarrollo del objeto del contrato, y de conformidad con el artículo 10 de la Decisión 351 del Acuerdo de Cartagena y los artículos 20 y 83 de la Ley 23 de 1982 modificado por la Ley 1450 de 2011, y las demás normas que los modifiquen, adicionen y/o reglamenten, la totalidad de los derechos patrimoniales de autor sobre todas las obras o fonogramas producidos o entregados por el ENCARGADO en desarrollo de este contrato se entienden desde el momento de su creación transferidos al ENCARGANTE para reproducir, comunicar públicamente, comercializar, distribuir, licenciar, sincronizar, transformar, importar o exportar, poner a disposición de terceros, o para cualquier otra forma de explotación onerosa o gratuita de las obras y/o fonogramas arriba descritas. Esta transferencia de derechos patrimoniales se otorga a FONNETA Y SEMANA, por el término de protección del derecho de autor sobre las obras en Colombia, para todos los países del mundo, incluyendo pero sin limitarse en medios digitales, redes sociales, de transferencia de datos, medios magnetofónicos, metaverso, satelitales, intranet, internet, copias fijadas en físico (incluyendo prensa impresa), plataformas de distribución musical o podcast, de streaming, televisión, redes sociales, web o cine u otros medios físicos, digitales o analógicos conocidos.</p>
 
-  <p>El ENCARGANTE pagará al AUTOR ENCARGADO como retribución por la creación de las obras o fonogramas respectivos la suma de <strong>${fmtCOP(campos.valor_pago)}</strong>.</p>
+  <p>El ENCARGANTE pagará al AUTOR ENCARGADO como retribución por la creación de las obras o fonogramas respectivos la suma de <strong>${valorTexto}</strong>.</p>
 
   <p>El AUTOR ENCARGADO manifiesta que las obras o fonogramas antes relacionadas fueron creadas por él o fijadas por encargo de FONNETA Y SEMANA y en estricto seguimiento de sus instrucciones, y se trata de creaciones originales que no violan derechos de terceros, y que para la realización de las mismas realizó la debida diligencia y recolección de autorizaciones de imagen en los eventos que las obras o fonogramas involucren la fijación de imagen o voz de personas o de los titulares de derechos conexos o de los autores en caso de que se fijen interpretaciones, ejecuciones, fonogramas, retransmisiones, o se sincronicen o incorporen obras de terceros, por lo tanto, no existe impedimento de ninguna naturaleza para realizar la entrega de los derechos patrimoniales de autor o conexos sobre estas obras o fonogramas a favor de FONNETA Y SEMANA, sin limitación territorial o temporal alguna. El AUTOR ENCARGADO mantendrá indemne a FONNETA Y SEMANA por cualquier reclamación o litigio derivado de las obras incluidas, imagen, voz o derechos conexos derivados de las obras o fonogramas.</p>
 
@@ -52,7 +55,7 @@ export function buildCoeReleaseHTML({ marca, releaseNumber, campos }: CoeTemplat
 
   <p>El AUTOR ENCARGADO mantendrá bajo reserva, confidencialmente y sin revelación a terceras personas, toda la información confidencial que conozca o le sea suministrada por FONNETA Y SEMANA, en virtud del presente contrato.</p>
 
-  <p>En señal de conformidad, se suscribe este documento, a los <span style="border-bottom:1px solid #9ca3af;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span> días del mes de <span style="border-bottom:1px solid #9ca3af;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span> del año <span style="border-bottom:1px solid #9ca3af;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span>.</p>
+  <p>En señal de conformidad, se suscribe este documento, a los <strong>${f ? f.dia : '<span style="border-bottom:1px solid #9ca3af;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span>'}</strong> días del mes de <strong>${f ? f.mes : '<span style="border-bottom:1px solid #9ca3af;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span>'}</strong> del año <strong>${f ? f.anio : '<span style="border-bottom:1px solid #9ca3af;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span>'}</strong>.</p>
 
   <div style="display:flex; gap:16px; margin-top:10px;">
     <div class="sign-box" style="flex:1;">

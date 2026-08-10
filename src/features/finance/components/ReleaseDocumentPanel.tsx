@@ -23,6 +23,9 @@ import { generatePdfBlob } from '@/shared/lib/pdf/generatePdfBlob';
 
 interface Props {
     po: PurchaseOrder;
+    // Notifica al padre (PurchaseOrderPreview) que un Release quedó listo para
+    // adjuntarse al correo de la Orden de Compra.
+    onReleasePrepared: (r: { id: string; releaseNumber: string; file: File }) => void;
 }
 
 const emptyAim = (po: PurchaseOrder): ReleaseAimCampos => ({
@@ -48,6 +51,7 @@ const emptyObr = (po: PurchaseOrder): ReleaseObrCampos => ({
     obras: [emptyObraRow()],
     forma_pago: 'gratuito',
     valor_pago: undefined,
+    fecha_firma: '',
 });
 
 const emptyCoeObraRow = (): ReleaseCoeObra => ({ descripcion: '' });
@@ -58,9 +62,10 @@ const emptyCoe = (po: PurchaseOrder): ReleaseCoeCampos => ({
     obras: [emptyCoeObraRow()],
     valor_pago: po.total || 0,
     representante_fonneta: po.authorized_by ?? '',
+    fecha_firma: '',
 });
 
-export function ReleaseDocumentPanel({ po }: Props) {
+export function ReleaseDocumentPanel({ po, onReleasePrepared }: Props) {
     const [releases, setReleases] = useState<ReleaseDocument[]>([]);
     const [loadingReleases, setLoadingReleases] = useState(true);
     const [showForm, setShowForm] = useState(false);
@@ -134,7 +139,7 @@ export function ReleaseDocumentPanel({ po }: Props) {
         return null;
     };
 
-    const handleGenerateAndSend = async () => {
+    const handleAttachRelease = async () => {
         if (sendingRef.current) return;
         const error = validate();
         if (error) {
@@ -164,24 +169,12 @@ export function ReleaseDocumentPanel({ po }: Props) {
                 campos,
                 po,
             });
-            const blob = await generatePdfBlob(html);
+            const blob = await generatePdfBlob(html, { pageNumbers: true });
             const pdfFile = new File([blob], `${created.release_number}.pdf`, { type: 'application/pdf' });
 
-            const formData = new FormData();
-            formData.append('releaseDocumentId', created.id);
-            formData.append('pdfFile', pdfFile);
-
-            const res = await fetch('/api/release-documents/send', { method: 'POST', body: formData });
-            if (!res.ok) {
-                let errorMsg = 'Error al enviar el release';
-                try {
-                    const data = await res.json();
-                    errorMsg = data.error || errorMsg;
-                } catch {
-                    /* ignore */
-                }
-                throw new Error(errorMsg);
-            }
+            // El PDF NO se envía por separado: se entrega al padre para adjuntarlo
+            // al correo de la Orden de Compra (un solo correo con OC + Release).
+            onReleasePrepared({ id: created.id, releaseNumber: created.release_number, file: pdfFile });
 
             setShowForm(false);
             setAimCampos(emptyAim(po));
@@ -190,7 +183,7 @@ export function ReleaseDocumentPanel({ po }: Props) {
             setMarca('');
             loadReleases();
         } catch (err) {
-            setFormError(err instanceof Error ? err.message : 'Error al generar/enviar el release');
+            setFormError(err instanceof Error ? err.message : 'Error al generar el release');
         } finally {
             setGenerating(false);
             sendingRef.current = false;
@@ -397,6 +390,10 @@ export function ReleaseDocumentPanel({ po }: Props) {
                                         <input type="number" value={obrCampos.valor_pago ?? ''} onChange={(e) => setObrCampos((c) => ({ ...c, valor_pago: Number(e.target.value) || 0 }))} className="w-full mt-1 text-sm border border-gray-200 rounded-lg px-3 py-2" />
                                     </div>
                                 )}
+                                <div>
+                                    <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Fecha de firma / suscripción (opcional)</label>
+                                    <input type="date" value={obrCampos.fecha_firma ?? ''} onChange={(e) => setObrCampos((c) => ({ ...c, fecha_firma: e.target.value }))} className="w-full mt-1 text-sm border border-gray-200 rounded-lg px-3 py-2" />
+                                </div>
                             </div>
 
                             <div className="space-y-2">
@@ -449,6 +446,10 @@ export function ReleaseDocumentPanel({ po }: Props) {
                                     <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Valor del pago (COP)</label>
                                     <input type="number" value={coeCampos.valor_pago || ''} onChange={(e) => setCoeCampos((c) => ({ ...c, valor_pago: Number(e.target.value) || 0 }))} className="w-full mt-1 text-sm border border-gray-200 rounded-lg px-3 py-2" />
                                 </div>
+                                <div>
+                                    <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Fecha de firma / suscripción (opcional)</label>
+                                    <input type="date" value={coeCampos.fecha_firma ?? ''} onChange={(e) => setCoeCampos((c) => ({ ...c, fecha_firma: e.target.value }))} className="w-full mt-1 text-sm border border-gray-200 rounded-lg px-3 py-2" />
+                                </div>
                             </div>
 
                             <div className="space-y-2">
@@ -480,12 +481,12 @@ export function ReleaseDocumentPanel({ po }: Props) {
                         </button>
                         <button
                             type="button"
-                            onClick={handleGenerateAndSend}
+                            onClick={handleAttachRelease}
                             disabled={generating}
                             className="flex items-center gap-2 px-4 py-2 text-xs font-medium text-white bg-purple-600 rounded-lg hover:bg-purple-700 disabled:opacity-50"
                         >
                             {generating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Paperclip className="w-3.5 h-3.5" />}
-                            {generating ? 'Generando y enviando...' : 'Generar y Enviar Release'}
+                            {generating ? 'Generando...' : 'Adjuntar Release a la Orden de Compra'}
                         </button>
                     </div>
                 </div>

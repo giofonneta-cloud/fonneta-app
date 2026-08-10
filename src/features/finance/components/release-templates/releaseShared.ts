@@ -52,8 +52,18 @@ export function buildReleaseFooter(): string {
   `;
 }
 
+const MESES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+
+export function fechaEnPalabras(iso?: string): { dia: string; mes: string; anio: string } | null {
+    if (!iso) return null;
+    const [y, m, d] = iso.split('-').map(Number);
+    if (!y || !m || !d) return null;
+    return { dia: String(d), mes: MESES[m - 1] ?? '', anio: String(y) };
+}
+
 export const RELEASE_BASE_STYLES = `
   body { font-family: Arial, sans-serif; color:#1f2937; font-size:11.5px; line-height:1.5; padding: 20px 28px; }
+  p { text-align: justify; }
   table { width:100%; border-collapse:collapse; margin:10px 0; }
   th, td { border:1px solid #111827; padding:6px 8px; font-size:10.5px; vertical-align:top; }
   th { background:#111827; color:#fff; text-transform:uppercase; font-size:9px; letter-spacing:.03em; }
