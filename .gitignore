@@ -74,3 +74,8 @@ test.pdf
 # Logs y scratch
 *.log
 scratch/
+
+# Scripts locales con credenciales (service_role key hardcodeada) - NO subir
+scripts/setup-test-user.js
+scripts/setup-user.sh
+scripts/insert-finanzas-config.js
