@@ -592,6 +592,112 @@ Cel: 318 254 4377`;
     });
   }
 
+  /**
+   * Recordatorio amable de pago de factura a un cliente (Cuentas por Cobrar).
+   * `tipo` ajusta el tono: próximo a vencer, vence hoy, o vencida.
+   */
+  async sendCxcPaymentReminder(params: {
+    recipientEmail: string;
+    recipientName: string;
+    invoiceNumber: string;
+    projectName?: string;
+    descripcion?: string;
+    numeroOc?: string;
+    saldo: number;
+    fechaCobro: string; // YYYY-MM-DD
+    tipo: 'previo_5d' | 'vencimiento' | 'vencida_8d';
+    diasVencida?: number;
+    ccEmail?: string;
+  }): Promise<void> {
+    const { recipientEmail, recipientName, invoiceNumber, projectName, descripcion, numeroOc, saldo, fechaCobro, tipo, diasVencida, ccEmail } = params;
+    const SOPORTE_EMAIL = 'administrativo@fonneta.com';
+    const SOPORTE_TEL = '+57 311 248 7439';
+
+    const fmtMoney = new Intl.NumberFormat('es-CO', {
+      style: 'currency', currency: 'COP', maximumFractionDigits: 0,
+    }).format(saldo);
+
+    const [y, m, d] = fechaCobro.split('-');
+    const fechaLegible = d && m && y ? `${d}/${m}/${y}` : fechaCobro;
+
+    let intro: string;
+    let subject: string;
+    let accent: string;
+    if (tipo === 'previo_5d') {
+      subject = `Recordatorio: factura ${invoiceNumber} próxima a vencer - Fonneta`;
+      intro = `Le recordamos de manera cordial que la siguiente factura tiene fecha de pago el <strong>${fechaLegible}</strong> (en 5 días). Agradecemos tener presente esta fecha para su oportuno pago.`;
+      accent = '#1d4ed8';
+    } else if (tipo === 'vencimiento') {
+      subject = `Recordatorio: factura ${invoiceNumber} vence hoy - Fonneta`;
+      intro = `Le recordamos amablemente que la siguiente factura tiene como fecha de pago el día de hoy, <strong>${fechaLegible}</strong>. Agradecemos gestionar su pago a la mayor brevedad.`;
+      accent = '#d97706';
+    } else {
+      subject = `Recordatorio de pago pendiente: factura ${invoiceNumber} - Fonneta`;
+      intro = `Nos permitimos recordarle de manera respetuosa que la siguiente factura se encuentra pendiente de pago${diasVencida ? ` desde hace ${diasVencida} días` : ''} (fecha de pago: <strong>${fechaLegible}</strong>). Si ya realizó el pago, le agradecemos hacer caso omiso a este mensaje.`;
+      accent = '#dc2626';
+    }
+
+    const html = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; color: #1f2937;">
+        <h2 style="color: ${accent}; margin-bottom: 4px;">Recordatorio de Pago de Factura</h2>
+        <p style="margin: 0 0 16px 0; font-size: 13px; font-weight: bold; color: #374151;">FONNETA COMUNICACIONES S.A.S.</p>
+        <p>Estimado(a) <strong>${recipientName}</strong>,</p>
+        <p>${intro}</p>
+
+        <div style="background-color: #f3f4f6; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid ${accent};">
+          <p style="margin: 0 0 8px 0; font-size: 14px; color: #374151;">Factura: <strong>${invoiceNumber}</strong></p>
+          ${numeroOc ? `<p style="margin: 0 0 8px 0; font-size: 14px; color: #374151;">Orden de compra: <strong>${numeroOc}</strong></p>` : ''}
+          ${projectName ? `<p style="margin: 0 0 8px 0; font-size: 14px; color: #374151;">Proyecto: <strong>${projectName}</strong></p>` : ''}
+          ${descripcion ? `<p style="margin: 0 0 8px 0; font-size: 14px; color: #374151;">Descripción: <strong>${descripcion}</strong></p>` : ''}
+          <p style="margin: 0 0 8px 0; font-size: 14px; color: #374151;">Fecha de pago: <strong>${fechaLegible}</strong></p>
+          <p style="margin: 0; font-size: 16px; font-weight: bold; color: ${accent};">Saldo pendiente: ${fmtMoney}</p>
+        </div>
+
+        <p style="font-size: 14px; color: #374151;">
+          Para compartir el soporte de pago, escríbanos a <strong>${SOPORTE_EMAIL}</strong>. Para cualquier duda, comuníquese al <strong>${SOPORTE_TEL}</strong>.
+        </p>
+        <p style="font-size: 13px; color: #6b7280; font-style: italic;">
+          Este es un correo automático, por favor no responda a este mensaje.
+        </p>
+        <p style="font-size: 14px; color: #374151;">Agradecemos su atención y confianza.</p>
+
+        <hr style="border: 1px solid #e5e7eb; margin: 20px 0;">
+        <p style="color: #6b7280; font-size: 12px;">
+          Fonneta Comunicaciones S.A.S. &middot; NIT 901.362.051-7<br>
+          Carrera 6 #123A-74, Bogotá D.C. &middot; Cel: 318 254 4377
+        </p>
+      </div>
+    `;
+
+    const introText = intro.replace(/<[^>]+>/g, '');
+    const textAlternative = `Recordatorio de Pago de Factura — FONNETA COMUNICACIONES S.A.S.
+
+Estimado(a) ${recipientName},
+
+${introText}
+
+Factura: ${invoiceNumber}
+${numeroOc ? `Orden de compra: ${numeroOc}\n` : ''}${projectName ? `Proyecto: ${projectName}\n` : ''}${descripcion ? `Descripción: ${descripcion}\n` : ''}Fecha de pago: ${fechaLegible}
+Saldo pendiente: ${fmtMoney}
+
+Para compartir el soporte de pago, escríbanos a ${SOPORTE_EMAIL}. Para cualquier duda, comuníquese al ${SOPORTE_TEL}.
+Este es un correo automático, por favor no responda a este mensaje.
+
+Agradecemos su atención y confianza.
+Fonneta Comunicaciones S.A.S.
+NIT 901.362.051-7
+Carrera 6 #123A-74, Bogotá D.C.`;
+
+    await this.sendEmail({
+      to: recipientEmail,
+      ...(ccEmail ? { cc: ccEmail } : {}),
+      replyTo: SOPORTE_EMAIL,
+      subject,
+      html,
+      text: textAlternative,
+    });
+  }
+
 }
 
 // Singleton instance

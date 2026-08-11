@@ -6,8 +6,9 @@ import { salesService } from '../services/salesService';
 import { Badge } from '@/shared/components/ui/badge';
 import { Button } from '@/shared/components/ui/button';
 import { Input } from '@/shared/components/ui/input';
-import { CheckCircle2, X, MessageSquare, MessageSquarePlus, Plus, Trash2 } from 'lucide-react';
+import { CheckCircle2, X, MessageSquare, MessageSquarePlus, Plus, Trash2, Bell, Send, Loader2 } from 'lucide-react';
 import { useResizableColumns } from '@/shared/hooks/useResizableColumns';
+import { cxcReminderService, type CxcReminder } from '../services/cxcReminderService';
 
 // [col]: Cliente | Factura | Proyecto | C. Costo | Total Factura | Saldo por Cobrar | Fecha Cobro Est. | Vencimiento | Seguimiento | Acción
 const INITIAL_WIDTHS = [160, 120, 140, 110, 130, 130, 140, 110, 90, 90];
@@ -68,6 +69,21 @@ function urgencyBadge(days: number | null, estadoPago: string) {
     return <Badge className="bg-slate-100 text-slate-500 border-none text-[10px] font-medium">{days}d restantes</Badge>;
 }
 
+const REMINDER_TIPO_LABEL: Record<CxcReminder['tipo'], string> = {
+    previo_5d: 'Aviso previo (5 días antes)',
+    vencimiento: 'Aviso de vencimiento',
+    vencida_8d: 'Recordatorio de mora',
+};
+
+function reminderTooltip(list: CxcReminder[]): string {
+    return list
+        .map(r => {
+            const d = new Date(r.sent_at).toLocaleDateString('es-CO', { day: '2-digit', month: 'short', year: 'numeric' });
+            return `${d} — ${REMINDER_TIPO_LABEL[r.tipo]}${r.test_mode ? ' (prueba)' : ''}`;
+        })
+        .join('\n');
+}
+
 interface Props {
     period: string;
     selectedProjects?: string[];
@@ -79,6 +95,8 @@ interface Props {
 export function CXCList({ period, selectedProjects, selectedCostCenters, selectedEstado, onClientClick }: Props) {
     const [sales, setSales] = useState<Venta[]>([]);
     const [loading, setLoading] = useState(true);
+    const [reminders, setReminders] = useState<Record<string, CxcReminder[]>>({});
+    const [sendingReminders, setSendingReminders] = useState(false);
     const { widths, startResize } = useResizableColumns(INITIAL_WIDTHS);
 
     // Estado del modal de cobro
@@ -111,9 +129,28 @@ export function CXCList({ period, selectedProjects, selectedCostCenters, selecte
                         return da - db;
                     });
                 setSales(pending);
+                cxcReminderService
+                    .getByVentaIds(pending.map(s => s.id))
+                    .then(setReminders)
+                    .catch(err => console.error('Error cargando recordatorios', err));
             })
             .catch(err => console.error('Error CXC', err))
             .finally(() => setLoading(false));
+    };
+
+    const handleSendReminders = async () => {
+        if (sendingReminders) return;
+        setSendingReminders(true);
+        try {
+            const r = await cxcReminderService.runNow();
+            const modo = r.testMode ? '\n\n(MODO PRUEBA: los correos se enviaron al correo de prueba, no a los clientes reales.)' : '';
+            alert(`Recordatorios procesados:\n\n• Enviados: ${r.sent}\n• Ya enviados hoy: ${r.yaEnviado}\n• Sin correo: ${r.sinEmail}\n• Sin condición hoy: ${r.skipped}\n• Errores: ${r.errores}${modo}`);
+            loadData();
+        } catch (err) {
+            alert('Error al enviar recordatorios: ' + (err instanceof Error ? err.message : String(err)));
+        } finally {
+            setSendingReminders(false);
+        }
     };
 
     useEffect(() => { loadData(); }, [period, selectedProjects, selectedCostCenters, selectedEstado]);
@@ -213,7 +250,18 @@ export function CXCList({ period, selectedProjects, selectedCostCenters, selecte
                         Facturas de venta pendientes de cobro
                     </p>
                 </div>
-                <div className="flex gap-3">
+                <div className="flex gap-3 items-center">
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleSendReminders}
+                        disabled={sendingReminders}
+                        className="h-9 gap-2 text-xs font-bold text-blue-600 border-blue-200 hover:bg-blue-50"
+                        title="Envía los recordatorios de pago que correspondan hoy (5 días antes, día de vencimiento, y cada 8 días vencida)"
+                    >
+                        {sendingReminders ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
+                        {sendingReminders ? 'Enviando...' : 'Enviar recordatorios'}
+                    </Button>
                     <div className="text-center px-4 py-2 bg-amber-50 rounded-xl border border-amber-100">
                         <p className="text-[10px] font-black text-amber-500 uppercase tracking-widest">Esta semana</p>
                         <p className="text-lg font-black text-amber-700">{thisWeek.length}</p>
@@ -330,17 +378,28 @@ export function CXCList({ period, selectedProjects, selectedCostCenters, selecte
                                             {urgencyBadge(days, s.estado_pago)}
                                         </td>
                                         <td className="px-4 py-3.5 text-center">
-                                            <button
-                                                onClick={() => openNotesModal(s)}
-                                                className="inline-flex justify-center items-center transition-colors"
-                                                title={s.notas_internas ? `Notas: ${s.notas_internas.substring(0, 50)}...` : 'Agregar notas'}
-                                            >
-                                                {s.notas_internas ? (
-                                                    <MessageSquare className="w-4 h-4 text-blue-600 hover:text-blue-700" />
-                                                ) : (
-                                                    <MessageSquarePlus className="w-4 h-4 text-slate-400 hover:text-slate-600" />
+                                            <div className="inline-flex items-center gap-2">
+                                                <button
+                                                    onClick={() => openNotesModal(s)}
+                                                    className="inline-flex justify-center items-center transition-colors"
+                                                    title={s.notas_internas ? `Notas: ${s.notas_internas.substring(0, 50)}...` : 'Agregar notas'}
+                                                >
+                                                    {s.notas_internas ? (
+                                                        <MessageSquare className="w-4 h-4 text-blue-600 hover:text-blue-700" />
+                                                    ) : (
+                                                        <MessageSquarePlus className="w-4 h-4 text-slate-400 hover:text-slate-600" />
+                                                    )}
+                                                </button>
+                                                {reminders[s.id]?.length > 0 && (
+                                                    <span
+                                                        className="inline-flex items-center gap-0.5 text-[10px] font-bold text-amber-600"
+                                                        title={`Recordatorios enviados:\n${reminderTooltip(reminders[s.id])}`}
+                                                    >
+                                                        <Bell className="w-3.5 h-3.5" />
+                                                        {reminders[s.id].length}
+                                                    </span>
                                                 )}
-                                            </button>
+                                            </div>
                                         </td>
                                         <td className="px-4 py-3.5 text-center">
                                             <Button
