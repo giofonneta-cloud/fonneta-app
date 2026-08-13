@@ -7,6 +7,7 @@ import { SalesList } from '@/features/finance/components/SalesList';
 import { ExpensesList } from '@/features/finance/components/ExpensesList';
 import { CXCList } from '@/features/finance/components/CXCList';
 import { CXPList } from '@/features/finance/components/CXPList';
+import { CommissionsList } from '@/features/finance/components/CommissionsList';
 import { ProviderDetailModal } from '@/features/finance/components/ProviderDetailModal';
 import { PurchaseOrdersList } from '@/features/finance/components/PurchaseOrdersList';
 import { PurchaseOrderForm } from '@/features/finance/components/PurchaseOrderForm';
@@ -37,7 +38,7 @@ import { GastoExtendido } from '@/features/finance/types/sales-expenses.types';
 import type { PurchaseOrder } from '@/features/finance/types/purchase-order.types';
 
 type View = 'dashboard' | 'sales-form' | 'expense-form' | 'oc-form';
-type Tab = 'resumen' | 'ventas' | 'gastos' | 'cxc' | 'cxp' | 'oc' | 'tarifario';
+type Tab = 'resumen' | 'ventas' | 'gastos' | 'cxc' | 'cxp' | 'oc' | 'comisiones' | 'tarifario';
 
 const PERIODS = [
     { value: 'all', label: 'Todo el tiempo' },
@@ -320,6 +321,7 @@ export default function FinancePage() {
         { id: 'cxc', label: 'CXC', Icon: Clock, accent: 'emerald' },
         { id: 'cxp', label: 'CXP', Icon: AlertCircle, accent: 'rose' },
         { id: 'oc', label: 'OC', Icon: FileText, accent: 'blue' },
+        { id: 'comisiones', label: 'Comisiones', Icon: Percent, accent: 'orange' },
         { id: 'tarifario', label: 'Tarifario', Icon: ClipboardList, accent: 'violet' },
     ];
 
@@ -386,8 +388,8 @@ export default function FinancePage() {
                                     onChange={setSelectedEstado}
                                 />
 
-                                {/* Comercial Filter — solo aplica a Ventas */}
-                                {tab === 'ventas' && (
+                                {/* Comercial Filter — aplica a Ventas y Comisiones */}
+                                {(tab === 'ventas' || tab === 'comisiones') && (
                                     <MultiSelectFilter
                                         label="Comercial"
                                         options={comercialNames}
@@ -501,9 +503,11 @@ export default function FinancePage() {
                                     ? 'border-rose-500 text-rose-600 bg-rose-50/50'
                                     : t.accent === 'blue'
                                         ? 'border-blue-500 text-blue-600 bg-blue-50/50'
-                                        : t.accent === 'violet'
-                                            ? 'border-violet-500 text-violet-600 bg-violet-50/50'
-                                            : 'border-blue-600 text-blue-600 bg-blue-50/50';
+                                        : t.accent === 'orange'
+                                            ? 'border-orange-500 text-orange-600 bg-orange-50/50'
+                                            : t.accent === 'violet'
+                                                ? 'border-violet-500 text-violet-600 bg-violet-50/50'
+                                                : 'border-blue-600 text-blue-600 bg-blue-50/50';
                             return (
                                 <button
                                     key={t.id}
@@ -551,6 +555,7 @@ export default function FinancePage() {
                                 onNewPO={() => setView('oc-form')}
                             />
                         )}
+                        {tab === 'comisiones' && <CommissionsList period={period} selectedProjects={selectedProjects} selectedCostCenters={selectedCostCenters} selectedComerciales={selectedComerciales} onClientClick={setViewingProviderId} />}
                         {tab === 'tarifario' && <TarifarioList />}
                     </div>
                 </div>

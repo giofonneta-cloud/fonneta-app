@@ -48,6 +48,7 @@ export const salesService = {
         comercial_id?: string;
         porcentaje_comision?: number;
         notas_internas?: string;
+        cost_center?: string;
     }) {
         // Calcular IVA automáticamente
         const ivaPorcentaje = input.iva_porcentaje ?? 19;
@@ -79,6 +80,7 @@ export const salesService = {
             valor_pagado: 0,
             estado_pago: 'pendiente',
             notas_internas: input.notas_internas || null,
+            cost_center: input.cost_center || null,
         };
 
         console.log("💾 Insertando venta:", payload);
@@ -95,6 +97,25 @@ export const salesService = {
         }
 
         console.log("✅ Venta creada:", data);
+        return data as Venta;
+    },
+
+    /**
+     * Marca la comisión de una venta como pagada (con fecha) o pendiente.
+     */
+    async setCommissionPaid(id: string, paid: boolean, fecha?: string) {
+        const { data, error } = await supabase
+            .from('ventas')
+            .update({
+                comision_pagada: paid,
+                fecha_pago_comision: paid ? (fecha ?? new Date().toISOString().split('T')[0]) : null,
+                updated_at: new Date().toISOString(),
+            })
+            .eq('id', id)
+            .select()
+            .single();
+
+        if (error) throw error;
         return data as Venta;
     },
 

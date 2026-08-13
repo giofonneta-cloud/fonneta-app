@@ -1,15 +1,20 @@
 import { supabase } from '@/shared/lib/supabase';
 
-export type CxcReminderTipo = 'previo_5d' | 'vencimiento' | 'vencida_8d';
+export type SeguimientoTipo = 'correo_recordatorio' | 'correo' | 'llamada' | 'nota' | 'otro';
+export type RecordatorioTipo = 'previo_5d' | 'vencimiento' | 'vencida_8d';
 
-export interface CxcReminder {
+export interface SeguimientoEntry {
     id: string;
     venta_id: string;
-    tipo: CxcReminderTipo;
-    dias_relativos: number;
-    recipient_email: string;
+    tipo: SeguimientoTipo;
+    descripcion: string | null;
+    fecha: string;
+    es_automatico: boolean;
+    recordatorio_tipo: RecordatorioTipo | null;
+    dias_relativos: number | null;
+    recipient_email: string | null;
     test_mode: boolean;
-    sent_at: string;
+    created_by: string | null;
     created_at: string;
 }
 
@@ -25,25 +30,51 @@ export interface CxcRemindersRunSummary {
 }
 
 export const cxcReminderService = {
-    // Recordatorios enviados, agrupados por venta_id (para el seguimiento en CXC).
-    async getByVentaIds(ventaIds: string[]): Promise<Record<string, CxcReminder[]>> {
+    // Bitácora de seguimiento (auto + manual) agrupada por venta_id.
+    async getByVentaIds(ventaIds: string[]): Promise<Record<string, SeguimientoEntry[]>> {
         if (ventaIds.length === 0) return {};
         const { data, error } = await supabase
-            .from('cxc_reminders')
+            .from('cxc_seguimiento')
             .select('*')
             .in('venta_id', ventaIds)
-            .order('sent_at', { ascending: false });
+            .order('fecha', { ascending: false })
+            .order('created_at', { ascending: false });
 
         if (error) throw error;
 
-        const map: Record<string, CxcReminder[]> = {};
-        for (const r of (data ?? []) as CxcReminder[]) {
+        const map: Record<string, SeguimientoEntry[]> = {};
+        for (const r of (data ?? []) as SeguimientoEntry[]) {
             (map[r.venta_id] ??= []).push(r);
         }
         return map;
     },
 
-    // Dispara manualmente la corrida de recordatorios (mismo endpoint que el cron).
+    // Registra una gestión manual de cobro (correo, llamada, nota, otro).
+    async addManual(ventaId: string, input: { tipo: Exclude<SeguimientoTipo, 'correo_recordatorio'>; fecha: string; descripcion: string }): Promise<SeguimientoEntry> {
+        const { data: userData } = await supabase.auth.getUser();
+        const { data, error } = await supabase
+            .from('cxc_seguimiento')
+            .insert({
+                venta_id: ventaId,
+                tipo: input.tipo,
+                descripcion: input.descripcion,
+                fecha: input.fecha,
+                es_automatico: false,
+                created_by: userData.user?.id ?? null,
+            })
+            .select()
+            .single();
+
+        if (error) throw error;
+        return data as SeguimientoEntry;
+    },
+
+    async deleteEntry(id: string): Promise<void> {
+        const { error } = await supabase.from('cxc_seguimiento').delete().eq('id', id);
+        if (error) throw error;
+    },
+
+    // Dispara manualmente la corrida de recordatorios automáticos (mismo endpoint que el cron).
     async runNow(): Promise<CxcRemindersRunSummary> {
         const res = await fetch('/api/cxc/send-reminders', { method: 'POST' });
         if (!res.ok) {

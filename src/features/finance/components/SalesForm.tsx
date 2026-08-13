@@ -41,7 +41,7 @@ const salesFormSchema = z.object({
     comercial_id: z.string().optional(),
     porcentaje_comision: z.coerce.number().min(0).max(100).default(10),
     notas_internas: z.string().optional(),
-    cost_center: z.string().optional(),
+    cost_center: z.string().min(1, "Selecciona un centro de costo"),
 });
 
 type SalesFormValues = z.infer<typeof salesFormSchema>;

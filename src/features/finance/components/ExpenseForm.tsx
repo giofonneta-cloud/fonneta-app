@@ -66,6 +66,8 @@ export function ExpenseForm({ onSuccess, onCancel, initialProjectId, initialClie
     const [providers, setProviders] = useState<Provider[]>([]);
     const [projects, setProjects] = useState<Project[]>([]);
     const [providerSearch, setProviderSearch] = useState('');
+    const [providerOpen, setProviderOpen] = useState(false);
+    const providerBoxRef = React.useRef<HTMLDivElement>(null);
     const { opciones: categoriasGasto } = useParametros('categorias_gasto');
     const { opciones: centrosCosto } = useParametros('centros_costo');
     const { opciones: formasPago } = useParametros('formas_pago');
@@ -86,6 +88,18 @@ export function ExpenseForm({ onSuccess, onCancel, initialProjectId, initialClie
         providerService.getProviders().then(setProviders).catch(console.error);
         projectService.getProjects().then(setProjects).catch(console.error);
     }, []);
+
+    // Cerrar el desplegable de proveedor al hacer clic fuera
+    useEffect(() => {
+        if (!providerOpen) return;
+        const handleClickOutside = (e: MouseEvent) => {
+            if (providerBoxRef.current && !providerBoxRef.current.contains(e.target as Node)) {
+                setProviderOpen(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, [providerOpen]);
 
     // Filtrar proveedores por búsqueda
     const filteredProviders = useMemo(() => {
@@ -294,50 +308,69 @@ export function ExpenseForm({ onSuccess, onCancel, initialProjectId, initialClie
                                 <FormField
                                     control={form.control}
                                     name="proveedor_id"
-                                    render={({ field }) => (
+                                    render={({ field }) => {
+                                        const selectedProvider = providers.find(p => p.id === field.value);
+                                        return (
                                         <FormItem>
                                             <FormControl>
-                                                <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                                    <FormControl>
-                                                        <SelectTrigger className="bg-white">
-                                                            <SelectValue placeholder="Busca un proveedor..." />
-                                                        </SelectTrigger>
-                                                    </FormControl>
-                                                    <SelectContent>
-                                                        <div className="sticky top-0 p-2 bg-white border-b">
-                                                            <div className="relative">
-                                                                <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                                                                <input
-                                                                    type="text"
-                                                                    placeholder="Buscar por nombre, NIT..."
-                                                                    className="w-full pl-8 pr-3 py-2 text-sm border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                                                    value={providerSearch}
-                                                                    onChange={(e) => setProviderSearch(e.target.value)}
-                                                                    onClick={(e) => e.stopPropagation()}
-                                                                />
+                                                <div className="relative" ref={providerBoxRef}>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setProviderOpen((o) => !o)}
+                                                        className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-white px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                                    >
+                                                        <span className={selectedProvider ? 'text-slate-900' : 'text-slate-500'}>
+                                                            {selectedProvider ? selectedProvider.business_name : 'Busca un proveedor...'}
+                                                        </span>
+                                                        <Search className="w-4 h-4 text-slate-400 shrink-0" />
+                                                    </button>
+                                                    {providerOpen && (
+                                                        <div className="absolute z-50 mt-1 w-full rounded-md border bg-white shadow-lg">
+                                                            <div className="p-2 border-b">
+                                                                <div className="relative">
+                                                                    <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                                                                    <input
+                                                                        type="text"
+                                                                        autoFocus
+                                                                        placeholder="Buscar por nombre, NIT..."
+                                                                        className="w-full pl-8 pr-3 py-2 text-sm border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                                                        value={providerSearch}
+                                                                        onChange={(e) => setProviderSearch(e.target.value)}
+                                                                    />
+                                                                </div>
+                                                            </div>
+                                                            <div className="max-h-60 overflow-y-auto py-1">
+                                                                {filteredProviders.length === 0 ? (
+                                                                    <div className="py-4 px-2 text-center text-sm text-slate-500">
+                                                                        No se encontraron proveedores
+                                                                    </div>
+                                                                ) : (
+                                                                    filteredProviders.map((p) => (
+                                                                        <button
+                                                                            type="button"
+                                                                            key={p.id}
+                                                                            onClick={() => {
+                                                                                field.onChange(p.id);
+                                                                                setProviderOpen(false);
+                                                                                setProviderSearch('');
+                                                                            }}
+                                                                            className={`flex w-full flex-col items-start px-3 py-2 text-left hover:bg-slate-100 ${p.id === field.value ? 'bg-slate-50' : ''}`}
+                                                                        >
+                                                                            <span className="font-medium text-sm">{p.business_name}</span>
+                                                                            {p.document_number && <span className="text-[10px] text-slate-400">NIT: {p.document_number}</span>}
+                                                                        </button>
+                                                                    ))
+                                                                )}
                                                             </div>
                                                         </div>
-                                                        {filteredProviders.length === 0 ? (
-                                                            <div className="py-4 px-2 text-center text-sm text-slate-500">
-                                                                No se encontraron proveedores
-                                                            </div>
-                                                        ) : (
-                                                            filteredProviders.map((p) => (
-                                                                <SelectItem key={p.id} value={p.id}>
-                                                                    <div className="flex flex-col">
-                                                                        <span className="font-medium">{p.business_name}</span>
-                                                                        {p.document_number && <span className="text-[10px] text-slate-400">NIT: {p.document_number}</span>}
-                                                                    </div>
-                                                                </SelectItem>
-                                                            ))
-                                                        )}
-                                                    </SelectContent>
-                                                </Select>
+                                                    )}
+                                                </div>
                                             </FormControl>
                                             <FormDescription className="text-[10px]">Si no aparece, regístralo primero en Proveedores</FormDescription>
                                             <FormMessage />
                                         </FormItem>
-                                    )}
+                                        );
+                                    }}
                                 />
                             </section>
 

@@ -6,7 +6,7 @@ import { expensesService } from '../services/expensesService';
 import { Badge } from '@/shared/components/ui/badge';
 import { Button } from '@/shared/components/ui/button';
 import { Input } from '@/shared/components/ui/input';
-import { CheckCircle2, X, MessageSquare, MessageSquarePlus } from 'lucide-react';
+import { CheckCircle2, X, MessageSquare, MessageSquarePlus, Search } from 'lucide-react';
 import { useResizableColumns } from '@/shared/hooks/useResizableColumns';
 
 // [col]: Factura Prov. | Proveedor | C. Costo | Categoría | OC | Radicado | Valor Neto | Total+IVA | Límite Pago | Vencimiento | Seguimiento | Acción
@@ -73,6 +73,7 @@ interface Props {
 
 export function CXPList({ period, selectedProjects, selectedCostCenters, selectedEstado, onProviderClick }: Props) {
     const [expenses, setExpenses] = useState<GastoExtendido[]>([]);
+    const [search, setSearch] = useState('');
     const [loading, setLoading] = useState(true);
     const { widths, startResize } = useResizableColumns(INITIAL_WIDTHS);
 
@@ -122,6 +123,16 @@ export function CXPList({ period, selectedProjects, selectedCostCenters, selecte
     });
 
     const totalPendiente = expenses.reduce((a, e) => a + (Number(e.total_con_iva) || 0), 0);
+
+    const q = search.trim().toLowerCase();
+    const visible = q
+        ? expenses.filter(e =>
+            (e.proveedor_nombre ?? '').toLowerCase().includes(q) ||
+            (e.numero_factura_proveedor ?? '').toLowerCase().includes(q) ||
+            (e.categoria ?? '').toLowerCase().includes(q) ||
+            (e.codigo_oc ?? '').toLowerCase().includes(q))
+        : expenses;
+    const visibleTotalPendiente = visible.reduce((a, e) => a + (Number(e.total_con_iva) || 0), 0);
 
     const payingExpense = expenses.find(e => e.id === payingId);
 
@@ -178,7 +189,16 @@ export function CXPList({ period, selectedProjects, selectedCostCenters, selecte
                         Gastos y pagos a proveedores pendientes
                     </p>
                 </div>
-                <div className="flex gap-3">
+                <div className="flex gap-3 items-center">
+                    <div className="relative w-full sm:w-64">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                        <Input
+                            placeholder="Buscar proveedor, factura, categoría u OC..."
+                            className="pl-9 bg-slate-50 border-slate-200 text-sm h-9"
+                            value={search}
+                            onChange={e => setSearch(e.target.value)}
+                        />
+                    </div>
                     <div className="text-center px-4 py-2 bg-amber-50 rounded-xl border border-amber-100">
                         <p className="text-[10px] font-black text-amber-500 uppercase tracking-widest">Esta semana</p>
                         <p className="text-lg font-black text-amber-700">{thisWeek.length}</p>
@@ -228,15 +248,17 @@ export function CXPList({ period, selectedProjects, selectedCostCenters, selecte
                                     ))}
                                 </tr>
                             ))
-                        ) : expenses.length === 0 ? (
+                        ) : visible.length === 0 ? (
                             <tr>
                                 <td colSpan={12} className="py-16 text-center">
                                     <CheckCircle2 className="w-10 h-10 text-emerald-200 mx-auto mb-3" />
-                                    <p className="text-sm font-bold text-slate-400">¡Todo pagado! No hay cuentas por pagar pendientes.</p>
+                                    <p className="text-sm font-bold text-slate-400">
+                                        {q ? 'Sin resultados para tu búsqueda.' : '¡Todo pagado! No hay cuentas por pagar pendientes.'}
+                                    </p>
                                 </td>
                             </tr>
                         ) : (
-                            expenses.map(e => {
+                            visible.map(e => {
                                 const days = getDaysUntil(e.fecha_limite_pago);
                                 const isUrgent = days !== null && days <= 7;
                                 const isOverdue = days !== null && days < 0;
@@ -330,11 +352,11 @@ export function CXPList({ period, selectedProjects, selectedCostCenters, selecte
                 </table>
             </div>
 
-            {!loading && expenses.length > 0 && (
+            {!loading && visible.length > 0 && (
                 <div className="flex items-center justify-between pt-2 border-t border-slate-100 text-xs text-slate-400">
-                    <span>{expenses.length} pago{expenses.length !== 1 ? 's' : ''} pendiente{expenses.length !== 1 ? 's' : ''}</span>
+                    <span>{visible.length} pago{visible.length !== 1 ? 's' : ''} pendiente{visible.length !== 1 ? 's' : ''}{q ? ` (de ${expenses.length})` : ''}</span>
                     <span className="font-black text-slate-700">
-                        Total a pagar: <span className="text-rose-600">{fmt(totalPendiente)}</span>
+                        Total a pagar: <span className="text-rose-600">{fmt(visibleTotalPendiente)}</span>
                     </span>
                 </div>
             )}

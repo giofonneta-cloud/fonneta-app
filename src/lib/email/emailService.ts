@@ -74,6 +74,8 @@ export class EmailService {
       // Formatear remitente según RFC 5322: "Nombre Remitente" <correo@ejemplo.com>
       const formattedFrom = `"${this.fromName.replace(/"/g, '')}" <${this.fromEmail}>`;
       const replyToAddress = options.replyTo || this.fromEmail;
+      // Dirección para gestionar bajas / contacto (mejora la reputación con Gmail/Yahoo).
+      const unsubscribeAddress = process.env.NOTIFICATION_SUPPORT_EMAIL || replyToAddress;
 
       const info = await this.transporter.sendMail({
         from: formattedFrom,
@@ -90,6 +92,9 @@ export class EmailService {
         })),
         headers: {
           'X-Priority': '3 (Normal)',
+          // Señales de correo legítimo/automatizado que reducen la clasificación como spam.
+          'List-Unsubscribe': `<mailto:${unsubscribeAddress}?subject=Baja>`,
+          'Auto-Submitted': 'auto-generated',
         },
       });
       console.log('[emailService] sendMail OK', {
@@ -622,35 +627,34 @@ Cel: 318 254 4377`;
 
     let intro: string;
     let subject: string;
-    let accent: string;
     if (tipo === 'previo_5d') {
-      subject = `Recordatorio: factura ${invoiceNumber} próxima a vencer - Fonneta`;
+      subject = `Recordatorio de su factura ${invoiceNumber} - Fonneta Comunicaciones`;
       intro = `Le recordamos de manera cordial que la siguiente factura tiene fecha de pago el <strong>${fechaLegible}</strong> (en 5 días). Agradecemos tener presente esta fecha para su oportuno pago.`;
-      accent = '#1d4ed8';
     } else if (tipo === 'vencimiento') {
-      subject = `Recordatorio: factura ${invoiceNumber} vence hoy - Fonneta`;
+      subject = `Recordatorio de su factura ${invoiceNumber} - Fonneta Comunicaciones`;
       intro = `Le recordamos amablemente que la siguiente factura tiene como fecha de pago el día de hoy, <strong>${fechaLegible}</strong>. Agradecemos gestionar su pago a la mayor brevedad.`;
-      accent = '#d97706';
     } else {
-      subject = `Recordatorio de pago pendiente: factura ${invoiceNumber} - Fonneta`;
+      subject = `Recordatorio de su factura ${invoiceNumber} - Fonneta Comunicaciones`;
       intro = `Nos permitimos recordarle de manera respetuosa que la siguiente factura se encuentra pendiente de pago${diasVencida ? ` desde hace ${diasVencida} días` : ''} (fecha de pago: <strong>${fechaLegible}</strong>). Si ya realizó el pago, le agradecemos hacer caso omiso a este mensaje.`;
-      accent = '#dc2626';
     }
 
+    // Encabezado con color corporativo fijo (evita el rojo alarmante que los
+    // filtros anti-fraude asocian a correos de cobranza sospechosos).
+    const headingColor = '#1e3a5f';
     const html = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; color: #1f2937;">
-        <h2 style="color: ${accent}; margin-bottom: 4px;">Recordatorio de Pago de Factura</h2>
+        <h2 style="color: ${headingColor}; margin-bottom: 4px;">Recordatorio de Pago de Factura</h2>
         <p style="margin: 0 0 16px 0; font-size: 13px; font-weight: bold; color: #374151;">FONNETA COMUNICACIONES S.A.S.</p>
         <p>Estimado(a) <strong>${recipientName}</strong>,</p>
         <p>${intro}</p>
 
-        <div style="background-color: #f3f4f6; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid ${accent};">
+        <div style="background-color: #f3f4f6; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid ${headingColor};">
           <p style="margin: 0 0 8px 0; font-size: 14px; color: #374151;">Factura: <strong>${invoiceNumber}</strong></p>
           ${numeroOc ? `<p style="margin: 0 0 8px 0; font-size: 14px; color: #374151;">Orden de compra: <strong>${numeroOc}</strong></p>` : ''}
           ${projectName ? `<p style="margin: 0 0 8px 0; font-size: 14px; color: #374151;">Proyecto: <strong>${projectName}</strong></p>` : ''}
           ${descripcion ? `<p style="margin: 0 0 8px 0; font-size: 14px; color: #374151;">Descripción: <strong>${descripcion}</strong></p>` : ''}
           <p style="margin: 0 0 8px 0; font-size: 14px; color: #374151;">Fecha de pago: <strong>${fechaLegible}</strong></p>
-          <p style="margin: 0; font-size: 16px; font-weight: bold; color: ${accent};">Saldo pendiente: ${fmtMoney}</p>
+          <p style="margin: 0; font-size: 16px; font-weight: bold; color: ${headingColor};">Saldo pendiente: ${fmtMoney}</p>
         </div>
 
         <p style="font-size: 14px; color: #374151;">

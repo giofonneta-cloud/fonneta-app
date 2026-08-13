@@ -6,9 +6,9 @@ import { salesService } from '../services/salesService';
 import { Badge } from '@/shared/components/ui/badge';
 import { Button } from '@/shared/components/ui/button';
 import { Input } from '@/shared/components/ui/input';
-import { CheckCircle2, X, MessageSquare, MessageSquarePlus, Plus, Trash2, Bell, Send, Loader2 } from 'lucide-react';
+import { CheckCircle2, X, Plus, Trash2, Send, Loader2, Mail, Phone, ClipboardList, FileText, Search } from 'lucide-react';
 import { useResizableColumns } from '@/shared/hooks/useResizableColumns';
-import { cxcReminderService, type CxcReminder } from '../services/cxcReminderService';
+import { cxcReminderService, type SeguimientoEntry, type SeguimientoTipo } from '../services/cxcReminderService';
 
 // [col]: Cliente | Factura | Proyecto | C. Costo | Total Factura | Saldo por Cobrar | Fecha Cobro Est. | Vencimiento | Seguimiento | Acción
 const INITIAL_WIDTHS = [160, 120, 140, 110, 130, 130, 140, 110, 90, 90];
@@ -69,20 +69,43 @@ function urgencyBadge(days: number | null, estadoPago: string) {
     return <Badge className="bg-slate-100 text-slate-500 border-none text-[10px] font-medium">{days}d restantes</Badge>;
 }
 
-const REMINDER_TIPO_LABEL: Record<CxcReminder['tipo'], string> = {
-    previo_5d: 'Aviso previo (5 días antes)',
-    vencimiento: 'Aviso de vencimiento',
-    vencida_8d: 'Recordatorio de mora',
+const SEG_TIPO_LABEL: Record<SeguimientoTipo, string> = {
+    correo_recordatorio: 'Correo automático',
+    correo: 'Correo enviado',
+    llamada: 'Llamada',
+    nota: 'Nota',
+    otro: 'Otra gestión',
 };
 
-function reminderTooltip(list: CxcReminder[]): string {
-    return list
-        .map(r => {
-            const d = new Date(r.sent_at).toLocaleDateString('es-CO', { day: '2-digit', month: 'short', year: 'numeric' });
-            return `${d} — ${REMINDER_TIPO_LABEL[r.tipo]}${r.test_mode ? ' (prueba)' : ''}`;
-        })
-        .join('\n');
+const SEG_TIPO_COLOR: Record<SeguimientoTipo, string> = {
+    correo_recordatorio: 'bg-emerald-100 text-emerald-700',
+    correo: 'bg-blue-100 text-blue-700',
+    llamada: 'bg-violet-100 text-violet-700',
+    nota: 'bg-slate-100 text-slate-600',
+    otro: 'bg-amber-100 text-amber-700',
+};
+
+function segIcon(tipo: SeguimientoTipo) {
+    if (tipo === 'correo_recordatorio' || tipo === 'correo') return <Mail className="w-3.5 h-3.5" />;
+    if (tipo === 'llamada') return <Phone className="w-3.5 h-3.5" />;
+    if (tipo === 'nota') return <FileText className="w-3.5 h-3.5" />;
+    return <ClipboardList className="w-3.5 h-3.5" />;
 }
+
+function formatFecha(fecha: string): string {
+    // fecha es YYYY-MM-DD
+    const [y, m, d] = fecha.split('-');
+    if (y && m && d) return new Date(`${fecha}T12:00:00`).toLocaleDateString('es-CO', { day: '2-digit', month: 'short', year: 'numeric' });
+    return fecha;
+}
+
+// Opciones de gestión manual (excluye el tipo automático).
+const MANUAL_TIPOS: { value: Exclude<SeguimientoTipo, 'correo_recordatorio'>; label: string }[] = [
+    { value: 'llamada', label: 'Llamada' },
+    { value: 'correo', label: 'Correo enviado' },
+    { value: 'nota', label: 'Nota' },
+    { value: 'otro', label: 'Otra gestión' },
+];
 
 interface Props {
     period: string;
@@ -94,8 +117,9 @@ interface Props {
 
 export function CXCList({ period, selectedProjects, selectedCostCenters, selectedEstado, onClientClick }: Props) {
     const [sales, setSales] = useState<Venta[]>([]);
+    const [search, setSearch] = useState('');
     const [loading, setLoading] = useState(true);
-    const [reminders, setReminders] = useState<Record<string, CxcReminder[]>>({});
+    const [seguimiento, setSeguimiento] = useState<Record<string, SeguimientoEntry[]>>({});
     const [sendingReminders, setSendingReminders] = useState(false);
     const { widths, startResize } = useResizableColumns(INITIAL_WIDTHS);
 
@@ -106,10 +130,12 @@ export function CXCList({ period, selectedProjects, selectedCostCenters, selecte
     const [retenciones, setRetenciones] = useState<Retencion[]>([]);
     const [saving, setSaving] = useState(false);
 
-    // Estado del modal de notas de seguimiento
-    const [notesModalId, setNotesModalId] = useState<string | null>(null);
-    const [notesModalValue, setNotesModalValue] = useState('');
-    const [savingNotes, setSavingNotes] = useState(false);
+    // Estado del modal de seguimiento (bitácora unificada)
+    const [segModalId, setSegModalId] = useState<string | null>(null);
+    const [segTipo, setSegTipo] = useState<Exclude<SeguimientoTipo, 'correo_recordatorio'>>('llamada');
+    const [segFecha, setSegFecha] = useState(new Date().toISOString().split('T')[0]);
+    const [segDescripcion, setSegDescripcion] = useState('');
+    const [savingSeg, setSavingSeg] = useState(false);
 
     const loadData = () => {
         setLoading(true);
@@ -131,8 +157,8 @@ export function CXCList({ period, selectedProjects, selectedCostCenters, selecte
                 setSales(pending);
                 cxcReminderService
                     .getByVentaIds(pending.map(s => s.id))
-                    .then(setReminders)
-                    .catch(err => console.error('Error cargando recordatorios', err));
+                    .then(setSeguimiento)
+                    .catch(err => console.error('Error cargando seguimiento', err));
             })
             .catch(err => console.error('Error CXC', err))
             .finally(() => setLoading(false));
@@ -166,6 +192,15 @@ export function CXCList({ period, selectedProjects, selectedCostCenters, selecte
 
     const totalPendiente = sales.reduce((a, s) => a + (Number(s.total_con_iva) - Number(s.valor_pagado || 0)), 0);
     const totalVencido = overdue.reduce((a, s) => a + (Number(s.total_con_iva) - Number(s.valor_pagado || 0)), 0);
+
+    const q = search.trim().toLowerCase();
+    const visible = q
+        ? sales.filter(s =>
+            (s.cliente?.business_name ?? '').toLowerCase().includes(q) ||
+            (s.numero_factura ?? '').toLowerCase().includes(q) ||
+            (s.proyecto?.name ?? '').toLowerCase().includes(q))
+        : sales;
+    const visibleTotalPendiente = visible.reduce((a, s) => a + (Number(s.total_con_iva) - Number(s.valor_pagado || 0)), 0);
 
     const confirmingSale = sales.find(s => s.id === confirmingId);
     const saldoPendiente = confirmingSale
@@ -221,22 +256,45 @@ export function CXCList({ period, selectedProjects, selectedCostCenters, selecte
         }
     };
 
-    const openNotesModal = (sale: Venta) => {
-        setNotesModalId(sale.id);
-        setNotesModalValue(sale.notas_internas || '');
+    const reloadSeguimiento = () => {
+        cxcReminderService
+            .getByVentaIds(sales.map(s => s.id))
+            .then(setSeguimiento)
+            .catch(err => console.error('Error cargando seguimiento', err));
     };
 
-    const handleSaveNotes = async () => {
-        if (!notesModalId) return;
-        setSavingNotes(true);
+    const openSegModal = (saleId: string) => {
+        setSegModalId(saleId);
+        setSegTipo('llamada');
+        setSegFecha(new Date().toISOString().split('T')[0]);
+        setSegDescripcion('');
+    };
+
+    const handleSaveSeg = async () => {
+        if (!segModalId) return;
+        if (!segDescripcion.trim()) { alert('Escribe una descripción de la gestión'); return; }
+        setSavingSeg(true);
         try {
-            await salesService.updateSale(notesModalId, { notas_internas: notesModalValue || undefined });
-            setNotesModalId(null);
-            loadData();
+            await cxcReminderService.addManual(segModalId, {
+                tipo: segTipo,
+                fecha: segFecha,
+                descripcion: segDescripcion.trim(),
+            });
+            setSegDescripcion('');
+            reloadSeguimiento();
         } catch (err: unknown) {
-            alert('Error al guardar notas: ' + (err instanceof Error ? err.message : String(err)));
+            alert('Error al registrar la gestión: ' + (err instanceof Error ? err.message : String(err)));
         } finally {
-            setSavingNotes(false);
+            setSavingSeg(false);
+        }
+    };
+
+    const handleDeleteSeg = async (id: string) => {
+        try {
+            await cxcReminderService.deleteEntry(id);
+            reloadSeguimiento();
+        } catch (err: unknown) {
+            alert('Error al eliminar: ' + (err instanceof Error ? err.message : String(err)));
         }
     };
 
@@ -251,6 +309,15 @@ export function CXCList({ period, selectedProjects, selectedCostCenters, selecte
                     </p>
                 </div>
                 <div className="flex gap-3 items-center">
+                    <div className="relative w-full sm:w-64">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                        <Input
+                            placeholder="Buscar cliente, proyecto o factura..."
+                            className="pl-9 bg-slate-50 border-slate-200 text-sm h-9"
+                            value={search}
+                            onChange={e => setSearch(e.target.value)}
+                        />
+                    </div>
                     <Button
                         variant="outline"
                         size="sm"
@@ -315,15 +382,17 @@ export function CXCList({ period, selectedProjects, selectedCostCenters, selecte
                                     ))}
                                 </tr>
                             ))
-                        ) : sales.length === 0 ? (
+                        ) : visible.length === 0 ? (
                             <tr>
                                 <td colSpan={10} className="py-16 text-center">
                                     <CheckCircle2 className="w-10 h-10 text-emerald-200 mx-auto mb-3" />
-                                    <p className="text-sm font-bold text-slate-400">¡Todo cobrado! No hay cuentas por cobrar pendientes.</p>
+                                    <p className="text-sm font-bold text-slate-400">
+                                        {q ? 'Sin resultados para tu búsqueda.' : '¡Todo cobrado! No hay cuentas por cobrar pendientes.'}
+                                    </p>
                                 </td>
                             </tr>
                         ) : (
-                            sales.map(s => {
+                            visible.map(s => {
                                 const days = getDaysUntil(s.fecha_cobro_estimada);
                                 const saldo = Number(s.total_con_iva) - Number(s.valor_pagado || 0);
                                 const isUrgent = days !== null && days <= 7;
@@ -378,28 +447,21 @@ export function CXCList({ period, selectedProjects, selectedCostCenters, selecte
                                             {urgencyBadge(days, s.estado_pago)}
                                         </td>
                                         <td className="px-4 py-3.5 text-center">
-                                            <div className="inline-flex items-center gap-2">
-                                                <button
-                                                    onClick={() => openNotesModal(s)}
-                                                    className="inline-flex justify-center items-center transition-colors"
-                                                    title={s.notas_internas ? `Notas: ${s.notas_internas.substring(0, 50)}...` : 'Agregar notas'}
-                                                >
-                                                    {s.notas_internas ? (
-                                                        <MessageSquare className="w-4 h-4 text-blue-600 hover:text-blue-700" />
-                                                    ) : (
-                                                        <MessageSquarePlus className="w-4 h-4 text-slate-400 hover:text-slate-600" />
-                                                    )}
-                                                </button>
-                                                {reminders[s.id]?.length > 0 && (
-                                                    <span
-                                                        className="inline-flex items-center gap-0.5 text-[10px] font-bold text-amber-600"
-                                                        title={`Recordatorios enviados:\n${reminderTooltip(reminders[s.id])}`}
+                                            {(() => {
+                                                const list = seguimiento[s.id] ?? [];
+                                                const correos = list.filter(e => e.tipo === 'correo_recordatorio' || e.tipo === 'correo').length;
+                                                return (
+                                                    <button
+                                                        onClick={() => openSegModal(s.id)}
+                                                        className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-bold transition-colors ${list.length > 0 ? 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100' : 'bg-slate-50 text-slate-400 hover:bg-slate-100'}`}
+                                                        title="Ver y registrar seguimiento de cobro"
                                                     >
-                                                        <Bell className="w-3.5 h-3.5" />
-                                                        {reminders[s.id].length}
-                                                    </span>
-                                                )}
-                                            </div>
+                                                        <ClipboardList className="w-3 h-3" />
+                                                        {list.length > 0 ? `${list.length} gestion${list.length !== 1 ? 'es' : ''}` : 'Registrar'}
+                                                        {correos > 0 && <Mail className="w-3 h-3 text-blue-500" />}
+                                                    </button>
+                                                );
+                                            })()}
                                         </td>
                                         <td className="px-4 py-3.5 text-center">
                                             <Button
@@ -420,11 +482,11 @@ export function CXCList({ period, selectedProjects, selectedCostCenters, selecte
                 </table>
             </div>
 
-            {!loading && sales.length > 0 && (
+            {!loading && visible.length > 0 && (
                 <div className="flex items-center justify-between pt-2 border-t border-slate-100 text-xs text-slate-400">
-                    <span>{sales.length} factura{sales.length !== 1 ? 's' : ''} por cobrar</span>
+                    <span>{visible.length} factura{visible.length !== 1 ? 's' : ''} por cobrar{q ? ` (de ${sales.length})` : ''}</span>
                     <span className="font-black text-slate-700">
-                        Total pendiente: <span className="text-emerald-600">{fmt(totalPendiente)}</span>
+                        Total pendiente: <span className="text-emerald-600">{fmt(visibleTotalPendiente)}</span>
                     </span>
                 </div>
             )}
@@ -546,45 +608,110 @@ export function CXCList({ period, selectedProjects, selectedCostCenters, selecte
                     </div>
             )}
 
-            {/* Modal Notas de Seguimiento */}
-            {notesModalId && (
-                <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
-                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 space-y-4">
-                        <div className="flex items-center justify-between">
-                            <h4 className="font-black text-slate-800 text-base flex items-center gap-2">
-                                <MessageSquare className="w-5 h-5 text-blue-600" />
-                                Notas de Seguimiento
-                            </h4>
-                            <button onClick={() => setNotesModalId(null)} className="text-slate-400 hover:text-slate-600">
-                                <X className="w-5 h-5" />
-                            </button>
-                        </div>
-                        <div>
-                            <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Notas internas de gestión</label>
-                            <textarea
-                                value={notesModalValue}
-                                onChange={e => setNotesModalValue(e.target.value)}
-                                placeholder="Registra tus notas de seguimiento de cobro..."
-                                className="w-full mt-2 p-3 border border-slate-200 rounded-lg text-sm font-normal resize-none focus:outline-none focus:ring-2 focus:ring-blue-400"
-                                rows={4}
-                                autoFocus
-                            />
-                        </div>
-                        <div className="flex gap-2 pt-2">
-                            <Button variant="outline" onClick={() => setNotesModalId(null)} className="flex-1">
-                                Cancelar
-                            </Button>
-                            <Button
-                                onClick={handleSaveNotes}
-                                disabled={savingNotes}
-                                className="flex-1 bg-blue-600 hover:bg-blue-700 text-white"
-                            >
-                                {savingNotes ? 'Guardando...' : 'Guardar Notas'}
+            {/* Modal Seguimiento de Cobro (bitácora unificada: correos automáticos + gestión manual) */}
+            {segModalId && (() => {
+                const venta = sales.find(s => s.id === segModalId);
+                const historial = seguimiento[segModalId] ?? [];
+                return (
+                    <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+                        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg p-6 space-y-4 max-h-[88vh] overflow-y-auto">
+                            <div className="flex items-center justify-between">
+                                <h4 className="font-black text-slate-800 text-base flex items-center gap-2">
+                                    <ClipboardList className="w-5 h-5 text-blue-600" />
+                                    Seguimiento de Cobro
+                                </h4>
+                                <button onClick={() => setSegModalId(null)} className="text-slate-400 hover:text-slate-600">
+                                    <X className="w-5 h-5" />
+                                </button>
+                            </div>
+
+                            <div className="bg-slate-50 rounded-xl p-3 text-xs space-y-1">
+                                <p className="text-slate-500">Cliente: <span className="font-bold text-slate-800">{venta?.cliente?.business_name ?? '—'}</span></p>
+                                <p className="text-slate-500">Factura: <span className="font-bold text-slate-800">{venta?.numero_factura || '—'}</span></p>
+                            </div>
+
+                            {/* Registrar gestión manual */}
+                            <div className="border border-slate-200 rounded-xl p-3 space-y-3">
+                                <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Registrar gestión</p>
+                                <div className="grid grid-cols-2 gap-2">
+                                    <div>
+                                        <label className="text-[10px] font-bold text-slate-400">Tipo</label>
+                                        <select
+                                            value={segTipo}
+                                            onChange={e => setSegTipo(e.target.value as Exclude<SeguimientoTipo, 'correo_recordatorio'>)}
+                                            className="w-full mt-1 text-sm border border-slate-200 rounded-lg px-2 py-1.5 bg-white"
+                                        >
+                                            {MANUAL_TIPOS.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label className="text-[10px] font-bold text-slate-400">Fecha</label>
+                                        <Input type="date" value={segFecha} onChange={e => setSegFecha(e.target.value)} className="mt-1 h-9 text-sm" />
+                                    </div>
+                                </div>
+                                <div>
+                                    <label className="text-[10px] font-bold text-slate-400">Descripción</label>
+                                    <textarea
+                                        value={segDescripcion}
+                                        onChange={e => setSegDescripcion(e.target.value)}
+                                        placeholder="Ej: Llamé al cliente, confirma pago para el viernes..."
+                                        className="w-full mt-1 p-2 border border-slate-200 rounded-lg text-sm resize-none focus:outline-none focus:ring-2 focus:ring-blue-400"
+                                        rows={2}
+                                    />
+                                </div>
+                                <Button
+                                    onClick={handleSaveSeg}
+                                    disabled={savingSeg}
+                                    className="w-full bg-blue-600 hover:bg-blue-700 text-white h-9 text-xs font-bold gap-1"
+                                >
+                                    <Plus className="w-3.5 h-3.5" />
+                                    {savingSeg ? 'Registrando...' : 'Registrar gestión'}
+                                </Button>
+                            </div>
+
+                            {/* Bitácora */}
+                            <div>
+                                <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2">Bitácora ({historial.length})</p>
+                                {historial.length === 0 ? (
+                                    <p className="text-sm text-slate-400 text-center py-6">Aún no hay gestiones registradas para esta factura.</p>
+                                ) : (
+                                    <div className="space-y-2">
+                                        {historial.map(e => (
+                                            <div key={e.id} className="border border-slate-100 rounded-lg p-3 space-y-1">
+                                                <div className="flex items-center justify-between gap-2">
+                                                    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold ${SEG_TIPO_COLOR[e.tipo]}`}>
+                                                        {segIcon(e.tipo)}
+                                                        {SEG_TIPO_LABEL[e.tipo]}
+                                                    </span>
+                                                    <div className="flex items-center gap-2">
+                                                        {e.es_automatico ? (
+                                                            <span className="text-[10px] text-slate-400">Automático</span>
+                                                        ) : (
+                                                            <button onClick={() => handleDeleteSeg(e.id)} className="text-slate-300 hover:text-red-500" title="Eliminar">
+                                                                <Trash2 className="w-3.5 h-3.5" />
+                                                            </button>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                                <p className="text-xs text-slate-700 whitespace-pre-line">{e.descripcion || '—'}</p>
+                                                <div className="flex items-center gap-2 text-[11px] text-slate-400">
+                                                    <span>{formatFecha(e.fecha)}</span>
+                                                    {e.test_mode && <span className="px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-500 font-bold">Prueba</span>}
+                                                    {e.recipient_email && <span className="truncate">· {e.recipient_email}</span>}
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+
+                            <Button variant="outline" onClick={() => setSegModalId(null)} className="w-full">
+                                Cerrar
                             </Button>
                         </div>
                     </div>
-                </div>
-            )}
+                );
+            })()}
         </div>
     );
 }

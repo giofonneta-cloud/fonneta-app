@@ -39,6 +39,8 @@ export interface Venta {
     calificacion_cumplimiento?: ComplianceRating;
     porcentaje_comision?: number;
     valor_comision?: number;
+    comision_pagada?: boolean;
+    fecha_pago_comision?: string;
     responsable_comision_id?: string;
     comercial_id?: string;
     comercial?: Comercial;

@@ -20,12 +20,22 @@ function diasHasta(fechaCobro: string, hoy: string): number {
   return Math.round((a - b) / (1000 * 60 * 60 * 24));
 }
 
-// Decide si hoy corresponde enviar recordatorio y de qué tipo.
+// Cadencia de recordatorios (cada cuántos días re-enviar el aviso de mora).
+const CADENCIA_MORA_DIAS = 8;
+
+// Decide el candidato a recordatorio de hoy según los días hasta el cobro.
+// vencida_8d es cadencia continua: aplica a cualquier factura vencida; la
+// decisión de re-enviar (cada 8 días) se resuelve luego con el último enviado.
 function evaluarRecordatorio(dias: number): { tipo: ReminderTipo; diasRelativos: number } | null {
   if (dias === 5) return { tipo: 'previo_5d', diasRelativos: -5 };
   if (dias === 0) return { tipo: 'vencimiento', diasRelativos: 0 };
-  if (dias < 0 && Math.abs(dias) % 8 === 0) return { tipo: 'vencida_8d', diasRelativos: Math.abs(dias) };
+  if (dias < 0) return { tipo: 'vencida_8d', diasRelativos: Math.abs(dias) };
   return null;
+}
+
+// Días transcurridos entre dos fechas YYYY-MM-DD (a - b).
+function diasEntre(a: string, b: string): number {
+  return Math.round((new Date(a + 'T12:00:00Z').getTime() - new Date(b + 'T12:00:00Z').getTime()) / (1000 * 60 * 60 * 24));
 }
 
 async function isAuthorized(request: NextRequest): Promise<boolean> {
@@ -94,15 +104,36 @@ async function handle(request: NextRequest): Promise<NextResponse> {
       const evalRes = evaluarRecordatorio(dias);
       if (!evalRes) { resumen.skipped++; continue; }
 
-      // Dedup: ¿ya se envió este recordatorio (mismo día relativo) para esta venta?
-      const { data: existing } = await admin
-        .from('cxc_reminders')
-        .select('id')
-        .eq('venta_id', row.id as string)
-        .eq('dias_relativos', evalRes.diasRelativos)
-        .eq('test_mode', testMode)
-        .maybeSingle();
-      if (existing) { resumen.yaEnviado++; continue; }
+      // ¿Debe enviarse hoy?
+      if (evalRes.tipo === 'vencida_8d') {
+        // Cadencia continua: enviar si nunca se ha enviado aviso de mora,
+        // o si han pasado >= 8 días desde el último.
+        const { data: last } = await admin
+          .from('cxc_seguimiento')
+          .select('fecha')
+          .eq('venta_id', row.id as string)
+          .eq('es_automatico', true)
+          .eq('recordatorio_tipo', 'vencida_8d')
+          .eq('test_mode', testMode)
+          .order('fecha', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        if (last && diasEntre(hoy, last.fecha as string) < CADENCIA_MORA_DIAS) {
+          resumen.yaEnviado++;
+          continue;
+        }
+      } else {
+        // previo_5d / vencimiento: se envían una sola vez por factura.
+        const { data: existing } = await admin
+          .from('cxc_seguimiento')
+          .select('id')
+          .eq('venta_id', row.id as string)
+          .eq('es_automatico', true)
+          .eq('recordatorio_tipo', evalRes.tipo)
+          .eq('test_mode', testMode)
+          .maybeSingle();
+        if (existing) { resumen.yaEnviado++; continue; }
+      }
 
       const cliente = row.cliente as { business_name?: string; billing_email?: string | null; contact_email?: string | null } | null;
       const proyecto = row.proyecto as { name?: string } | null;
@@ -127,9 +158,19 @@ async function handle(request: NextRequest): Promise<NextResponse> {
           diasVencida: evalRes.tipo === 'vencida_8d' ? evalRes.diasRelativos : undefined,
         });
 
-        await admin.from('cxc_reminders').insert({
+        const tipoLabel = evalRes.tipo === 'previo_5d'
+          ? 'Aviso previo (5 días antes)'
+          : evalRes.tipo === 'vencimiento'
+            ? 'Aviso de vencimiento'
+            : 'Recordatorio de mora';
+
+        await admin.from('cxc_seguimiento').insert({
           venta_id: row.id as string,
-          tipo: evalRes.tipo,
+          tipo: 'correo_recordatorio',
+          descripcion: `${tipoLabel} enviado por correo a ${destinatario}`,
+          fecha: hoy,
+          es_automatico: true,
+          recordatorio_tipo: evalRes.tipo,
           dias_relativos: evalRes.diasRelativos,
           recipient_email: destinatario,
           test_mode: testMode,
