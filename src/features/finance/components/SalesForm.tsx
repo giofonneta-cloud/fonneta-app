@@ -29,10 +29,12 @@ const salesFormSchema = z.object({
     marca_id: z.string().optional(),
     producto_id: z.string().optional(),
     valor_venta_neto: z.coerce.number().positive("Debe ser mayor a 0"),
+    sin_iva: z.boolean().default(false),
     iva_porcentaje: z.coerce.number().default(19),
     estado_oc: z.enum(['oc_recibida', 'facturar_sin_oc']),
     numero_oc: z.string().optional(),
     numero_factura: z.string().optional(),
+    descripcion_factura: z.string().optional(),
     fecha_factura: z.string().optional(),
     plazo_pago_dias: z.coerce.number().default(30),
     tiene_comision: z.boolean().default(false),
@@ -85,10 +87,12 @@ export function SalesForm({ onSuccess, onCancel, initialProjectId, initialClient
             marca_id: '',
             producto_id: '',
             valor_venta_neto: initialData.valor_venta_neto || 0,
-            iva_porcentaje: initialData.iva_porcentaje || 19,
+            sin_iva: (initialData.iva_porcentaje ?? 19) === 0,
+            iva_porcentaje: initialData.iva_porcentaje ?? 19,
             estado_oc: initialData.estado_oc || 'oc_recibida',
             numero_oc: initialData.numero_oc || '',
             numero_factura: initialData.numero_factura || '',
+            descripcion_factura: initialData.descripcion_factura || '',
             fecha_factura: initialData.fecha_factura || '',
             plazo_pago_dias: initialData.plazo_pago_dias || 30,
             tiene_comision: hasComision,
@@ -103,10 +107,12 @@ export function SalesForm({ onSuccess, onCancel, initialProjectId, initialClient
             marca_id: '',
             producto_id: '',
             valor_venta_neto: initialValorNeto || 0,
+            sin_iva: false,
             iva_porcentaje: 19,
             estado_oc: 'oc_recibida',
             numero_oc: '',
             numero_factura: '',
+            descripcion_factura: '',
             fecha_factura: '',
             plazo_pago_dias: 30,
             tiene_comision: false,
@@ -186,6 +192,7 @@ export function SalesForm({ onSuccess, onCancel, initialProjectId, initialClient
                 estado_oc: values.estado_oc,
                 numero_oc: values.numero_oc || undefined,
                 numero_factura: values.numero_factura || undefined,
+                descripcion_factura: values.descripcion_factura || undefined,
                 fecha_factura: values.fecha_factura || undefined,
                 factura_url: facturaUrl || undefined,
                 plazo_pago_dias: values.plazo_pago_dias,
@@ -390,7 +397,22 @@ export function SalesForm({ onSuccess, onCancel, initialProjectId, initialClient
                                     )}
                                 />
                                 <div className="space-y-2">
-                                    <label className="text-xs font-bold text-slate-500">IVA (19%)</label>
+                                    <div className="flex items-center justify-between">
+                                        <label className="text-xs font-bold text-slate-500">IVA ({ivaPorcentaje}%)</label>
+                                        <label className="flex items-center gap-1 text-[10px] font-semibold text-slate-400 cursor-pointer select-none hover:text-slate-600">
+                                            <input
+                                                type="checkbox"
+                                                checked={form.watch('sin_iva')}
+                                                onChange={(e) => {
+                                                    const checked = e.target.checked;
+                                                    form.setValue('sin_iva', checked);
+                                                    form.setValue('iva_porcentaje', checked ? 0 : 19);
+                                                }}
+                                                className="w-3.5 h-3.5 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
+                                            />
+                                            Sin IVA
+                                        </label>
+                                    </div>
                                     <div className="h-10 px-3 py-2 bg-slate-100/50 rounded-md border border-slate-200 text-slate-600 font-medium">
                                         {ivaValor.toLocaleString('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 })}
                                     </div>
@@ -499,6 +521,21 @@ export function SalesForm({ onSuccess, onCancel, initialProjectId, initialClient
                                     </div>
                                 </div>
                             </div>
+
+                            {/* Descripción de la factura */}
+                            <FormField
+                                control={form.control}
+                                name="descripcion_factura"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel className="text-xs font-bold text-slate-500">Descripción de la Factura</FormLabel>
+                                        <FormControl>
+                                            <Textarea {...field} placeholder="Concepto o detalle de lo facturado (ej: Servicios de producción audiovisual, campaña octubre...)" className="min-h-[80px] bg-white border-slate-200" />
+                                        </FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
 
                             {/* Soporte de la factura */}
                             <div className="p-4 bg-purple-50/20 rounded-xl border border-purple-100/50">

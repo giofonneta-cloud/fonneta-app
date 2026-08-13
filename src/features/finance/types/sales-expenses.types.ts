@@ -28,6 +28,7 @@ export interface Venta {
     estado_oc: OCStatus;
     numero_oc?: string;
     numero_factura?: string;
+    descripcion_factura?: string;
     fecha_factura?: string;
     factura_url?: string;
     plazo_pago_dias: number;

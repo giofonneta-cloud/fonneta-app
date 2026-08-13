@@ -40,6 +40,7 @@ export const salesService = {
         estado_oc?: 'oc_recibida' | 'facturar_sin_oc';
         numero_oc?: string;
         numero_factura?: string;
+        descripcion_factura?: string;
         fecha_factura?: string;
         factura_url?: string;
         plazo_pago_dias?: number;
@@ -67,6 +68,7 @@ export const salesService = {
             estado_oc: input.estado_oc || 'oc_recibida',
             numero_oc: input.numero_oc || null,
             numero_factura: input.numero_factura || null,
+            descripcion_factura: input.descripcion_factura || null,
             fecha_factura: input.fecha_factura || null,
             factura_url: input.factura_url || null,
             plazo_pago_dias: input.plazo_pago_dias || 30,
