@@ -7,6 +7,33 @@ import { getEmailService } from '@/lib/email/emailService';
 
 type ReminderTipo = 'previo_5d' | 'vencimiento' | 'vencida_8d';
 
+interface VentaRow {
+  id: string;
+  cliente_id: string | null;
+  numero_factura: string | null;
+  fecha_cobro_estimada: string | null;
+  total_con_iva: number;
+  valor_pagado: number | null;
+  estado_pago: string;
+  nota_credito: boolean | null;
+  line_of_business: string | null;
+  numero_oc: string | null;
+  cliente: { business_name?: string; billing_email?: string | null; contact_email?: string | null } | null;
+  proyecto: { name?: string } | null;
+}
+
+interface FacturaGrupo {
+  key: string;
+  ventaIds: string[];
+  numeroFactura: string;
+  fechaCobro: string;
+  cliente: VentaRow['cliente'];
+  saldo: number;
+  proyectoNombre?: string;
+  descripcion?: string;
+  numeroOc?: string;
+}
+
 // Fecha "hoy" en zona horaria de Colombia (UTC-5), como YYYY-MM-DD.
 function hoyBogota(): string {
   const bogota = new Date(Date.now() - 5 * 60 * 60 * 1000);
@@ -20,22 +47,35 @@ function diasHasta(fechaCobro: string, hoy: string): number {
   return Math.round((a - b) / (1000 * 60 * 60 * 24));
 }
 
-// Cadencia de recordatorios (cada cuántos días re-enviar el aviso de mora).
-const CADENCIA_MORA_DIAS = 8;
-
-// Decide el candidato a recordatorio de hoy según los días hasta el cobro.
-// vencida_8d es cadencia continua: aplica a cualquier factura vencida; la
-// decisión de re-enviar (cada 8 días) se resuelve luego con el último enviado.
-function evaluarRecordatorio(dias: number): { tipo: ReminderTipo; diasRelativos: number } | null {
-  if (dias === 5) return { tipo: 'previo_5d', diasRelativos: -5 };
-  if (dias === 0) return { tipo: 'vencimiento', diasRelativos: 0 };
-  if (dias < 0) return { tipo: 'vencida_8d', diasRelativos: Math.abs(dias) };
-  return null;
-}
-
 // Días transcurridos entre dos fechas YYYY-MM-DD (a - b).
 function diasEntre(a: string, b: string): number {
   return Math.round((new Date(a + 'T12:00:00Z').getTime() - new Date(b + 'T12:00:00Z').getTime()) / (1000 * 60 * 60 * 24));
+}
+
+// Une valores distintos y no vacíos con ", " (para descripción/OC cuando la
+// factura está dividida en varios ítems con datos distintos).
+function unirDistintos(valores: (string | null | undefined)[]): string | undefined {
+  const set = Array.from(new Set(valores.filter((v): v is string => !!v && v.trim() !== '')));
+  return set.length > 0 ? set.join(', ') : undefined;
+}
+
+// El job corre SOLO los lunes (ver vercel.json). Cada corrida revisa todas
+// las facturas pendientes y clasifica en 3 ventanas semanales, sin huecos
+// entre ellas (todo valor entero de `dias` cae en exactamente una):
+//   dias en (0, 7]    -> previo_5d   ("próxima a vencer esta semana")
+//   dias en (-7, 0]   -> vencimiento ("vence hoy / venció esta semana")
+//   dias <= -7        -> vencida_8d  ("en mora", se reenvía cada semana)
+// Nota: los nombres internos ('previo_5d', 'vencida_8d') se mantienen tal
+// cual están en la base de datos (CHECK constraint) aunque ya no reflejen
+// literalmente "5 días" / "8 días" — ahora son códigos, no descripciones.
+const CADENCIA_MORA_DIAS = 7; // re-enviar aviso de mora cada semana (el job solo corre los lunes)
+const VENTANA_PREVIA_DIAS = 7; // avisar con hasta una semana de anticipación
+
+function evaluarRecordatorio(dias: number): { tipo: ReminderTipo; diasRelativos: number } | null {
+  if (dias > 0 && dias <= VENTANA_PREVIA_DIAS) return { tipo: 'previo_5d', diasRelativos: dias };
+  if (dias <= 0 && dias > -CADENCIA_MORA_DIAS) return { tipo: 'vencimiento', diasRelativos: dias };
+  if (dias <= -CADENCIA_MORA_DIAS) return { tipo: 'vencida_8d', diasRelativos: dias };
+  return null;
 }
 
 async function isAuthorized(request: NextRequest): Promise<boolean> {
@@ -60,6 +100,33 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   return handle(request);
 }
 
+// Agrupa filas de ventas que en realidad son UNA sola factura para el
+// cliente, dividida internamente por centro de costo o producto. Se agrupan
+// por (cliente, número de factura); las filas sin número de factura quedan
+// como su propio grupo (no hay con qué agruparlas).
+function agruparPorFactura(rows: VentaRow[]): FacturaGrupo[] {
+  const grupos = new Map<string, VentaRow[]>();
+  for (const row of rows) {
+    const numero = row.numero_factura?.trim();
+    const key = numero ? `${row.cliente_id ?? 'sin-cliente'}::${numero}` : `venta::${row.id}`;
+    const arr = grupos.get(key);
+    if (arr) arr.push(row);
+    else grupos.set(key, [row]);
+  }
+
+  return Array.from(grupos.entries()).map(([key, rows]) => ({
+    key,
+    ventaIds: rows.map(r => r.id),
+    numeroFactura: rows[0].numero_factura || 'N/A',
+    fechaCobro: rows[0].fecha_cobro_estimada as string,
+    cliente: rows[0].cliente,
+    saldo: rows.reduce((acc, r) => acc + (Number(r.total_con_iva) || 0) - (Number(r.valor_pagado) || 0), 0),
+    proyectoNombre: unirDistintos(rows.map(r => r.proyecto?.name)),
+    descripcion: unirDistintos(rows.map(r => r.line_of_business)),
+    numeroOc: unirDistintos(rows.map(r => r.numero_oc)),
+  }));
+}
+
 async function handle(request: NextRequest): Promise<NextResponse> {
   try {
     if (!(await isAuthorized(request))) {
@@ -77,7 +144,7 @@ async function handle(request: NextRequest): Promise<NextResponse> {
     const { data: ventas, error } = await admin
       .from('ventas')
       .select(`
-        id, numero_factura, fecha_cobro_estimada, total_con_iva, valor_pagado, estado_pago, nota_credito,
+        id, cliente_id, numero_factura, fecha_cobro_estimada, total_con_iva, valor_pagado, estado_pago, nota_credito,
         line_of_business, numero_oc,
         cliente:providers(business_name, billing_email, contact_email),
         proyecto:projects(name)
@@ -90,28 +157,31 @@ async function handle(request: NextRequest): Promise<NextResponse> {
       return NextResponse.json({ error: 'Error consultando cuentas por cobrar' }, { status: 500 });
     }
 
-    const resumen = { checked: 0, sent: 0, skipped: 0, sinEmail: 0, yaEnviado: 0, errores: 0, testMode };
+    const rows = ((ventas ?? []) as unknown as VentaRow[]).filter(r => r.nota_credito !== true && !!r.fecha_cobro_estimada);
+    const grupos = agruparPorFactura(rows);
 
-    for (const v of ventas ?? []) {
-      const row = v as Record<string, unknown>;
-      if (row.nota_credito === true) continue;
-      const fechaCobro = row.fecha_cobro_estimada as string | null;
-      if (!fechaCobro) continue;
+    const resumen = {
+      checked: 0, // facturas (agrupadas) revisadas
+      itemsConsolidados: 0, // ítems adicionales fusionados en un solo correo (facturas divididas por centro de costo/producto)
+      sent: 0, skipped: 0, sinEmail: 0, yaEnviado: 0, errores: 0, testMode,
+    };
 
+    for (const grupo of grupos) {
       resumen.checked++;
+      if (grupo.ventaIds.length > 1) resumen.itemsConsolidados += grupo.ventaIds.length - 1;
 
-      const dias = diasHasta(fechaCobro, hoy);
+      const dias = diasHasta(grupo.fechaCobro, hoy);
       const evalRes = evaluarRecordatorio(dias);
       if (!evalRes) { resumen.skipped++; continue; }
 
-      // ¿Debe enviarse hoy?
+      // ¿Debe enviarse hoy? (se revisa contra CUALQUIER ítem de la factura)
       if (evalRes.tipo === 'vencida_8d') {
-        // Cadencia continua: enviar si nunca se ha enviado aviso de mora,
-        // o si han pasado >= 8 días desde el último.
+        // Recordatorio semanal: enviar si nunca se ha mandado aviso de mora,
+        // o si ya pasó una semana (>= 7 días) desde el último.
         const { data: last } = await admin
           .from('cxc_seguimiento')
           .select('fecha')
-          .eq('venta_id', row.id as string)
+          .in('venta_id', grupo.ventaIds)
           .eq('es_automatico', true)
           .eq('recordatorio_tipo', 'vencida_8d')
           .eq('test_mode', testMode)
@@ -127,7 +197,7 @@ async function handle(request: NextRequest): Promise<NextResponse> {
         const { data: existing } = await admin
           .from('cxc_seguimiento')
           .select('id')
-          .eq('venta_id', row.id as string)
+          .in('venta_id', grupo.ventaIds)
           .eq('es_automatico', true)
           .eq('recordatorio_tipo', evalRes.tipo)
           .eq('test_mode', testMode)
@@ -135,50 +205,55 @@ async function handle(request: NextRequest): Promise<NextResponse> {
         if (existing) { resumen.yaEnviado++; continue; }
       }
 
-      const cliente = row.cliente as { business_name?: string; billing_email?: string | null; contact_email?: string | null } | null;
-      const proyecto = row.proyecto as { name?: string } | null;
-      const realEmail = cliente?.billing_email || cliente?.contact_email || null;
+      const realEmail = grupo.cliente?.billing_email || grupo.cliente?.contact_email || null;
       const destinatario = testMode ? testEmail : realEmail;
 
       if (!destinatario) { resumen.sinEmail++; continue; }
 
-      const saldo = Number(row.total_con_iva || 0) - Number(row.valor_pagado || 0);
-
       try {
+        // Un solo correo por factura, con el saldo total sumado de todos sus ítems.
         await getEmailService().sendCxcPaymentReminder({
           recipientEmail: destinatario,
-          recipientName: cliente?.business_name || 'Cliente',
-          invoiceNumber: (row.numero_factura as string) || 'N/A',
-          projectName: proyecto?.name,
-          descripcion: (row.line_of_business as string) || undefined,
-          numeroOc: (row.numero_oc as string) || undefined,
-          saldo,
-          fechaCobro,
+          recipientName: grupo.cliente?.business_name || 'Cliente',
+          invoiceNumber: grupo.numeroFactura,
+          projectName: grupo.proyectoNombre,
+          descripcion: grupo.descripcion,
+          numeroOc: grupo.numeroOc,
+          saldo: grupo.saldo,
+          fechaCobro: grupo.fechaCobro,
           tipo: evalRes.tipo,
-          diasVencida: evalRes.tipo === 'vencida_8d' ? evalRes.diasRelativos : undefined,
+          diasRelativos: evalRes.diasRelativos,
         });
 
         const tipoLabel = evalRes.tipo === 'previo_5d'
-          ? 'Aviso previo (5 días antes)'
+          ? 'Aviso previo (próxima a vencer)'
           : evalRes.tipo === 'vencimiento'
             ? 'Aviso de vencimiento'
-            : 'Recordatorio de mora';
+            : 'Recordatorio de mora (semanal)';
 
-        await admin.from('cxc_seguimiento').insert({
-          venta_id: row.id as string,
-          tipo: 'correo_recordatorio',
-          descripcion: `${tipoLabel} enviado por correo a ${destinatario}`,
-          fecha: hoy,
-          es_automatico: true,
-          recordatorio_tipo: evalRes.tipo,
-          dias_relativos: evalRes.diasRelativos,
-          recipient_email: destinatario,
-          test_mode: testMode,
-        });
+        const descripcionLog = grupo.ventaIds.length > 1
+          ? `${tipoLabel} enviado por correo a ${destinatario} (factura consolidada, ${grupo.ventaIds.length} ítems)`
+          : `${tipoLabel} enviado por correo a ${destinatario}`;
+
+        // Se registra en CADA ítem de la factura para que el seguimiento y la
+        // deduplicación queden completos en todas las filas de la tabla CXC.
+        await admin.from('cxc_seguimiento').insert(
+          grupo.ventaIds.map(ventaId => ({
+            venta_id: ventaId,
+            tipo: 'correo_recordatorio' as const,
+            descripcion: descripcionLog,
+            fecha: hoy,
+            es_automatico: true,
+            recordatorio_tipo: evalRes.tipo,
+            dias_relativos: evalRes.diasRelativos,
+            recipient_email: destinatario,
+            test_mode: testMode,
+          }))
+        );
 
         resumen.sent++;
       } catch (sendErr) {
-        console.error('[cxc-reminders] Error enviando recordatorio', { ventaId: row.id, error: sendErr });
+        console.error('[cxc-reminders] Error enviando recordatorio', { grupo: grupo.key, error: sendErr });
         resumen.errores++;
       }
     }

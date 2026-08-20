@@ -20,7 +20,8 @@ export interface SeguimientoEntry {
 
 export interface CxcRemindersRunSummary {
     success: boolean;
-    checked: number;
+    checked: number; // facturas revisadas (ya agrupadas por número de factura)
+    itemsConsolidados: number; // ítems extra fusionados en un solo correo (facturas divididas por centro de costo/producto)
     sent: number;
     skipped: number;
     sinEmail: number;
