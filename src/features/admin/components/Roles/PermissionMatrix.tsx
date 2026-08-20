@@ -87,6 +87,14 @@ const PERMISSION_GROUPS: Record<string, { label: string; permissions: { key: Per
             { key: 'audit.view_financial', label: 'Auditoría financiera' },
         ],
     },
+    quotes: {
+        label: 'Cotizaciones',
+        permissions: [
+            { key: 'quotes.view', label: 'Ver cotizaciones propias' },
+            { key: 'quotes.view_all', label: 'Ver todas las cotizaciones' },
+            { key: 'quotes.create', label: 'Crear y enviar cotizaciones' },
+        ],
+    },
 };
 
 export function PermissionMatrix({ selectedPermissions, onChange, readonly = false }: Props) {

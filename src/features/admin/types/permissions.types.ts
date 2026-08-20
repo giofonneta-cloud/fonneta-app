@@ -28,6 +28,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
         'config.view', 'config.modules', 'config.fields', 'config.workflows',
         'chat.view', 'chat.create_channel', 'chat.delete_messages',
         'audit.view', 'audit.view_financial',
+        'quotes.view', 'quotes.view_all', 'quotes.create',
     ],
     pm: [
         'projects.view', 'projects.create', 'projects.edit', 'projects.change_status',
@@ -43,6 +44,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
         'reports.view_basic', 'reports.view_advanced', 'reports.export', 'reports.cashflow',
         'chat.view',
         'audit.view_financial',
+        'quotes.view', 'quotes.view_all', 'quotes.create',
     ],
     proveedor: [
         'finance.view', // Solo sus facturas

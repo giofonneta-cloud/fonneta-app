@@ -15,6 +15,7 @@ import {
     LayoutDashboard,
     ShieldCheck,
     ClipboardList,
+    FileSignature,
     ChevronLeft,
     ChevronRight
 } from 'lucide-react';
@@ -29,7 +30,7 @@ const menuItems = [
 
 export function DashboardSidebar() {
     const router = useRouter();
-    const { profile, signOut } = useAuthStore();
+    const { profile, signOut, hasPermission } = useAuthStore();
     const { isCollapsed, toggleSidebar } = useSidebarStore();
 
     const handleLogout = async () => {
@@ -93,6 +94,16 @@ export function DashboardSidebar() {
                         {!isCollapsed && item.label}
                     </Link>
                 ))}
+                {hasPermission('quotes.view') && (
+                    <Link
+                        href="/dashboard/quotes"
+                        className={`flex items-center gap-3 px-4 py-3 text-gray-500 hover:bg-gray-100 hover:text-gray-900 rounded-xl transition-all font-bold text-sm ${isCollapsed ? 'justify-center' : ''}`}
+                        title={isCollapsed ? 'Cotizaciones' : ''}
+                    >
+                        <FileSignature className="w-5 h-5 flex-shrink-0" />
+                        {!isCollapsed && 'Cotizaciones'}
+                    </Link>
+                )}
                 {(isAdmin || isAdministrativo) && (
                     <div className={`mt-4 pt-4 border-t border-gray-50 ${isCollapsed ? 'space-y-2' : ''}`}>
                         {!isCollapsed && (

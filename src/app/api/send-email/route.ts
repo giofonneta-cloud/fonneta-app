@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import nodemailer from 'nodemailer';
+import { getEmailService } from '@/lib/email/emailService';
 
 export const dynamic = 'force-dynamic';
 
@@ -54,16 +54,6 @@ export async function POST(request: NextRequest) {
       if (!provider) {
         return NextResponse.json({ error: 'Provider not found' }, { status: 404 });
       }
-
-      const transporter = nodemailer.createTransport({
-        host: process.env.SMTP_HOST,
-        port: parseInt(process.env.SMTP_PORT || '587'),
-        secure: false,
-        auth: {
-          user: process.env.SMTP_USER,
-          pass: process.env.SMTP_PASSWORD
-        }
-      });
 
       const fmt = (n: number) => `$${Number(n).toLocaleString('es-CO')}`;
       const fmtDate = (d: string | null) => d ? new Date(d + 'T00:00:00').toLocaleDateString('es-CO', { day: '2-digit', month: 'long', year: 'numeric' }) : 'N/A';
@@ -167,14 +157,32 @@ export async function POST(request: NextRequest) {
 </body>
 </html>`;
 
+      const textAlternative = `${invoiceTypeLabel} Aprobada para Pago
+Radicado: ${invoice.radicado_number || invoiceNumber}
+
+Proveedor: ${provider.business_name}
+${provider.document_type && provider.document_number ? `Identificación: ${provider.document_type.toUpperCase()} ${provider.document_number}\n` : ''}${provider.contact_email ? `Email: ${provider.contact_email}\n` : ''}
+Número: ${invoiceNumber}
+Fecha de emisión: ${fmtDate(invoice.issue_date)}
+Concepto: ${invoice.concept || 'N/A'}
+
+Valor neto: ${fmt(invoice.valor_neto)}
+IVA (${invoice.iva_porcentaje}%): ${fmt(invoice.iva_valor)}
+TOTAL: ${fmt(invoice.total_con_iva)}
+Plazo de pago: ${invoice.plazo_pago} días
+Fecha estimada de pago: ${fechaPagoEstimada}
+
+Este correo fue generado automáticamente por Fonneta App al aprobar una ${invoiceTypeLabel.toLowerCase()} para pago.`;
+
       try {
         const documentType = isCuentaCobro ? 'CUENTA DE COBRO' : 'FACTURA';
-        const info = await transporter.sendMail({
-          from: process.env.SMTP_USER,
+        const info = await getEmailService().sendEmail({
           to: 'contabilidad@fonneta.com',
           cc: process.env.ADMIN_EMAIL || 'giofonneta@gmail.com',
+          replyTo: 'administrativo@fonneta.com',
           subject: `[${documentType}] Aprobada para Pago - ${invoiceNumber} - ${provider.business_name}`,
-          html: htmlBody
+          html: htmlBody,
+          text: textAlternative,
         });
 
         return NextResponse.json({

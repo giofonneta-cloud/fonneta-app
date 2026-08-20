@@ -45,4 +45,8 @@ export type Permission =
     | 'chat.delete_messages'
     // Auditoría
     | 'audit.view'
-    | 'audit.view_financial';
+    | 'audit.view_financial'
+    // Cotizaciones
+    | 'quotes.view'
+    | 'quotes.view_all'
+    | 'quotes.create';

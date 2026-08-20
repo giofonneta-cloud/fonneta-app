@@ -170,7 +170,8 @@ export function CXCList({ period, selectedProjects, selectedCostCenters, selecte
         try {
             const r = await cxcReminderService.runNow();
             const modo = r.testMode ? '\n\n(MODO PRUEBA: los correos se enviaron al correo de prueba, no a los clientes reales.)' : '';
-            alert(`Recordatorios procesados:\n\n• Enviados: ${r.sent}\n• Ya enviados hoy: ${r.yaEnviado}\n• Sin correo: ${r.sinEmail}\n• Sin condición hoy: ${r.skipped}\n• Errores: ${r.errores}${modo}`);
+            const consolidados = r.itemsConsolidados > 0 ? `\n• Ítems consolidados en un solo correo: ${r.itemsConsolidados}` : '';
+            alert(`Recordatorios procesados (${r.checked} facturas revisadas):\n\n• Enviados: ${r.sent}\n• Ya enviados hoy: ${r.yaEnviado}\n• Sin correo: ${r.sinEmail}\n• Sin condición hoy: ${r.skipped}\n• Errores: ${r.errores}${consolidados}${modo}`);
             loadData();
         } catch (err) {
             alert('Error al enviar recordatorios: ' + (err instanceof Error ? err.message : String(err)));

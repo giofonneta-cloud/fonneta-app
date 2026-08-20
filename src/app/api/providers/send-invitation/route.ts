@@ -1,6 +1,6 @@
 import { createAdminClient } from '@/lib/supabase/admin';
 import { generateProviderInvitationEmail } from '@/lib/email-templates/provider-invitation';
-import nodemailer from 'nodemailer';
+import { getEmailService } from '@/lib/email/emailService';
 
 export async function POST(req: Request) {
   try {
@@ -34,31 +34,14 @@ export async function POST(req: Request) {
     const inviteLink = `${process.env.NEXT_PUBLIC_APP_URL || 'https://fonneta-app.vercel.app'}/register/provider`;
     const htmlContent = generateProviderInvitationEmail(providerName, inviteLink);
 
-    // Configurar transporte SMTP para Gmail
-    const transporter = nodemailer.createTransport({
-      host: process.env.SMTP_HOST || 'smtp.gmail.com',
-      port: parseInt(process.env.SMTP_PORT || '587'),
-      secure: false, // TLS, no SSL
-      auth: {
-        user: process.env.SMTP_USER,
-        pass: process.env.SMTP_PASSWORD, // Debe ser App Password para Gmail
-      },
-    });
-
-    // Enviar email con headers optimizados para evitar spam
-    const result = await transporter.sendMail({
-      from: process.env.SMTP_USER,
-      replyTo: 'noreply@fonneta.com',
+    // Envío a través del servicio compartido: headers anti-spam (List-Unsubscribe,
+    // Auto-Submitted) y remitente con nombre formateado ya resueltos ahí mismo.
+    const result = await getEmailService().sendEmail({
       to: email,
-      subject: 'Invitación a Fonnettapp - Portal de Proveedores',
+      replyTo: 'administrativo@fonneta.com',
+      subject: 'Invitación a Fonnettapp - Portal de Proveedores y Clientes',
       html: htmlContent,
-      text: `Invitación a Fonnettapp\n\nHas sido invitado a registrarte como proveedor en Fonnettapp.\n\nPara completar tu registro, haz clic en el siguiente enlace:\n${inviteLink}\n\nSaludos,\nEquipo Fonnettapp`,
-      headers: {
-        'X-Mailer': 'Fonnettapp',
-        'X-Priority': '3 (Normal)',
-        'Importance': 'normal',
-      },
-      priority: 'normal',
+      text: `Invitación a Fonnettapp\n\nHas sido invitado a registrarte en Fonnettapp, nuestro portal de gestión para proveedores y clientes.\n\nPara completar tu registro, ingresa al siguiente enlace:\n${inviteLink}\n\nSaludos,\nEquipo Fonneta Comunicaciones`,
     });
 
     console.log(`Invitación enviada a ${email}:`, result.messageId);

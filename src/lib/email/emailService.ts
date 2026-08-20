@@ -68,7 +68,7 @@ export class EmailService {
   /**
    * Enviar email genérico
    */
-  async sendEmail(options: EmailOptions): Promise<void> {
+  async sendEmail(options: EmailOptions): Promise<{ messageId: string }> {
     const start = Date.now();
     try {
       // Formatear remitente según RFC 5322: "Nombre Remitente" <correo@ejemplo.com>
@@ -103,6 +103,7 @@ export class EmailService {
         rejected: info.rejected,
         ms: Date.now() - start,
       });
+      return { messageId: info.messageId };
     } catch (error: any) {
       // Preserva el error original (code, response, command de nodemailer/SMTP)
       console.error('[emailService] sendMail FAILED', {
@@ -145,6 +146,7 @@ export class EmailService {
 
     await this.sendEmail({
       to: providerEmail,
+      replyTo: 'administrativo@fonneta.com',
       subject: `Documento ${documentType} cargado exitosamente`,
       html,
       text: `Hola ${providerName}, tu documento ${documentType} ha sido cargado exitosamente y está en revisión.`,
@@ -273,6 +275,7 @@ export class EmailService {
 
     await this.sendEmail({
       to: providerEmail,
+      replyTo: 'administrativo@fonneta.com',
       subject: `Radicado ${radicado} - ${tipoDocumento} ${invoiceNumber} recibida`,
       html,
       text: `Hola ${providerName}, tu ${tipoDocumento.toLowerCase()} ${invoiceNumber} ha sido radicada exitosamente. Número de radicado: ${radicado}. Monto: ${formattedAmount}.`,
@@ -473,6 +476,7 @@ export class EmailService {
 
     await this.sendEmail({
       to: providerEmail,
+      replyTo: 'administrativo@fonneta.com',
       subject: `[${radicado}] Tu factura ${invoiceNumber} cambió a estado: ${newStatus}`,
       html,
       text: `Hola ${providerName}, el estado de tu factura ${invoiceNumber} (Radicado: ${radicado}) ha cambiado a: ${newStatus}.${adminNotes ? ` Comentarios: ${adminNotes}` : ''}`,
@@ -590,7 +594,89 @@ Cel: 318 254 4377`;
     await this.sendEmail({
       to: recipientEmail,
       ...(ccEmail ? { cc: ccEmail } : {}),
+      replyTo: 'administrativo@fonneta.com',
       subject: `Orden de Compra ${poNumber} - Fonneta Comunicaciones`,
+      html,
+      text: textAlternative,
+      attachments,
+    });
+  }
+
+  /**
+   * Enviar cotización / propuesta comercial al cliente
+   */
+  async sendQuote(
+    recipientEmail: string,
+    recipientName: string,
+    quoteNumber: string,
+    total: number,
+    documentUrl?: string,
+    attachments?: EmailAttachment[],
+    ccEmail?: string
+  ): Promise<void> {
+    const formattedTotal = new Intl.NumberFormat('es-CO', {
+      style: 'currency',
+      currency: 'COP',
+      maximumFractionDigits: 0,
+    }).format(total);
+
+    const html = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; color: #1f2937;">
+        <h2 style="color: #111827;">Propuesta Comercial ${quoteNumber}</h2>
+        <p>Estimado(a) <strong>${recipientName}</strong>,</p>
+        <p>Hemos preparado la siguiente propuesta comercial para usted, de acuerdo con su interés en nuestros servicios:</p>
+
+        <div style="background-color: #f3f4f6; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #111827;">
+          <p style="margin: 0 0 10px 0; font-size: 18px; font-weight: bold; color: #111827;">
+            Cotización: ${quoteNumber}
+          </p>
+          <p style="margin: 0; font-size: 16px; color: #111827;">
+            Valor total: ${formattedTotal}
+          </p>
+        </div>
+
+        <p style="margin-top: 16px; font-size: 14px; color: #374151;">
+          Encontrará el detalle completo de la propuesta adjunto a este correo en formato PDF.
+        </p>
+
+        ${documentUrl ? `
+        <p>
+          <a href="${documentUrl}"
+             style="display: inline-block; background-color: #111827; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; margin-top: 10px;">
+            Ver en Google Drive
+          </a>
+        </p>
+        ` : ''}
+
+        <p style="margin-top: 20px;">Quedamos atentos a sus comentarios para avanzar. No dude en responder este correo con cualquier duda.</p>
+
+        <hr style="border: 1px solid #e5e7eb; margin: 20px 0;">
+        <p style="color: #6b7280; font-size: 12px;">
+          Fonneta Comunicaciones S.A.S. &middot; NIT 901.362.051-7<br>
+          Carrera 6 #123A-74, Bogotá D.C. &middot; Cel: +57 311 2487439
+        </p>
+      </div>
+    `;
+
+    const textAlternative = `Estimado(a) ${recipientName},
+
+Hemos preparado la siguiente propuesta comercial para usted: Cotización ${quoteNumber}, por un valor total de ${formattedTotal}.
+
+Encontrará el detalle completo adjunto a este correo en formato PDF.
+${documentUrl ? `También puede verla en Google Drive: ${documentUrl}\n` : ''}
+Quedamos atentos a sus comentarios para avanzar. No dude en responder este correo con cualquier duda.
+
+Cordialmente,
+Fonneta Comunicaciones S.A.S.
+NIT 901.362.051-7
+Carrera 6 #123A-74, Bogotá D.C.
+Cel: +57 311 2487439`;
+
+    await this.sendEmail({
+      to: recipientEmail,
+      ...(ccEmail ? { cc: ccEmail } : {}),
+      replyTo: 'administrativo@fonneta.com',
+      subject: `Propuesta Comercial ${quoteNumber} - Fonneta Comunicaciones`,
       html,
       text: textAlternative,
       attachments,
@@ -611,10 +697,12 @@ Cel: 318 254 4377`;
     saldo: number;
     fechaCobro: string; // YYYY-MM-DD
     tipo: 'previo_5d' | 'vencimiento' | 'vencida_8d';
-    diasVencida?: number;
+    // Días con signo respecto a la fecha de cobro: positivo = faltan días,
+    // 0 = vence hoy, negativo = días de mora. Determina el texto del correo.
+    diasRelativos: number;
     ccEmail?: string;
   }): Promise<void> {
-    const { recipientEmail, recipientName, invoiceNumber, projectName, descripcion, numeroOc, saldo, fechaCobro, tipo, diasVencida, ccEmail } = params;
+    const { recipientEmail, recipientName, invoiceNumber, projectName, descripcion, numeroOc, saldo, fechaCobro, tipo, diasRelativos, ccEmail } = params;
     const SOPORTE_EMAIL = 'administrativo@fonneta.com';
     const SOPORTE_TEL = '+57 311 248 7439';
 
@@ -624,18 +712,19 @@ Cel: 318 254 4377`;
 
     const [y, m, d] = fechaCobro.split('-');
     const fechaLegible = d && m && y ? `${d}/${m}/${y}` : fechaCobro;
+    const plural = (n: number) => (Math.abs(n) === 1 ? 'día' : 'días');
 
     let intro: string;
-    let subject: string;
+    const subject = `Recordatorio de su factura ${invoiceNumber} - Fonneta Comunicaciones`;
     if (tipo === 'previo_5d') {
-      subject = `Recordatorio de su factura ${invoiceNumber} - Fonneta Comunicaciones`;
-      intro = `Le recordamos de manera cordial que la siguiente factura tiene fecha de pago el <strong>${fechaLegible}</strong> (en 5 días). Agradecemos tener presente esta fecha para su oportuno pago.`;
+      intro = `Le recordamos de manera cordial que la siguiente factura tiene fecha de pago el <strong>${fechaLegible}</strong> (en ${diasRelativos} ${plural(diasRelativos)}). Agradecemos tener presente esta fecha para su oportuno pago.`;
     } else if (tipo === 'vencimiento') {
-      subject = `Recordatorio de su factura ${invoiceNumber} - Fonneta Comunicaciones`;
-      intro = `Le recordamos amablemente que la siguiente factura tiene como fecha de pago el día de hoy, <strong>${fechaLegible}</strong>. Agradecemos gestionar su pago a la mayor brevedad.`;
+      intro = diasRelativos === 0
+        ? `Le recordamos amablemente que la siguiente factura tiene como fecha de pago el día de hoy, <strong>${fechaLegible}</strong>. Agradecemos gestionar su pago a la mayor brevedad.`
+        : `Le recordamos amablemente que la siguiente factura venció el <strong>${fechaLegible}</strong>, hace ${Math.abs(diasRelativos)} ${plural(diasRelativos)}. Agradecemos gestionar su pago a la mayor brevedad.`;
     } else {
-      subject = `Recordatorio de su factura ${invoiceNumber} - Fonneta Comunicaciones`;
-      intro = `Nos permitimos recordarle de manera respetuosa que la siguiente factura se encuentra pendiente de pago${diasVencida ? ` desde hace ${diasVencida} días` : ''} (fecha de pago: <strong>${fechaLegible}</strong>). Si ya realizó el pago, le agradecemos hacer caso omiso a este mensaje.`;
+      const diasVencida = Math.abs(diasRelativos);
+      intro = `Nos permitimos recordarle de manera respetuosa que la siguiente factura se encuentra pendiente de pago desde hace ${diasVencida} ${plural(diasVencida)} (fecha de pago: <strong>${fechaLegible}</strong>). Si ya realizó el pago, le agradecemos hacer caso omiso a este mensaje.`;
     }
 
     // Encabezado con color corporativo fijo (evita el rojo alarmante que los
