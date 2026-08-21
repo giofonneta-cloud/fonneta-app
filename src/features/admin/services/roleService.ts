@@ -115,5 +115,48 @@ export const roleService = {
 
         if (error) throw error;
         return data.map(item => item.role as unknown as AppRole);
+    },
+
+    /**
+     * Usuarios que tienen un rol específico asignado
+     */
+    async getUsersForRole(roleId: string): Promise<{ id: string; full_name: string | null; email: string; role: string }[]> {
+        const { data, error } = await supabase
+            .from('user_app_roles')
+            .select('profiles:user_id (id, full_name, email, role)')
+            .eq('role_id', roleId);
+
+        if (error) throw error;
+        return (data ?? [])
+            .map(row => row.profiles as unknown as { id: string; full_name: string | null; email: string; role: string } | null)
+            .filter((p): p is { id: string; full_name: string | null; email: string; role: string } => p !== null);
+    },
+
+    /**
+     * Quita un rol de un usuario
+     */
+    async removeRoleFromUser(userId: string, roleId: string): Promise<void> {
+        const { error } = await supabase
+            .from('user_app_roles')
+            .delete()
+            .eq('user_id', userId)
+            .eq('role_id', roleId);
+
+        if (error) throw error;
+    },
+
+    /**
+     * Busca usuarios por nombre o email (para asignar roles)
+     */
+    async searchUsers(query: string): Promise<{ id: string; full_name: string | null; email: string; role: string }[]> {
+        if (!query.trim()) return [];
+        const { data, error } = await supabase
+            .from('profiles')
+            .select('id, full_name, email, role')
+            .or(`full_name.ilike.%${query}%,email.ilike.%${query}%`)
+            .limit(10);
+
+        if (error) throw error;
+        return data ?? [];
     }
 };
