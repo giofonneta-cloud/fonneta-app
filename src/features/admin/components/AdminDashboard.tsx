@@ -77,6 +77,9 @@ export function AdminDashboard() {
                     </button>
                 </div>
 
+                {/* Acciones Rápidas — arriba para que no haya que bajar a buscarlas */}
+                <QuickActionsCard />
+
                 {/* Alertas */}
                 {alerts.length > 0 && (
                     <AlertsCard alerts={alerts} />
@@ -123,11 +126,8 @@ export function AdminDashboard() {
                     {financialSummary && <FinancialSummaryCard summary={financialSummary} />}
                 </div>
 
-                {/* Tercera fila: Métricas y acciones */}
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                    {adoptionMetrics && <AdoptionMetricsCard metrics={adoptionMetrics} />}
-                    <QuickActionsCard />
-                </div>
+                {/* Tercera fila: Métricas de adopción */}
+                {adoptionMetrics && <AdoptionMetricsCard metrics={adoptionMetrics} />}
             </div>
         </RoleGuard>
     );

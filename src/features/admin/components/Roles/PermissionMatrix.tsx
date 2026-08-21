@@ -126,14 +126,14 @@ export function PermissionMatrix({ selectedPermissions, onChange, readonly = fal
                 const someSelected = groupPermissionKeys.some(p => selectedPermissions.includes(p));
 
                 return (
-                    <div key={key} className="bg-slate-800/50 rounded-xl border border-slate-700/50 overflow-hidden">
-                        <div className="px-4 py-3 bg-slate-800 border-b border-slate-700 flex items-center justify-between">
-                            <h3 className="text-sm font-semibold text-slate-200">{group.label}</h3>
+                    <div key={key} className="bg-slate-50 rounded-xl border border-slate-200 overflow-hidden">
+                        <div className="px-4 py-3 bg-white border-b border-slate-200 flex items-center justify-between">
+                            <h3 className="text-sm font-semibold text-slate-800">{group.label}</h3>
                             {!readonly && (
                                 <button
                                     type="button"
                                     onClick={() => handleToggleGroup(key, groupPermissionKeys)}
-                                    className="text-xs text-indigo-400 hover:text-indigo-300 font-medium transition-colors"
+                                    className="text-xs text-indigo-600 hover:text-indigo-700 font-medium transition-colors"
                                 >
                                     {allSelected ? 'Desmarcar todos' : 'Marcar todos'}
                                 </button>
@@ -145,8 +145,8 @@ export function PermissionMatrix({ selectedPermissions, onChange, readonly = fal
                                     key={perm.key}
                                     className={`flex items-center space-x-3 p-2 rounded-lg cursor-pointer transition-all ${
                                         selectedPermissions.includes(perm.key)
-                                            ? 'bg-indigo-500/10 border border-indigo-500/30'
-                                            : 'hover:bg-slate-700/50 border border-transparent'
+                                            ? 'bg-indigo-50 border border-indigo-200'
+                                            : 'hover:bg-slate-100 border border-transparent'
                                     } ${readonly ? 'cursor-default' : ''}`}
                                 >
                                     <input
@@ -154,9 +154,9 @@ export function PermissionMatrix({ selectedPermissions, onChange, readonly = fal
                                         checked={selectedPermissions.includes(perm.key)}
                                         onChange={() => handleToggle(perm.key)}
                                         disabled={readonly}
-                                        className="w-4 h-4 rounded border-slate-600 bg-slate-700 text-indigo-600 focus:ring-indigo-500 focus:ring-offset-slate-800"
+                                        className="w-4 h-4 rounded border-slate-300 bg-white text-indigo-600 focus:ring-indigo-500"
                                     />
-                                    <span className="text-sm text-slate-300">{perm.label}</span>
+                                    <span className="text-sm text-slate-700">{perm.label}</span>
                                 </label>
                             ))}
                         </div>
