@@ -1,11 +1,12 @@
 'use client';
 
 import { useState } from 'react';
-import { ArrowLeft, ShieldAlert } from 'lucide-react';
+import { ArrowLeft, ShieldAlert, ShieldCheck } from 'lucide-react';
 import { useAuthStore } from '@/features/auth/store/authStore';
 import { QuotesList } from '@/features/quotes/components/QuotesList';
 import { QuoteForm } from '@/features/quotes/components/QuoteForm';
 import { QuotePreview } from '@/features/quotes/components/QuotePreview';
+import { QuoteAccessManager } from '@/features/quotes/components/QuoteAccessManager';
 import { quotesService } from '@/features/quotes/services/quotesService';
 import type { Quote } from '@/features/quotes/types/quote.types';
 
@@ -17,6 +18,7 @@ export default function QuotesPage() {
   const [editingQuote, setEditingQuote] = useState<Quote | null>(null);
   const [previewQuote, setPreviewQuote] = useState<Quote | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [showAccessManager, setShowAccessManager] = useState(false);
 
   if (isLoading) return null;
 
@@ -76,15 +78,28 @@ export default function QuotesPage() {
 
       {view === 'list' && (
         <>
-          <div>
-            <h1 className="text-3xl font-black text-slate-900 tracking-tight">Cotizaciones</h1>
-            <p className="text-sm text-slate-500 mt-0.5">Crea, envía y da seguimiento a propuestas comerciales</p>
+          <div className="flex items-start justify-between">
+            <div>
+              <h1 className="text-3xl font-black text-slate-900 tracking-tight">Cotizaciones</h1>
+              <p className="text-sm text-slate-500 mt-0.5">Crea, envía y da seguimiento a propuestas comerciales</p>
+            </div>
+            {hasPermission('quotes.view_all') && (
+              <button
+                onClick={() => setShowAccessManager(true)}
+                className="flex items-center gap-2 px-3 py-2 text-sm font-semibold text-slate-600 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors"
+              >
+                <ShieldCheck className="w-4 h-4" />
+                Accesos por Centro de Costo
+              </button>
+            )}
           </div>
           <div key={refreshKey} className="p-6 bg-white rounded-2xl border border-slate-100 shadow-sm">
             <QuotesList onEdit={handleEdit} onPreview={handlePreview} onNewQuote={handleNewQuote} />
           </div>
         </>
       )}
+
+      {showAccessManager && <QuoteAccessManager onClose={() => setShowAccessManager(false)} />}
 
       {view === 'form' && (
         <QuoteForm

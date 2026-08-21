@@ -7,8 +7,8 @@ import { QUOTE_STATUS_LABELS, QUOTE_STATUS_COLORS } from '../types/quote.types';
 import { Search, Eye, Pencil, Trash2, Plus, FileSignature, CheckCircle2, XCircle } from 'lucide-react';
 import { useResizableColumns } from '@/shared/hooks/useResizableColumns';
 
-// [col]: No. Cotización | Fecha | Cliente | Descripcion | Total | Estado | Acciones
-const INITIAL_WIDTHS = [130, 110, 200, 240, 130, 110, 140];
+// [col]: No. Cotización | Fecha | Cliente | Descripcion | Creado por | Total | Estado | Acciones
+const INITIAL_WIDTHS = [130, 110, 190, 210, 150, 130, 110, 140];
 
 const formatCurrency = (value: number) =>
   new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(value);
@@ -38,7 +38,7 @@ function TableSkeleton() {
     <>
       {Array.from({ length: 5 }).map((_, i) => (
         <tr key={i}>
-          {Array.from({ length: 7 }).map((__, j) => (
+          {Array.from({ length: 8 }).map((__, j) => (
             <td key={j} className="px-4 py-4">
               <div className="h-3 bg-slate-100 rounded animate-pulse" />
             </td>
@@ -52,7 +52,7 @@ function TableSkeleton() {
 function EmptyState({ hasFilters }: { hasFilters: boolean }) {
   return (
     <tr>
-      <td colSpan={7} className="py-16 text-center">
+      <td colSpan={8} className="py-16 text-center">
         <FileSignature className="w-10 h-10 text-slate-200 mx-auto mb-3" />
         <p className="text-sm font-bold text-slate-400">
           {hasFilters ? 'No se encontraron cotizaciones con esos filtros.' : 'Aún no hay cotizaciones registradas.'}
@@ -181,7 +181,7 @@ export function QuotesList({ onEdit, onPreview, onNewQuote }: QuotesListProps) {
           </colgroup>
           <thead className="text-[10px] text-slate-500 uppercase bg-slate-50 border-b border-slate-100">
             <tr>
-              {(['No. Cotización', 'Fecha', 'Cliente', 'Descripción', 'Total', 'Estado', 'Acciones'] as const).map((label, i) => (
+              {(['No. Cotización', 'Fecha', 'Cliente', 'Descripción', 'Creado por', 'Total', 'Estado', 'Acciones'] as const).map((label, i) => (
                 <th
                   key={i}
                   className="px-4 py-3 font-bold tracking-wider relative select-none overflow-hidden"
@@ -229,6 +229,9 @@ export function QuotesList({ onEdit, onPreview, onNewQuote }: QuotesListProps) {
                           {quote.project_name}
                         </span>
                       )}
+                    </td>
+                    <td className="px-4 py-3.5 text-xs text-slate-600 overflow-hidden">
+                      <span className="block truncate">{quote.created_by_name ?? <span className="text-slate-300">—</span>}</span>
                     </td>
                     <td className="px-4 py-3.5 text-right font-mono text-xs font-semibold text-slate-700 overflow-hidden">
                       <span className="block truncate">{formatCurrency(quote.total)}</span>

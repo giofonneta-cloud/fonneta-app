@@ -19,6 +19,7 @@ export const quotesService = {
         *,
         providers:client_id (business_name),
         projects:project_id (name),
+        profiles:created_by (full_name),
         quote_items (descripcion, order_index)
       `)
       .order('created_at', { ascending: false });
@@ -46,10 +47,12 @@ export const quotesService = {
         ...row,
         client_registered_name: (row.providers as Record<string, string> | null)?.business_name ?? undefined,
         project_name: (row.projects as Record<string, string> | null)?.name ?? undefined,
+        created_by_name: (row.profiles as Record<string, string> | null)?.full_name ?? undefined,
         items_summary: itemsSummary,
       };
       delete mapped.providers;
       delete mapped.projects;
+      delete mapped.profiles;
       delete mapped.quote_items;
       return mapped as unknown as Quote;
     });

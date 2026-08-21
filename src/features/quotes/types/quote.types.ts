@@ -47,6 +47,7 @@ export interface Quote {
   client_registered_name?: string;
   project_name?: string;
   items_summary?: string;
+  created_by_name?: string;
 }
 
 export interface QuoteItem {

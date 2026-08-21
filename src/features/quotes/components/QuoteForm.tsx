@@ -10,6 +10,8 @@ import { Trash2, Plus, ArrowUp, ArrowDown, Package, Building2, FileText, FileSig
 import { Card, CardContent, CardHeader, CardTitle } from '@/shared/components/ui/card';
 import { Separator } from '@/shared/components/ui/separator';
 import { useParametros } from '@/features/admin/hooks/useParametros';
+import { useAuthStore } from '@/features/auth/store/authStore';
+import { quoteAccessService } from '../services/quoteAccessService';
 
 const IVA_OPTIONS = [
   { label: '0%', value: 0 },
@@ -99,11 +101,18 @@ interface QuoteFormProps {
 
 export function QuoteForm({ initialData, onSuccess, onCancel }: QuoteFormProps) {
   const isEditing = !!initialData;
-  const { opciones: centrosCosto } = useParametros('centros_costo');
+  const { opciones: centrosCostoTodos } = useParametros('centros_costo');
+  const { profile, hasPermission } = useAuthStore();
+  const canSeeAllCostCenters = hasPermission('quotes.view_all');
 
   const [clients, setClients] = useState<ClientOption[]>([]);
   const [projects, setProjects] = useState<ProjectOption[]>([]);
   const [loadingClients, setLoadingClients] = useState(true);
+  const [allowedCostCenters, setAllowedCostCenters] = useState<string[]>([]);
+
+  const centrosCosto = canSeeAllCostCenters
+    ? centrosCostoTodos
+    : centrosCostoTodos.filter((o) => allowedCostCenters.includes(o.etiqueta));
 
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [items, setItems] = useState<LocalItem[]>([]);
@@ -134,6 +143,11 @@ export function QuoteForm({ initialData, onSuccess, onCancel }: QuoteFormProps) 
 
     loadData();
   }, []);
+
+  useEffect(() => {
+    if (canSeeAllCostCenters || !profile?.id) return;
+    quoteAccessService.getMyCostCenters(profile.id).then(setAllowedCostCenters).catch(console.error);
+  }, [canSeeAllCostCenters, profile?.id]);
 
   useEffect(() => {
     if (!initialData) return;
@@ -553,6 +567,11 @@ export function QuoteForm({ initialData, onSuccess, onCancel }: QuoteFormProps) 
                   <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
                 </div>
                 {errors.cost_center && <p className="text-xs text-red-500 mt-1">{errors.cost_center}</p>}
+                {!canSeeAllCostCenters && allowedCostCenters.length === 0 && (
+                  <p className="text-xs text-amber-600 mt-1">
+                    Aún no tienes ningún centro de costo habilitado. Pide al administrador que te dé acceso.
+                  </p>
+                )}
               </div>
 
               <div>
