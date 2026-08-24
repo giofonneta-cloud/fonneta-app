@@ -2,7 +2,7 @@
 
 import { useState, useRef, useCallback } from 'react';
 import type { Quote, QuoteItem } from '../types/quote.types';
-import { QUOTE_STATUS_LABELS, QUOTE_STATUS_COLORS } from '../types/quote.types';
+import { QUOTE_STATUS_LABELS, QUOTE_STATUS_COLORS, DOCUMENT_TYPE_SHORT_LABELS } from '../types/quote.types';
 import { X, FileDown, Send, Pencil, Loader2, Paperclip, Trash2 } from 'lucide-react';
 import { generatePdfBlob } from '@/shared/lib/pdf/generatePdfBlob';
 import { FONNETA_LOGO_B64 } from '@/shared/lib/pdf/fonnetaLogoBase64';
@@ -36,6 +36,9 @@ export function QuotePreview({ quote, onClose, onEdit, onSent }: QuotePreviewPro
 
   const items = quote.items ?? [];
   const hasDiscount = items.some((item) => item.descuento_porcentaje > 0);
+  const isOrdenProduccion = quote.document_type === 'orden_produccion';
+  const docLabel = DOCUMENT_TYPE_SHORT_LABELS[quote.document_type];
+  const fileBaseName = isOrdenProduccion ? 'OrdenProduccion' : 'Cotizacion';
   const [downloading, setDownloading] = useState(false);
 
   const handleDownloadPDF = useCallback(async () => {
@@ -47,7 +50,7 @@ export function QuotePreview({ quote, onClose, onEdit, onSent }: QuotePreviewPro
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `Cotizacion_${quote.quote_number}.pdf`;
+      a.download = `${fileBaseName}_${quote.quote_number}.pdf`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
@@ -98,7 +101,7 @@ export function QuotePreview({ quote, onClose, onEdit, onSent }: QuotePreviewPro
     try {
       const html = buildQuotePrintHTML(quote, items);
       const pdfBlob = await generatePdfBlob(html);
-      const pdfFile = new File([pdfBlob], `Cotizacion_${quote.quote_number}.pdf`, { type: 'application/pdf' });
+      const pdfFile = new File([pdfBlob], `${fileBaseName}_${quote.quote_number}.pdf`, { type: 'application/pdf' });
 
       const formData = new FormData();
       formData.append('quoteId', quote.id);
@@ -146,11 +149,16 @@ export function QuotePreview({ quote, onClose, onEdit, onSent }: QuotePreviewPro
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
           <div>
-            <h3 className="text-lg font-semibold text-gray-900">Cotización {quote.quote_number}</h3>
+            <h3 className="text-lg font-semibold text-gray-900">{docLabel} {quote.quote_number}</h3>
             <div className="flex items-center gap-2 mt-1">
               <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold ${QUOTE_STATUS_COLORS[quote.status]}`}>
                 {QUOTE_STATUS_LABELS[quote.status]}
               </span>
+              {isOrdenProduccion && (
+                <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-orange-100 text-orange-700">
+                  Compromiso de Compra
+                </span>
+              )}
               <span className="text-sm text-gray-500">{formatDate(quote.created_at)}</span>
             </div>
           </div>
@@ -172,7 +180,7 @@ export function QuotePreview({ quote, onClose, onEdit, onSent }: QuotePreviewPro
               </div>
             </div>
             <div className="text-right">
-              <p className="text-lg font-bold text-gray-900">PROPUESTA COMERCIAL</p>
+              <p className="text-lg font-bold text-gray-900">{isOrdenProduccion ? 'ORDEN DE PRODUCCIÓN' : 'PROPUESTA COMERCIAL'}</p>
               <p className="text-gray-900 font-semibold">No. {quote.quote_number}</p>
               <p className="text-xs text-gray-500 mt-1">Fecha: {formatDate(quote.created_at)}</p>
               {quote.valid_until && <p className="text-xs text-gray-500">Válida hasta: {formatDate(quote.valid_until)}</p>}
@@ -262,6 +270,27 @@ export function QuotePreview({ quote, onClose, onEdit, onSent }: QuotePreviewPro
           </div>
 
           {quote.closing_text && <p className="text-sm text-gray-700">{quote.closing_text}</p>}
+
+          {isOrdenProduccion && (
+            <div className="border-2 border-orange-200 bg-orange-50 rounded-xl p-4 space-y-4">
+              <div>
+                <p className="text-xs font-bold text-orange-700 uppercase tracking-wider mb-1">Compromiso de Compra</p>
+                <p className="text-sm text-orange-900">
+                  Este documento formaliza un compromiso de compra entre las partes, previo a la generación de la factura o cuenta de cobro correspondiente. Al confirmar por escrito la aceptación de este documento, el cliente autoriza a Fonneta Comunicaciones S.A.S. a dar inicio al proceso de producción y ejecución de los servicios aquí descritos, bajo los términos, cantidades y valores establecidos.
+                </p>
+              </div>
+              <div className="grid grid-cols-2 gap-6 pt-3 border-t border-orange-200 text-sm text-orange-900">
+                <div>
+                  <p className="font-semibold">Aceptación del cliente</p>
+                  <p className="mt-4 border-t border-orange-300 pt-1 text-xs text-orange-500">Nombre y firma</p>
+                </div>
+                <div>
+                  <p className="font-semibold">Fecha</p>
+                  <p className="mt-4 border-t border-orange-300 pt-1 text-xs text-orange-500">DD/MM/AAAA</p>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Attachments + CC */}
@@ -404,12 +433,33 @@ function buildQuotePrintHTML(quote: Quote, items: QuoteItem[]): string {
 
   const contactLine = quote.client_contact_name ? `${quote.client_contact_name}<br>` : '';
   const cityLine = quote.client_city ? `, ${quote.client_city}` : '';
+  const isOrdenProduccion = quote.document_type === 'orden_produccion';
+  const docTitle = isOrdenProduccion ? 'ORDEN DE PRODUCCIÓN' : 'PROPUESTA COMERCIAL';
+
+  const commitmentBlock = isOrdenProduccion ? `
+    <div class="commitment-box">
+      <div class="section-title" style="color:#c2410c;">Compromiso de Compra</div>
+      <p style="font-size:11px; color:#7c2d12; line-height:1.6;">
+        Este documento formaliza un compromiso de compra entre las partes, previo a la generación de la factura o cuenta de cobro correspondiente. Al confirmar por escrito la aceptación de este documento, el cliente autoriza a Fonneta Comunicaciones S.A.S. a dar inicio al proceso de producción y ejecución de los servicios aquí descritos, bajo los términos, cantidades y valores establecidos.
+      </p>
+      <div style="display:flex; gap:32px; margin-top:16px; padding-top:10px; border-top:1px solid #fed7aa;">
+        <div style="flex:1;">
+          <div style="font-size:10.5px; font-weight:700; color:#7c2d12;">Aceptación del cliente</div>
+          <div style="margin-top:20px; border-top:1px solid #fdba74; padding-top:3px; font-size:9px; color:#c2703f;">Nombre y firma</div>
+        </div>
+        <div style="flex:1;">
+          <div style="font-size:10.5px; font-weight:700; color:#7c2d12;">Fecha</div>
+          <div style="margin-top:20px; border-top:1px solid #fdba74; padding-top:3px; font-size:9px; color:#c2703f;">DD/MM/AAAA</div>
+        </div>
+      </div>
+    </div>
+  ` : '';
 
   return `<!DOCTYPE html>
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <title>Cotización ${quote.quote_number}</title>
+  <title>${docTitle} ${quote.quote_number}</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { font-family: 'Segoe UI', Arial, sans-serif; font-size: 12px; color: #111827; background: #fff; }
@@ -434,6 +484,7 @@ function buildQuotePrintHTML(quote: Quote, items: QuoteItem[]): string {
     .brand-pill { display: inline-block; padding: 4px 14px; margin: 0 4px; border: 1.5px solid #111827; border-radius: 3px; font-weight: 900; font-size: 11px; letter-spacing: 0.05em; }
     .footer { margin-top: 22px; padding: 12px 20px; background: #111827; color: #d1d5db; text-align: center; font-size: 9.5px; }
     .footer strong { color: #fff; }
+    .commitment-box { margin-top: 18px; padding: 14px 16px; background: #fff7ed; border: 1.5px solid #fed7aa; border-radius: 8px; }
     @media print {
       body { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
       .page { padding: 20px; }
@@ -453,7 +504,7 @@ function buildQuotePrintHTML(quote: Quote, items: QuoteItem[]): string {
         </div>
       </div>
       <div style="text-align:right;">
-        <div class="quote-title">PROPUESTA COMERCIAL</div>
+        <div class="quote-title">${docTitle}</div>
         <div class="quote-number">No. ${quote.quote_number}</div>
         <div style="font-size:10.5px; color:#6b7280; margin-top:3px;">Fecha: ${date}</div>
         ${quote.valid_until ? `<div style="font-size:10.5px; color:#6b7280;">Válida hasta: ${formatDate(quote.valid_until)}</div>` : ''}
@@ -508,6 +559,8 @@ function buildQuotePrintHTML(quote: Quote, items: QuoteItem[]): string {
     ${quote.closing_text ? `
     <p style="font-size:11.5px; color:#374151; line-height:1.6; margin-top:16px;">${quote.closing_text}</p>
     ` : ''}
+
+    ${commitmentBlock}
 
     <div style="margin-top:22px; font-size:12px;">
       <p>Atentamente,</p>

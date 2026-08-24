@@ -3,7 +3,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/shared/lib/supabase';
 import { quotesService } from '../services/quotesService';
-import type { Quote, CreateQuoteInput, CreateQuoteItemInput } from '../types/quote.types';
+import type { Quote, CreateQuoteInput, CreateQuoteItemInput, QuoteDocumentType } from '../types/quote.types';
+import { DOCUMENT_TYPE_LABELS } from '../types/quote.types';
 import { QuoteItemSelector } from '@/features/projects/components/QuoteItemSelector';
 import type { TarifarioItem } from '@/features/tarifario/types/tarifario.types';
 import { Trash2, Plus, ArrowUp, ArrowDown, Package, Building2, FileText, FileSignature, Calculator, ChevronDown } from 'lucide-react';
@@ -52,6 +53,7 @@ interface LocalItem {
 }
 
 interface FormState {
+  document_type: QuoteDocumentType;
   client_id: string;
   unregistered_client: boolean;
   client_name: string;
@@ -69,13 +71,19 @@ interface FormState {
   iva_porcentaje: number;
 }
 
-const DEFAULT_INTRO =
-  'De acuerdo con su interés, nos permitimos presentar la siguiente cotización de los servicios descritos a continuación:';
-
-const DEFAULT_CLOSING =
-  'Quedamos atentos a sus comentarios para avanzar con la reserva del servicio y la ejecución del proyecto.';
+const DEFAULT_TEXTS: Record<QuoteDocumentType, { intro: string; closing: string }> = {
+  cotizacion: {
+    intro: 'De acuerdo con su interés, nos permitimos presentar la siguiente cotización de los servicios descritos a continuación:',
+    closing: 'Quedamos atentos a sus comentarios para avanzar con la reserva del servicio y la ejecución del proyecto.',
+  },
+  orden_produccion: {
+    intro: 'De acuerdo con lo conversado, formalizamos a continuación el compromiso de compra para la producción y ejecución de los servicios descritos:',
+    closing: 'Al confirmar este documento, se formaliza el compromiso de compra aquí descrito y se da inicio al proceso de producción. La facturación correspondiente se emitirá conforme a lo aquí acordado.',
+  },
+};
 
 const EMPTY_FORM: FormState = {
+  document_type: 'cotizacion',
   client_id: '',
   unregistered_client: false,
   client_name: '',
@@ -88,8 +96,8 @@ const EMPTY_FORM: FormState = {
   project_id: '',
   cost_center: '',
   valid_until: '',
-  intro_text: DEFAULT_INTRO,
-  closing_text: DEFAULT_CLOSING,
+  intro_text: DEFAULT_TEXTS.cotizacion.intro,
+  closing_text: DEFAULT_TEXTS.cotizacion.closing,
   iva_porcentaje: 19,
 };
 
@@ -153,6 +161,7 @@ export function QuoteForm({ initialData, onSuccess, onCancel }: QuoteFormProps) 
     if (!initialData) return;
 
     setForm({
+      document_type: initialData.document_type ?? 'cotizacion',
       client_id: initialData.client_id ?? '',
       unregistered_client: !initialData.client_id,
       client_name: initialData.client_name,
@@ -165,8 +174,8 @@ export function QuoteForm({ initialData, onSuccess, onCancel }: QuoteFormProps) 
       project_id: initialData.project_id ?? '',
       cost_center: initialData.cost_center ?? '',
       valid_until: initialData.valid_until ?? '',
-      intro_text: initialData.intro_text ?? DEFAULT_INTRO,
-      closing_text: initialData.closing_text ?? DEFAULT_CLOSING,
+      intro_text: initialData.intro_text ?? DEFAULT_TEXTS[initialData.document_type ?? 'cotizacion'].intro,
+      closing_text: initialData.closing_text ?? DEFAULT_TEXTS[initialData.document_type ?? 'cotizacion'].closing,
       iva_porcentaje: initialData.iva_porcentaje,
     });
 
@@ -300,6 +309,7 @@ export function QuoteForm({ initialData, onSuccess, onCancel }: QuoteFormProps) 
       const currentStatus = isEditing && initialData ? initialData.status : 'borrador';
 
       const header: CreateQuoteInput = {
+        document_type: form.document_type,
         client_id: form.client_id || null,
         client_name: form.client_name.trim(),
         client_contact_name: form.client_contact_name.trim() || undefined,
@@ -364,7 +374,7 @@ export function QuoteForm({ initialData, onSuccess, onCancel }: QuoteFormProps) 
             </div>
             <div>
               <CardTitle className="text-xl font-bold">
-                {isEditing ? 'Editar Cotización' : 'Nueva Cotización'}
+                {isEditing ? `Editar ${DOCUMENT_TYPE_LABELS[form.document_type]}` : `Nueva ${DOCUMENT_TYPE_LABELS[form.document_type]}`}
                 {isEditing && initialData?.quote_number && (
                   <span className="ml-2 text-sm font-mono font-normal text-slate-400">
                     #{initialData.quote_number}
@@ -372,8 +382,8 @@ export function QuoteForm({ initialData, onSuccess, onCancel }: QuoteFormProps) 
                 )}
               </CardTitle>
               <p className="text-xs text-slate-400 font-medium mt-0.5">
-                {isEditing
-                  ? 'Modifica los datos de esta cotización'
+                {form.document_type === 'orden_produccion'
+                  ? 'Formaliza un compromiso de compra previo a la factura, listo para enviar y confirmar rápido'
                   : 'Estructura una propuesta comercial para un cliente o prospecto'}
               </p>
             </div>
@@ -381,6 +391,50 @@ export function QuoteForm({ initialData, onSuccess, onCancel }: QuoteFormProps) 
         </CardHeader>
 
         <CardContent className="p-8 space-y-10">
+          {/* SECTION 0: Tipo de Documento */}
+          <section className="space-y-3">
+            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wide">
+              Tipo de Documento
+            </label>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {(Object.keys(DOCUMENT_TYPE_LABELS) as QuoteDocumentType[]).map((type) => {
+                const isSelected = form.document_type === type;
+                return (
+                  <button
+                    key={type}
+                    type="button"
+                    onClick={() => {
+                      const prevDefaults = DEFAULT_TEXTS[form.document_type];
+                      const nextDefaults = DEFAULT_TEXTS[type];
+                      setForm((prev) => ({
+                        ...prev,
+                        document_type: type,
+                        intro_text: prev.intro_text === prevDefaults.intro ? nextDefaults.intro : prev.intro_text,
+                        closing_text: prev.closing_text === prevDefaults.closing ? nextDefaults.closing : prev.closing_text,
+                      }));
+                    }}
+                    className={`text-left p-4 rounded-xl border-2 transition-all ${
+                      isSelected
+                        ? type === 'orden_produccion'
+                          ? 'border-orange-500 bg-orange-50'
+                          : 'border-slate-900 bg-slate-50'
+                        : 'border-slate-200 hover:border-slate-300'
+                    }`}
+                  >
+                    <span className={`block text-sm font-bold ${isSelected ? (type === 'orden_produccion' ? 'text-orange-700' : 'text-slate-900') : 'text-slate-700'}`}>
+                      {DOCUMENT_TYPE_LABELS[type]}
+                    </span>
+                    <span className="block text-xs text-slate-400 mt-1">
+                      {type === 'orden_produccion'
+                        ? 'Documento vinculante: compromete la compra antes de facturar'
+                        : 'Propuesta informativa, sin compromiso de compra'}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </section>
+
           {/* SECTION 1: Cliente */}
           <section className="space-y-5">
             <div className="flex items-center gap-2">

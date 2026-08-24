@@ -2,8 +2,8 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { quotesService } from '../services/quotesService';
-import type { Quote, QuoteStatus } from '../types/quote.types';
-import { QUOTE_STATUS_LABELS, QUOTE_STATUS_COLORS } from '../types/quote.types';
+import type { Quote, QuoteStatus, QuoteDocumentType } from '../types/quote.types';
+import { QUOTE_STATUS_LABELS, QUOTE_STATUS_COLORS, DOCUMENT_TYPE_SHORT_LABELS, DOCUMENT_TYPE_COLORS } from '../types/quote.types';
 import { Search, Eye, Pencil, Trash2, Plus, FileSignature, CheckCircle2, XCircle } from 'lucide-react';
 import { useResizableColumns } from '@/shared/hooks/useResizableColumns';
 
@@ -31,6 +31,12 @@ const STATUS_OPTIONS: Array<{ value: QuoteStatus | 'all'; label: string }> = [
   { value: 'enviada', label: 'Enviada' },
   { value: 'aceptada', label: 'Aceptada' },
   { value: 'rechazada', label: 'Rechazada' },
+];
+
+const DOCUMENT_TYPE_OPTIONS: Array<{ value: QuoteDocumentType | 'all'; label: string }> = [
+  { value: 'all', label: 'Todos los tipos' },
+  { value: 'cotizacion', label: 'Cotizaciones' },
+  { value: 'orden_produccion', label: 'Órdenes de Producción' },
 ];
 
 function TableSkeleton() {
@@ -70,6 +76,7 @@ export function QuotesList({ onEdit, onPreview, onNewQuote }: QuotesListProps) {
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<QuoteStatus | 'all'>('all');
+  const [documentTypeFilter, setDocumentTypeFilter] = useState<QuoteDocumentType | 'all'>('all');
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
@@ -80,6 +87,7 @@ export function QuotesList({ onEdit, onPreview, onNewQuote }: QuotesListProps) {
     try {
       const filters = {
         ...(statusFilter !== 'all' ? { status: statusFilter } : {}),
+        ...(documentTypeFilter !== 'all' ? { documentType: documentTypeFilter } : {}),
         ...(search.trim() ? { search: search.trim() } : {}),
       };
       const data = await quotesService.getQuotes(filters);
@@ -90,7 +98,7 @@ export function QuotesList({ onEdit, onPreview, onNewQuote }: QuotesListProps) {
     } finally {
       setLoading(false);
     }
-  }, [search, statusFilter]);
+  }, [search, statusFilter, documentTypeFilter]);
 
   useEffect(() => {
     fetchQuotes();
@@ -130,15 +138,15 @@ export function QuotesList({ onEdit, onPreview, onNewQuote }: QuotesListProps) {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <h3 className="text-base font-bold text-slate-800">Cotizaciones</h3>
-          <p className="text-xs text-slate-400 mt-0.5">Propuestas comerciales para clientes y prospectos</p>
+          <h3 className="text-base font-bold text-slate-800">Cotizaciones y Órdenes de Producción</h3>
+          <p className="text-xs text-slate-400 mt-0.5">Propuestas comerciales y compromisos de compra para clientes y prospectos</p>
         </div>
         <button
           onClick={onNewQuote}
           className="inline-flex items-center gap-2 px-4 py-2 bg-gray-900 hover:bg-black text-white text-sm font-semibold rounded-lg transition-colors shadow-sm"
         >
           <Plus className="w-4 h-4" />
-          Nueva Cotización
+          Nuevo Documento
         </button>
       </div>
 
@@ -148,12 +156,25 @@ export function QuotesList({ onEdit, onPreview, onNewQuote }: QuotesListProps) {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
           <input
             type="text"
-            placeholder="Buscar por No. cotización o cliente..."
+            placeholder="Buscar por número o cliente..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="w-full pl-9 pr-4 py-2 text-sm bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400 transition-colors placeholder:text-slate-300"
           />
         </div>
+
+        <select
+          value={documentTypeFilter}
+          onChange={(e) => setDocumentTypeFilter(e.target.value as QuoteDocumentType | 'all')}
+          className="px-3 py-2 text-sm bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400 transition-colors text-slate-700 min-w-[170px]"
+          aria-label="Filtrar por tipo de documento"
+        >
+          {DOCUMENT_TYPE_OPTIONS.map((opt) => (
+            <option key={opt.value} value={opt.value}>
+              {opt.label}
+            </option>
+          ))}
+        </select>
 
         <select
           value={statusFilter}
@@ -181,7 +202,7 @@ export function QuotesList({ onEdit, onPreview, onNewQuote }: QuotesListProps) {
           </colgroup>
           <thead className="text-[10px] text-slate-500 uppercase bg-slate-50 border-b border-slate-100">
             <tr>
-              {(['No. Cotización', 'Fecha', 'Cliente', 'Descripción', 'Creado por', 'Total', 'Estado', 'Acciones'] as const).map((label, i) => (
+              {(['No. Documento', 'Fecha', 'Cliente', 'Descripción', 'Creado por', 'Total', 'Estado', 'Acciones'] as const).map((label, i) => (
                 <th
                   key={i}
                   className="px-4 py-3 font-bold tracking-wider relative select-none overflow-hidden"
@@ -209,8 +230,11 @@ export function QuotesList({ onEdit, onPreview, onNewQuote }: QuotesListProps) {
 
                 return (
                   <tr key={quote.id} className="hover:bg-gray-50 transition-colors">
-                    <td className="px-4 py-3.5 font-mono text-xs font-bold text-slate-700 overflow-hidden">
-                      <span className="block truncate">{quote.quote_number}</span>
+                    <td className="px-4 py-3.5 text-xs overflow-hidden">
+                      <span className="block font-mono font-bold text-slate-700 truncate">{quote.quote_number}</span>
+                      <span className={`inline-block mt-1 px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wide ${DOCUMENT_TYPE_COLORS[quote.document_type]}`}>
+                        {DOCUMENT_TYPE_SHORT_LABELS[quote.document_type]}
+                      </span>
                     </td>
                     <td className="px-4 py-3.5 text-xs text-slate-500 overflow-hidden">
                       <span className="block truncate">{formatDate(quote.created_at)}</span>

@@ -123,7 +123,7 @@ export function FinanceReportCenter({ period, selectedProjects, selectedCostCent
                     map[name].ingresos += Number(s.valor_venta_neto) || 0;
                 });
                 fe.forEach(e => {
-                    const name = 'Proyecto ' + (e.proyecto_id?.substring(0, 6) ?? 'N/A');
+                    const name = e.proyecto_nombre || 'Sin proyecto';
                     if (!map[name]) map[name] = { name, ingresos: 0, gastos: 0, utilidad: 0 };
                     map[name].gastos += Number(e.valor_neto) || 0;
                 });
@@ -167,6 +167,29 @@ export function FinanceReportCenter({ period, selectedProjects, selectedCostCent
         });
     }, [allExpenses, period, selectedCostCenters, selectedEstado]);
 
+    // Para Cartera (CXC) y Obligaciones (CXP): mismo campo de fecha que usan las pestañas de detalle
+    // (fecha_cobro_estimada / fecha_limite_pago), para que los totales coincidan exactamente.
+    const carteraSales = useMemo(() => {
+        if (!allSales || allSales.length === 0) return [];
+        return allSales.filter(s => {
+            if (!isInPeriod(s.fecha_cobro_estimada || s.created_at, period)) return false;
+            const matchesProject = !selectedProjects || selectedProjects.length === 0 || selectedProjects.includes(s.proyecto?.name ?? '');
+            const matchesCostCenter = !selectedCostCenters || selectedCostCenters.length === 0 || selectedCostCenters.includes(s.cost_center ?? '');
+            const matchesEstado = !selectedEstado || selectedEstado.length === 0 || selectedEstado.some(e => s.estado_pago === e.toLowerCase().replace(/ /g, '_'));
+            return matchesProject && matchesCostCenter && matchesEstado;
+        });
+    }, [allSales, period, selectedProjects, selectedCostCenters, selectedEstado]);
+
+    const obligacionesExpenses = useMemo(() => {
+        if (!allExpenses || allExpenses.length === 0) return [];
+        return allExpenses.filter(e => {
+            if (!isInPeriod(e.fecha_limite_pago || e.created_at, period)) return false;
+            const matchesCostCenter = !selectedCostCenters || selectedCostCenters.length === 0 || selectedCostCenters.includes(e.cost_center ?? '');
+            const matchesEstado = !selectedEstado || selectedEstado.length === 0 || selectedEstado.some(es => e.estado_pago === es.toLowerCase().replace(/ /g, '_'));
+            return matchesCostCenter && matchesEstado;
+        });
+    }, [allExpenses, period, selectedCostCenters, selectedEstado]);
+
     return (
         <div className="space-y-6">
             {/* Nivel 1: Tendencia Mensual */}
@@ -175,8 +198,8 @@ export function FinanceReportCenter({ period, selectedProjects, selectedCostCent
             {/* Nivel 1: Estado de Cartera y Obligaciones */}
             {!loading && (
                 <div className="grid grid-cols-2 gap-6">
-                    <CarteraStatusChart sales={filteredSales} />
-                    <ObligacionesStatusChart expenses={filteredExpenses} />
+                    <CarteraStatusChart sales={carteraSales} />
+                    <ObligacionesStatusChart expenses={obligacionesExpenses} />
                 </div>
             )}
 

@@ -1,8 +1,9 @@
 import { supabase } from '@/shared/lib/supabase';
-import type { Quote, QuoteItem, CreateQuoteInput, CreateQuoteItemInput, QuoteStatus } from '../types/quote.types';
+import type { Quote, QuoteItem, CreateQuoteInput, CreateQuoteItemInput, QuoteStatus, QuoteDocumentType } from '../types/quote.types';
 
 export interface QuoteFilters {
   status?: QuoteStatus;
+  documentType?: QuoteDocumentType;
   search?: string;
 }
 
@@ -26,6 +27,9 @@ export const quotesService = {
 
     if (filters?.status) {
       query = query.eq('status', filters.status);
+    }
+    if (filters?.documentType) {
+      query = query.eq('document_type', filters.documentType);
     }
     if (filters?.search) {
       query = query.or(`quote_number.ilike.%${filters.search}%,client_name.ilike.%${filters.search}%`);

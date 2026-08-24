@@ -1,4 +1,20 @@
 export type QuoteStatus = 'borrador' | 'enviada' | 'aceptada' | 'rechazada';
+export type QuoteDocumentType = 'cotizacion' | 'orden_produccion';
+
+export const DOCUMENT_TYPE_LABELS: Record<QuoteDocumentType, string> = {
+  cotizacion: 'Cotización',
+  orden_produccion: 'Orden de Producción (Compromiso de Compra)',
+};
+
+export const DOCUMENT_TYPE_SHORT_LABELS: Record<QuoteDocumentType, string> = {
+  cotizacion: 'Cotización',
+  orden_produccion: 'Orden de Producción',
+};
+
+export const DOCUMENT_TYPE_COLORS: Record<QuoteDocumentType, string> = {
+  cotizacion: 'bg-slate-100 text-slate-600',
+  orden_produccion: 'bg-orange-100 text-orange-700',
+};
 
 export const QUOTE_STATUS_LABELS: Record<QuoteStatus, string> = {
   borrador: 'Borrador',
@@ -19,6 +35,7 @@ export interface Quote {
   quote_number: string;
   quote_year: number;
   quote_sequence: number;
+  document_type: QuoteDocumentType;
   client_id?: string | null;
   client_name: string;
   client_contact_name?: string;

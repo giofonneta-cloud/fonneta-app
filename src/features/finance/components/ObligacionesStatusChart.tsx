@@ -30,7 +30,7 @@ const CustomTooltip = ({ active, payload }: any) => {
 };
 
 export function ObligacionesStatusChart({ expenses }: Props) {
-  const data = useMemo(() => {
+  const { porPagar, items: data } = useMemo(() => {
     const pagado = expenses
       .filter(e => e.estado_pago === 'pagado')
       .reduce((a, e) => a + (Number(e.total_con_iva) || 0), 0);
@@ -45,23 +45,26 @@ export function ObligacionesStatusChart({ expenses }: Props) {
 
     const total = pagado + pendiente + soliciteDocumentos;
 
-    return [
-      {
-        name: 'Pagado',
-        value: pagado,
-        percentage: total > 0 ? (pagado / total) * 100 : 0,
-      },
-      {
-        name: 'Pendiente',
-        value: pendiente,
-        percentage: total > 0 ? (pendiente / total) * 100 : 0,
-      },
-      {
-        name: 'Solicite Documentos',
-        value: soliciteDocumentos,
-        percentage: total > 0 ? (soliciteDocumentos / total) * 100 : 0,
-      },
-    ].filter(d => d.value > 0);
+    return {
+      porPagar: pendiente + soliciteDocumentos,
+      items: [
+        {
+          name: 'Pagado',
+          value: pagado,
+          percentage: total > 0 ? (pagado / total) * 100 : 0,
+        },
+        {
+          name: 'Pendiente',
+          value: pendiente,
+          percentage: total > 0 ? (pendiente / total) * 100 : 0,
+        },
+        {
+          name: 'Solicite Documentos',
+          value: soliciteDocumentos,
+          percentage: total > 0 ? (soliciteDocumentos / total) * 100 : 0,
+        },
+      ].filter(d => d.value > 0),
+    };
   }, [expenses]);
 
   const total = data.reduce((a, d) => a + d.value, 0);
@@ -71,7 +74,16 @@ export function ObligacionesStatusChart({ expenses }: Props) {
       <div className="mb-6">
         <h3 className="text-lg font-bold text-slate-800">Estado de Obligaciones (CXP)</h3>
         <p className="text-xs text-slate-400 mt-1">Distribución de gastos por estado de pago</p>
-        <p className="text-base font-black text-slate-900 mt-2">{fmt(total)}</p>
+        <div className="flex items-baseline gap-4 mt-2">
+          <div>
+            <p className="text-[9px] font-black text-rose-500 uppercase tracking-widest">Por pagar</p>
+            <p className="text-base font-black text-rose-600">{fmt(porPagar)}</p>
+          </div>
+          <div>
+            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Total radicado</p>
+            <p className="text-sm font-bold text-slate-500">{fmt(total)}</p>
+          </div>
+        </div>
       </div>
 
       {data.length > 0 ? (

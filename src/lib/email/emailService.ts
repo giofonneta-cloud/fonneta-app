@@ -612,7 +612,8 @@ Cel: 318 254 4377`;
     total: number,
     documentUrl?: string,
     attachments?: EmailAttachment[],
-    ccEmail?: string
+    ccEmail?: string,
+    isOrdenProduccion?: boolean
   ): Promise<void> {
     const formattedTotal = new Intl.NumberFormat('es-CO', {
       style: 'currency',
@@ -620,15 +621,23 @@ Cel: 318 254 4377`;
       maximumFractionDigits: 0,
     }).format(total);
 
+    const docLabel = isOrdenProduccion ? 'Orden de Producción' : 'Propuesta Comercial';
+    const introSentence = isOrdenProduccion
+      ? 'Hemos preparado la siguiente orden de producción para usted. Este documento formaliza el compromiso de compra previo a la generación de la factura o cuenta de cobro correspondiente:'
+      : 'Hemos preparado la siguiente propuesta comercial para usted, de acuerdo con su interés en nuestros servicios:';
+    const closingSentence = isOrdenProduccion
+      ? 'Le solicitamos confirmar por escrito la aceptación de este documento para dar inicio al proceso de producción. No dude en responder este correo con cualquier duda.'
+      : 'Quedamos atentos a sus comentarios para avanzar. No dude en responder este correo con cualquier duda.';
+
     const html = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; color: #1f2937;">
-        <h2 style="color: #111827;">Propuesta Comercial ${quoteNumber}</h2>
+        <h2 style="color: #111827;">${docLabel} ${quoteNumber}</h2>
         <p>Estimado(a) <strong>${recipientName}</strong>,</p>
-        <p>Hemos preparado la siguiente propuesta comercial para usted, de acuerdo con su interés en nuestros servicios:</p>
+        <p>${introSentence}</p>
 
         <div style="background-color: #f3f4f6; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #111827;">
           <p style="margin: 0 0 10px 0; font-size: 18px; font-weight: bold; color: #111827;">
-            Cotización: ${quoteNumber}
+            ${docLabel}: ${quoteNumber}
           </p>
           <p style="margin: 0; font-size: 16px; color: #111827;">
             Valor total: ${formattedTotal}
@@ -636,7 +645,7 @@ Cel: 318 254 4377`;
         </div>
 
         <p style="margin-top: 16px; font-size: 14px; color: #374151;">
-          Encontrará el detalle completo de la propuesta adjunto a este correo en formato PDF.
+          Encontrará el detalle completo adjunto a este correo en formato PDF.
         </p>
 
         ${documentUrl ? `
@@ -648,7 +657,7 @@ Cel: 318 254 4377`;
         </p>
         ` : ''}
 
-        <p style="margin-top: 20px;">Quedamos atentos a sus comentarios para avanzar. No dude en responder este correo con cualquier duda.</p>
+        <p style="margin-top: 20px;">${closingSentence}</p>
 
         <hr style="border: 1px solid #e5e7eb; margin: 20px 0;">
         <p style="color: #6b7280; font-size: 12px;">
@@ -660,11 +669,13 @@ Cel: 318 254 4377`;
 
     const textAlternative = `Estimado(a) ${recipientName},
 
-Hemos preparado la siguiente propuesta comercial para usted: Cotización ${quoteNumber}, por un valor total de ${formattedTotal}.
+${introSentence}
+
+${docLabel}: ${quoteNumber}, por un valor total de ${formattedTotal}.
 
 Encontrará el detalle completo adjunto a este correo en formato PDF.
 ${documentUrl ? `También puede verla en Google Drive: ${documentUrl}\n` : ''}
-Quedamos atentos a sus comentarios para avanzar. No dude en responder este correo con cualquier duda.
+${closingSentence}
 
 Cordialmente,
 Fonneta Comunicaciones S.A.S.
@@ -676,7 +687,7 @@ Cel: +57 311 2487439`;
       to: recipientEmail,
       ...(ccEmail ? { cc: ccEmail } : {}),
       replyTo: 'administrativo@fonneta.com',
-      subject: `Propuesta Comercial ${quoteNumber} - Fonneta Comunicaciones`,
+      subject: `${docLabel} ${quoteNumber} - Fonneta Comunicaciones`,
       html,
       text: textAlternative,
       attachments,

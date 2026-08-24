@@ -65,6 +65,7 @@ export interface GastoEntregable {
 export interface GastoExtendido {
     id: string;
     proyecto_id?: string;
+    proyecto_nombre?: string;
     proveedor_id: string;
     proveedor_nombre?: string;
     valor_neto: number;

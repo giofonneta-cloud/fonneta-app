@@ -108,7 +108,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       }
     };
 
-    const pdfFilename = `Cotizacion_${quote.quote_number}.pdf`;
+    const pdfFilename = `${quote.document_type === 'orden_produccion' ? 'OrdenProduccion' : 'Cotizacion'}_${quote.quote_number}.pdf`;
 
     // 7. Preparar adjuntos: PDF primero + adjuntos del usuario (sin duplicados)
     const allAttachments: EmailAttachment[] = [
@@ -139,7 +139,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         quote.total,
         documentUrl,
         allAttachments,
-        ccEmail
+        ccEmail,
+        quote.document_type === 'orden_produccion'
       );
     } catch (emailErr: unknown) {
       const errMsg = emailErr instanceof Error ? emailErr.message : 'desconocido';

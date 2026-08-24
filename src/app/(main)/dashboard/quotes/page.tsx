@@ -77,8 +77,8 @@ export default function QuotesPage() {
       {view === 'list' && (
         <>
           <div>
-            <h1 className="text-3xl font-black text-slate-900 tracking-tight">Cotizaciones</h1>
-            <p className="text-sm text-slate-500 mt-0.5">Crea, envía y da seguimiento a propuestas comerciales</p>
+            <h1 className="text-3xl font-black text-slate-900 tracking-tight">Cotizaciones y Órdenes de Producción</h1>
+            <p className="text-sm text-slate-500 mt-0.5">Crea, envía y da seguimiento a propuestas comerciales y compromisos de compra</p>
           </div>
           <div key={refreshKey} className="p-6 bg-white rounded-2xl border border-slate-100 shadow-sm">
             <QuotesList onEdit={handleEdit} onPreview={handlePreview} onNewQuote={handleNewQuote} />

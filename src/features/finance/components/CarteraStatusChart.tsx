@@ -30,7 +30,7 @@ const CustomTooltip = ({ active, payload }: any) => {
 };
 
 export function CarteraStatusChart({ sales }: Props) {
-  const data = useMemo(() => {
+  const { porCobrar, items: data } = useMemo(() => {
     const pagado = sales
       .filter(s => s.estado_pago === 'pagado')
       .reduce((a, s) => a + (Number(s.total_con_iva) || 0), 0);
@@ -44,24 +44,28 @@ export function CarteraStatusChart({ sales }: Props) {
       .reduce((a, s) => a + (Number(s.total_con_iva) || 0), 0);
 
     const total = pagado + parcial + pendiente;
+    const porCobrar = parcial + pendiente;
 
-    return [
-      {
-        name: 'Pagado',
-        value: pagado,
-        percentage: total > 0 ? (pagado / total) * 100 : 0,
-      },
-      {
-        name: 'Parcial',
-        value: parcial,
-        percentage: total > 0 ? (parcial / total) * 100 : 0,
-      },
-      {
-        name: 'Pendiente',
-        value: pendiente,
-        percentage: total > 0 ? (pendiente / total) * 100 : 0,
-      },
-    ].filter(d => d.value > 0);
+    return {
+      porCobrar,
+      items: [
+        {
+          name: 'Pagado',
+          value: pagado,
+          percentage: total > 0 ? (pagado / total) * 100 : 0,
+        },
+        {
+          name: 'Parcial',
+          value: parcial,
+          percentage: total > 0 ? (parcial / total) * 100 : 0,
+        },
+        {
+          name: 'Pendiente',
+          value: pendiente,
+          percentage: total > 0 ? (pendiente / total) * 100 : 0,
+        },
+      ].filter(d => d.value > 0),
+    };
   }, [sales]);
 
   const total = data.reduce((a, d) => a + d.value, 0);
@@ -71,7 +75,16 @@ export function CarteraStatusChart({ sales }: Props) {
       <div className="mb-6">
         <h3 className="text-lg font-bold text-slate-800">Estado de Cartera (CXC)</h3>
         <p className="text-xs text-slate-400 mt-1">Distribución de facturas por estado de pago</p>
-        <p className="text-base font-black text-slate-900 mt-2">{fmt(total)}</p>
+        <div className="flex items-baseline gap-4 mt-2">
+          <div>
+            <p className="text-[9px] font-black text-rose-500 uppercase tracking-widest">Por cobrar</p>
+            <p className="text-base font-black text-rose-600">{fmt(porCobrar)}</p>
+          </div>
+          <div>
+            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Total facturado</p>
+            <p className="text-sm font-bold text-slate-500">{fmt(total)}</p>
+          </div>
+        </div>
       </div>
 
       {data.length > 0 ? (
