@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Venta } from '../types/sales-expenses.types';
 import { salesService } from '../services/salesService';
 import { Input } from '@/shared/components/ui/input';
@@ -103,10 +103,25 @@ export function CommissionsList({ period, selectedProjects, selectedCostCenters,
         return matchesSearch && matchesPeriod && matchesProject && matchesCostCenter && matchesComercial;
     });
 
+    const totalValorVentas = filtered.reduce((a, s) => a + (Number(s.valor_venta_neto) || 0), 0);
     const totalComisiones = filtered.reduce((a, s) => a + (Number(s.valor_comision) || 0), 0);
     const totalPagadas = filtered.filter(s => s.comision_pagada).reduce((a, s) => a + (Number(s.valor_comision) || 0), 0);
     const totalPendientes = totalComisiones - totalPagadas;
     const countPendientes = filtered.filter(s => !s.comision_pagada).length;
+
+    const comercialSummary = useMemo(() => {
+        const map: Record<string, { nombre: string; totalVentas: number; totalComision: number; pendiente: number; pagada: number }> = {};
+        filtered.forEach(s => {
+            const nombre = s.comercial?.nombre || 'Sin comercial';
+            if (!map[nombre]) map[nombre] = { nombre, totalVentas: 0, totalComision: 0, pendiente: 0, pagada: 0 };
+            const comision = Number(s.valor_comision) || 0;
+            map[nombre].totalVentas += Number(s.valor_venta_neto) || 0;
+            map[nombre].totalComision += comision;
+            if (s.comision_pagada) map[nombre].pagada += comision;
+            else map[nombre].pendiente += comision;
+        });
+        return Object.values(map).sort((a, b) => b.totalVentas - a.totalVentas);
+    }, [filtered]);
 
     const payingSale = sales.find(s => s.id === payingId);
 
@@ -158,6 +173,10 @@ export function CommissionsList({ period, selectedProjects, selectedCostCenters,
                             onChange={e => setSearch(e.target.value)}
                         />
                     </div>
+                    <div className="text-center px-4 py-2 bg-blue-50 rounded-xl border border-blue-100">
+                        <p className="text-[10px] font-black text-blue-500 uppercase tracking-widest">Total Ventas</p>
+                        <p className="text-sm font-black text-blue-700">{fmt(totalValorVentas)}</p>
+                    </div>
                     <div className="text-center px-4 py-2 bg-amber-50 rounded-xl border border-amber-100">
                         <p className="text-[10px] font-black text-amber-500 uppercase tracking-widest">Pendientes</p>
                         <p className="text-sm font-black text-amber-700">{fmt(totalPendientes)}</p>
@@ -172,6 +191,39 @@ export function CommissionsList({ period, selectedProjects, selectedCostCenters,
                     </div>
                 </div>
             </div>
+
+            {/* Resumen por Comercial */}
+            {!loading && comercialSummary.length > 0 && (
+                <div className="rounded-xl border border-slate-100 overflow-hidden">
+                    <div className="px-4 py-2.5 bg-slate-50 border-b border-slate-100">
+                        <h4 className="text-xs font-black text-slate-600 uppercase tracking-widest">Resumen por Comercial</h4>
+                    </div>
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-sm text-left">
+                            <thead className="text-[10px] text-slate-500 uppercase bg-white border-b border-slate-100">
+                                <tr>
+                                    <th className="px-4 py-2.5 font-black tracking-widest">Comercial</th>
+                                    <th className="px-4 py-2.5 font-black tracking-widest text-right">Total Vendido</th>
+                                    <th className="px-4 py-2.5 font-black tracking-widest text-right">Comisión Total</th>
+                                    <th className="px-4 py-2.5 font-black tracking-widest text-right">Pendiente</th>
+                                    <th className="px-4 py-2.5 font-black tracking-widest text-right">Pagada</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-50">
+                                {comercialSummary.map(c => (
+                                    <tr key={c.nombre} className="hover:bg-slate-50/60 transition-colors">
+                                        <td className="px-4 py-2.5 font-semibold text-xs text-slate-700">{c.nombre}</td>
+                                        <td className="px-4 py-2.5 text-right font-mono text-xs text-blue-700 font-bold">{fmt(c.totalVentas)}</td>
+                                        <td className="px-4 py-2.5 text-right font-mono text-xs text-slate-800 font-bold">{fmt(c.totalComision)}</td>
+                                        <td className="px-4 py-2.5 text-right font-mono text-xs text-amber-600 font-bold">{fmt(c.pendiente)}</td>
+                                        <td className="px-4 py-2.5 text-right font-mono text-xs text-emerald-600 font-bold">{fmt(c.pagada)}</td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            )}
 
             {/* Table */}
             <div className="overflow-x-auto rounded-xl border border-slate-100">
@@ -311,6 +363,9 @@ export function CommissionsList({ period, selectedProjects, selectedCostCenters,
                         {countPendientes} pendiente{countPendientes !== 1 ? 's' : ''} de {filtered.length}
                     </p>
                     <div className="flex gap-6 text-xs">
+                        <span className="text-slate-500">
+                            Total ventas: <span className="font-black text-blue-700">{fmt(totalValorVentas)}</span>
+                        </span>
                         <span className="text-slate-500">
                             Pendiente: <span className="font-black text-amber-600">{fmt(totalPendientes)}</span>
                         </span>

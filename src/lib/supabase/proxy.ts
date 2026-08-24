@@ -34,6 +34,11 @@ export async function updateSession(request: NextRequest) {
     const pathname = request.nextUrl.pathname
     const isDashboardRoute = pathname.startsWith('/dashboard')
     const isPortalRoute = pathname.startsWith('/portal')
+    // Cotizaciones vive bajo /dashboard pero su control de acceso real es por
+    // permiso granular (quotes.view), no por el rol simple — la propia página
+    // valida el permiso y RLS protege los datos, así que un proveedor con ese
+    // permiso no debe ser rebotado aquí antes de llegar a esa verificación.
+    const isQuotesRoute = pathname.startsWith('/dashboard/quotes')
     const isAuthRoute = pathname.startsWith('/login') || pathname.startsWith('/signup')
     const isPublicProviderRoute = pathname.startsWith('/register/provider')
 
@@ -78,8 +83,9 @@ export async function updateSession(request: NextRequest) {
             console.error('[Middleware] Profile error:', profileError.message)
         }
 
-        // Proveedor intentando acceder al dashboard admin
-        if (isDashboardRoute && userRole === 'proveedor') {
+        // Proveedor intentando acceder al dashboard admin (excepto Cotizaciones,
+        // gateado por permiso granular en la propia página + RLS)
+        if (isDashboardRoute && userRole === 'proveedor' && !isQuotesRoute) {
             console.log('[Middleware] Redirecting proveedor to /portal')
             return NextResponse.redirect(new URL('/portal', request.url))
         }
