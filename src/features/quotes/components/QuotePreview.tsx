@@ -272,15 +272,13 @@ export function QuotePreview({ quote, onClose, onEdit, onSent }: QuotePreviewPro
           {quote.closing_text && <p className="text-sm text-gray-700">{quote.closing_text}</p>}
 
           {isOrdenProduccion && (
-            <div className="border-2 border-orange-200 bg-orange-50 rounded-xl p-4 space-y-3">
-              <div>
-                <p className="text-xs font-bold text-orange-700 uppercase tracking-wider mb-1">Compromiso de Compra</p>
-                <p className="text-sm text-orange-900">
-                  Este documento formaliza un compromiso de compra entre las partes, previo a la generación de la factura o cuenta de cobro correspondiente. Al confirmar por escrito la aceptación de este documento, el cliente autoriza a Fonneta Comunicaciones S.A.S. a dar inicio al proceso de producción y ejecución de los servicios aquí descritos, bajo los términos, cantidades y valores establecidos.
-                </p>
-              </div>
-              <p className="text-xs text-orange-700 pt-3 border-t border-orange-200 italic">
-                La recepción y confirmación de este documento por parte del cliente, incluida la respuesta a este correo, constituye la aceptación del compromiso de compra aquí descrito, sin necesidad de firma.
+            <div className="space-y-2">
+              <p className="text-xs font-bold text-gray-900 uppercase tracking-wider">Compromiso de Compra</p>
+              <p className="text-sm text-gray-700">
+                Este documento formaliza el compromiso de compra entre las partes, previo a la generación de la factura o cuenta de cobro correspondiente.
+              </p>
+              <p className="text-sm text-gray-700">
+                El recibido de este documento por parte del cliente, constituye la formalización del compromiso de compra aquí descrito y autoriza a Fonneta Comunicaciones S.A.S. a dar inicio al proceso de producción y ejecución de los servicios y facturación, bajo los términos, cantidades y valores establecidos.
               </p>
             </div>
           )}
@@ -430,13 +428,13 @@ function buildQuotePrintHTML(quote: Quote, items: QuoteItem[]): string {
   const docTitle = isOrdenProduccion ? 'ORDEN DE PRODUCCIÓN' : 'PROPUESTA COMERCIAL';
 
   const commitmentBlock = isOrdenProduccion ? `
-    <div class="commitment-box">
-      <div class="section-title" style="color:#c2410c;">Compromiso de Compra</div>
-      <p style="font-size:11px; color:#7c2d12; line-height:1.6;">
-        Este documento formaliza un compromiso de compra entre las partes, previo a la generación de la factura o cuenta de cobro correspondiente. Al confirmar por escrito la aceptación de este documento, el cliente autoriza a Fonneta Comunicaciones S.A.S. a dar inicio al proceso de producción y ejecución de los servicios aquí descritos, bajo los términos, cantidades y valores establecidos.
+    <div style="margin-top:18px;">
+      <div class="section-title">Compromiso de Compra</div>
+      <p style="font-size:11px; color:#374151; line-height:1.6;">
+        Este documento formaliza el compromiso de compra entre las partes, previo a la generación de la factura o cuenta de cobro correspondiente.
       </p>
-      <p style="font-size:10px; color:#c2410c; line-height:1.6; margin-top:10px; padding-top:10px; border-top:1px solid #fed7aa; font-style:italic;">
-        La recepción y confirmación de este documento por parte del cliente, incluida la respuesta a este correo, constituye la aceptación del compromiso de compra aquí descrito, sin necesidad de firma.
+      <p style="font-size:11px; color:#374151; line-height:1.6; margin-top:8px;">
+        El recibido de este documento por parte del cliente, constituye la formalización del compromiso de compra aquí descrito y autoriza a Fonneta Comunicaciones S.A.S. a dar inicio al proceso de producción y ejecución de los servicios y facturación, bajo los términos, cantidades y valores establecidos.
       </p>
     </div>
   ` : '';
@@ -470,7 +468,6 @@ function buildQuotePrintHTML(quote: Quote, items: QuoteItem[]): string {
     .brand-pill { display: inline-block; padding: 4px 14px; margin: 0 4px; border: 1.5px solid #111827; border-radius: 3px; font-weight: 900; font-size: 11px; letter-spacing: 0.05em; }
     .footer { margin-top: 22px; padding: 12px 20px; background: #111827; color: #d1d5db; text-align: center; font-size: 9.5px; }
     .footer strong { color: #fff; }
-    .commitment-box { margin-top: 18px; padding: 14px 16px; background: #fff7ed; border: 1.5px solid #fed7aa; border-radius: 8px; }
     @media print {
       body { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
       .page { padding: 20px; }
