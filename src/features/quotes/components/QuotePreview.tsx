@@ -272,23 +272,16 @@ export function QuotePreview({ quote, onClose, onEdit, onSent }: QuotePreviewPro
           {quote.closing_text && <p className="text-sm text-gray-700">{quote.closing_text}</p>}
 
           {isOrdenProduccion && (
-            <div className="border-2 border-orange-200 bg-orange-50 rounded-xl p-4 space-y-4">
+            <div className="border-2 border-orange-200 bg-orange-50 rounded-xl p-4 space-y-3">
               <div>
                 <p className="text-xs font-bold text-orange-700 uppercase tracking-wider mb-1">Compromiso de Compra</p>
                 <p className="text-sm text-orange-900">
                   Este documento formaliza un compromiso de compra entre las partes, previo a la generación de la factura o cuenta de cobro correspondiente. Al confirmar por escrito la aceptación de este documento, el cliente autoriza a Fonneta Comunicaciones S.A.S. a dar inicio al proceso de producción y ejecución de los servicios aquí descritos, bajo los términos, cantidades y valores establecidos.
                 </p>
               </div>
-              <div className="grid grid-cols-2 gap-6 pt-3 border-t border-orange-200 text-sm text-orange-900">
-                <div>
-                  <p className="font-semibold">Aceptación del cliente</p>
-                  <p className="mt-4 border-t border-orange-300 pt-1 text-xs text-orange-500">Nombre y firma</p>
-                </div>
-                <div>
-                  <p className="font-semibold">Fecha</p>
-                  <p className="mt-4 border-t border-orange-300 pt-1 text-xs text-orange-500">DD/MM/AAAA</p>
-                </div>
-              </div>
+              <p className="text-xs text-orange-700 pt-3 border-t border-orange-200 italic">
+                La recepción y confirmación de este documento por parte del cliente, incluida la respuesta a este correo, constituye la aceptación del compromiso de compra aquí descrito, sin necesidad de firma.
+              </p>
             </div>
           )}
         </div>
@@ -442,16 +435,9 @@ function buildQuotePrintHTML(quote: Quote, items: QuoteItem[]): string {
       <p style="font-size:11px; color:#7c2d12; line-height:1.6;">
         Este documento formaliza un compromiso de compra entre las partes, previo a la generación de la factura o cuenta de cobro correspondiente. Al confirmar por escrito la aceptación de este documento, el cliente autoriza a Fonneta Comunicaciones S.A.S. a dar inicio al proceso de producción y ejecución de los servicios aquí descritos, bajo los términos, cantidades y valores establecidos.
       </p>
-      <div style="display:flex; gap:32px; margin-top:16px; padding-top:10px; border-top:1px solid #fed7aa;">
-        <div style="flex:1;">
-          <div style="font-size:10.5px; font-weight:700; color:#7c2d12;">Aceptación del cliente</div>
-          <div style="margin-top:20px; border-top:1px solid #fdba74; padding-top:3px; font-size:9px; color:#c2703f;">Nombre y firma</div>
-        </div>
-        <div style="flex:1;">
-          <div style="font-size:10.5px; font-weight:700; color:#7c2d12;">Fecha</div>
-          <div style="margin-top:20px; border-top:1px solid #fdba74; padding-top:3px; font-size:9px; color:#c2703f;">DD/MM/AAAA</div>
-        </div>
-      </div>
+      <p style="font-size:10px; color:#c2410c; line-height:1.6; margin-top:10px; padding-top:10px; border-top:1px solid #fed7aa; font-style:italic;">
+        La recepción y confirmación de este documento por parte del cliente, incluida la respuesta a este correo, constituye la aceptación del compromiso de compra aquí descrito, sin necesidad de firma.
+      </p>
     </div>
   ` : '';
 

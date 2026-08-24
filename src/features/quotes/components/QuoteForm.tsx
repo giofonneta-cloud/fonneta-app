@@ -111,18 +111,23 @@ export function QuoteForm({ initialData, onSuccess, onCancel }: QuoteFormProps) 
   const isEditing = !!initialData;
   const { opciones: centrosCostoTodos } = useParametros('centros_costo');
   const { profile, hasPermission } = useAuthStore();
-  const canSeeAllCostCenters = hasPermission('quotes.view_all');
+  const isPrivilegedQuoteUser = hasPermission('quotes.view_all');
 
   const [clients, setClients] = useState<ClientOption[]>([]);
   const [projects, setProjects] = useState<ProjectOption[]>([]);
   const [loadingClients, setLoadingClients] = useState(true);
   const [allowedCostCenters, setAllowedCostCenters] = useState<string[]>([]);
 
-  const centrosCosto = canSeeAllCostCenters
+  const centrosCosto = isPrivilegedQuoteUser
     ? centrosCostoTodos
     : centrosCostoTodos.filter((o) => allowedCostCenters.includes(o.etiqueta));
 
+  // Comerciales sin "Ver todas" nunca deben poder buscar en la base de
+  // clientes registrados: siempre diligencian los datos como prospecto.
+  const canBrowseClients = isPrivilegedQuoteUser;
+
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
+  const effectiveUnregistered = canBrowseClients ? form.unregistered_client : true;
   const [items, setItems] = useState<LocalItem[]>([]);
   const [errors, setErrors] = useState<Partial<Record<keyof FormState, string>>>({});
 
@@ -132,15 +137,20 @@ export function QuoteForm({ initialData, onSuccess, onCancel }: QuoteFormProps) 
   useEffect(() => {
     const loadData = async () => {
       try {
-        const [{ data: prov }, { data: proj }] = await Promise.all([
-          supabase
-            .from('providers')
-            .select('id, business_name, document_number, address, city, contact_phone, contact_email, billing_email')
-            .eq('is_client', true)
-            .order('business_name'),
+        const [prov, { data: proj }] = await Promise.all([
+          // Solo se consulta la base de clientes si el usuario tiene permiso
+          // de ver todas las cotizaciones — un comercial restringido nunca
+          // debe recibir esta lista, ni siquiera por red.
+          canBrowseClients
+            ? supabase
+                .from('providers')
+                .select('id, business_name, document_number, address, city, contact_phone, contact_email, billing_email')
+                .eq('is_client', true)
+                .order('business_name')
+            : Promise.resolve({ data: [] }),
           supabase.from('projects').select('id, name').order('name'),
         ]);
-        setClients((prov ?? []) as ClientOption[]);
+        setClients((prov.data ?? []) as ClientOption[]);
         setProjects((proj ?? []) as ProjectOption[]);
       } catch (err) {
         console.error('Error cargando datos:', err);
@@ -150,12 +160,12 @@ export function QuoteForm({ initialData, onSuccess, onCancel }: QuoteFormProps) 
     };
 
     loadData();
-  }, []);
+  }, [canBrowseClients]);
 
   useEffect(() => {
-    if (canSeeAllCostCenters || !profile?.id) return;
+    if (isPrivilegedQuoteUser || !profile?.id) return;
     quoteAccessService.getMyCostCenters(profile.id).then(setAllowedCostCenters).catch(console.error);
-  }, [canSeeAllCostCenters, profile?.id]);
+  }, [isPrivilegedQuoteUser, profile?.id]);
 
   useEffect(() => {
     if (!initialData) return;
@@ -442,24 +452,30 @@ export function QuoteForm({ initialData, onSuccess, onCancel }: QuoteFormProps) 
               <h3 className="text-sm font-bold text-slate-700 uppercase tracking-wider">Cliente</h3>
             </div>
 
-            <div className="flex items-center gap-2.5">
-              <input
-                id="unregistered-client-toggle"
-                type="checkbox"
-                checked={form.unregistered_client}
-                onChange={(e) => {
-                  setField('unregistered_client', e.target.checked);
-                  if (e.target.checked) setField('client_id', '');
-                }}
-                className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
-              />
-              <label htmlFor="unregistered-client-toggle" className="text-sm text-slate-600 cursor-pointer select-none">
-                Cliente / prospecto no registrado (ingreso manual)
-              </label>
-            </div>
+            {canBrowseClients ? (
+              <div className="flex items-center gap-2.5">
+                <input
+                  id="unregistered-client-toggle"
+                  type="checkbox"
+                  checked={form.unregistered_client}
+                  onChange={(e) => {
+                    setField('unregistered_client', e.target.checked);
+                    if (e.target.checked) setField('client_id', '');
+                  }}
+                  className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                />
+                <label htmlFor="unregistered-client-toggle" className="text-sm text-slate-600 cursor-pointer select-none">
+                  Cliente / prospecto no registrado (ingreso manual)
+                </label>
+              </div>
+            ) : (
+              <p className="text-xs text-slate-400 bg-slate-50 border border-slate-100 rounded-lg px-3 py-2">
+                Diligencia los datos del cliente o prospecto manualmente. No tienes acceso a la base de clientes registrados.
+              </p>
+            )}
 
             <div className="p-5 bg-slate-50/60 rounded-xl border border-slate-100 space-y-4">
-              {!form.unregistered_client ? (
+              {!effectiveUnregistered ? (
                 <div>
                   <label className={labelClass}>Cliente registrado</label>
                   <div className="relative">
@@ -502,7 +518,7 @@ export function QuoteForm({ initialData, onSuccess, onCancel }: QuoteFormProps) 
               )}
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {!form.unregistered_client && (
+                {!effectiveUnregistered && (
                   <div>
                     <label className={labelClass}>
                       Nombre / Razón social <span className="text-red-500">*</span>
@@ -621,7 +637,7 @@ export function QuoteForm({ initialData, onSuccess, onCancel }: QuoteFormProps) 
                   <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
                 </div>
                 {errors.cost_center && <p className="text-xs text-red-500 mt-1">{errors.cost_center}</p>}
-                {!canSeeAllCostCenters && allowedCostCenters.length === 0 && (
+                {!isPrivilegedQuoteUser && allowedCostCenters.length === 0 && (
                   <p className="text-xs text-amber-600 mt-1">
                     Aún no tienes ningún centro de costo habilitado. Pide al administrador que te dé acceso.
                   </p>
