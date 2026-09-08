@@ -251,22 +251,28 @@ export function QuotePreview({ quote, onClose, onEdit, onSent }: QuotePreviewPro
 
           {/* Totals */}
           <div className="flex justify-end">
-            <div className="w-72 space-y-2 bg-gray-100 rounded-lg p-3.5">
-              <div className="flex justify-between text-sm text-gray-600">
-                <span>Subtotal</span>
-                <span className="font-mono">{formatCurrency(quote.subtotal)}</span>
-              </div>
-              {quote.iva_porcentaje > 0 && (
+            {quote.hide_totals ? (
+              <p className="text-sm text-gray-500 italic">
+                Precios unitarios antes de IVA{quote.iva_porcentaje > 0 ? ` (${quote.iva_porcentaje}%)` : ''}.
+              </p>
+            ) : (
+              <div className="w-72 space-y-2 bg-gray-100 rounded-lg p-3.5">
                 <div className="flex justify-between text-sm text-gray-600">
-                  <span>IVA ({quote.iva_porcentaje}%)</span>
-                  <span className="font-mono">{formatCurrency(quote.iva_valor)}</span>
+                  <span>Subtotal</span>
+                  <span className="font-mono">{formatCurrency(quote.subtotal)}</span>
                 </div>
-              )}
-              <div className="flex justify-between text-base font-bold text-gray-900 pt-2 border-t-2 border-black">
-                <span>TOTAL</span>
-                <span className="font-mono text-gray-900">{formatCurrency(quote.total)}</span>
+                {quote.iva_porcentaje > 0 && (
+                  <div className="flex justify-between text-sm text-gray-600">
+                    <span>IVA ({quote.iva_porcentaje}%)</span>
+                    <span className="font-mono">{formatCurrency(quote.iva_valor)}</span>
+                  </div>
+                )}
+                <div className="flex justify-between text-base font-bold text-gray-900 pt-2 border-t-2 border-black">
+                  <span>TOTAL</span>
+                  <span className="font-mono text-gray-900">{formatCurrency(quote.total)}</span>
+                </div>
               </div>
-            </div>
+            )}
           </div>
 
           {quote.closing_text && <p className="text-sm text-gray-700">{quote.closing_text}</p>}
@@ -519,6 +525,13 @@ function buildQuotePrintHTML(quote: Quote, items: QuoteItem[]): string {
         <tbody>${rows}</tbody>
       </table>
 
+      ${quote.hide_totals ? `
+      <div class="totals">
+        <p style="font-size:11px; color:#6b7280; font-style:italic;">
+          Precios unitarios antes de IVA${quote.iva_porcentaje > 0 ? ` (${quote.iva_porcentaje}%)` : ''}.
+        </p>
+      </div>
+      ` : `
       <div class="totals">
         <div class="totals-box">
           <div class="totals-row">
@@ -537,6 +550,7 @@ function buildQuotePrintHTML(quote: Quote, items: QuoteItem[]): string {
           </div>
         </div>
       </div>
+      `}
     </div>
 
     ${quote.closing_text ? `

@@ -38,8 +38,13 @@ export default function QuotesPage() {
     setRefreshKey((k) => k + 1);
   };
 
-  const handleEdit = (quote: Quote) => {
-    setEditingQuote(quote);
+  const handleEdit = async (quote: Quote) => {
+    try {
+      const full = await quotesService.getQuoteById(quote.id);
+      setEditingQuote(full);
+    } catch {
+      setEditingQuote(quote);
+    }
     setView('form');
   };
 

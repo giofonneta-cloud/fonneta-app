@@ -53,6 +53,7 @@ export interface Quote {
   iva_porcentaje: number;
   iva_valor: number;
   total: number;
+  hide_totals: boolean;
   status: QuoteStatus;
   sent_at?: string;
   document_url?: string;

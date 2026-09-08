@@ -69,6 +69,7 @@ interface FormState {
   intro_text: string;
   closing_text: string;
   iva_porcentaje: number;
+  hide_totals: boolean;
 }
 
 const DEFAULT_TEXTS: Record<QuoteDocumentType, { intro: string; closing: string }> = {
@@ -99,6 +100,7 @@ const EMPTY_FORM: FormState = {
   intro_text: DEFAULT_TEXTS.cotizacion.intro,
   closing_text: DEFAULT_TEXTS.cotizacion.closing,
   iva_porcentaje: 19,
+  hide_totals: false,
 };
 
 interface QuoteFormProps {
@@ -187,6 +189,7 @@ export function QuoteForm({ initialData, onSuccess, onCancel }: QuoteFormProps) 
       intro_text: initialData.intro_text ?? DEFAULT_TEXTS[initialData.document_type ?? 'cotizacion'].intro,
       closing_text: initialData.closing_text ?? DEFAULT_TEXTS[initialData.document_type ?? 'cotizacion'].closing,
       iva_porcentaje: initialData.iva_porcentaje,
+      hide_totals: initialData.hide_totals ?? false,
     });
 
     if (initialData.items && initialData.items.length > 0) {
@@ -337,6 +340,7 @@ export function QuoteForm({ initialData, onSuccess, onCancel }: QuoteFormProps) 
         iva_porcentaje: form.iva_porcentaje,
         iva_valor: ivaValor,
         total,
+        hide_totals: form.hide_totals,
         status: currentStatus,
       };
 
@@ -376,7 +380,7 @@ export function QuoteForm({ initialData, onSuccess, onCancel }: QuoteFormProps) 
 
   return (
     <>
-      <Card className="max-w-4xl mx-auto shadow-2xl border-slate-200 overflow-hidden">
+      <Card className="w-full shadow-2xl border-slate-200 overflow-hidden">
         <CardHeader className="bg-slate-900 border-b p-6 text-white">
           <div className="flex items-center gap-3">
             <div className="p-2 bg-slate-800 rounded-lg">
@@ -517,7 +521,7 @@ export function QuoteForm({ initialData, onSuccess, onCancel }: QuoteFormProps) 
                 </div>
               )}
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
                 {!effectiveUnregistered && (
                   <div>
                     <label className={labelClass}>
@@ -616,7 +620,7 @@ export function QuoteForm({ initialData, onSuccess, onCancel }: QuoteFormProps) 
               <h3 className="text-sm font-bold text-slate-700 uppercase tracking-wider">Datos de la Cotización</h3>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-5 p-5 bg-purple-50/20 rounded-xl border border-purple-100/50">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-5 p-5 bg-purple-50/20 rounded-xl border border-purple-100/50">
               <div>
                 <label className={labelClass}>
                   Centro de costo / Línea <span className="text-red-500">*</span>
@@ -673,23 +677,23 @@ export function QuoteForm({ initialData, onSuccess, onCancel }: QuoteFormProps) 
                 />
               </div>
 
-              <div className="md:col-span-2">
+              <div className="md:col-span-3">
                 <label className={labelClass}>Párrafo introductorio</label>
                 <textarea
                   value={form.intro_text}
                   onChange={(e) => setField('intro_text', e.target.value)}
-                  rows={2}
-                  className={`${inputClass()} resize-none`}
+                  rows={3}
+                  className={`${inputClass()} resize-y`}
                 />
               </div>
 
-              <div className="md:col-span-2">
+              <div className="md:col-span-3">
                 <label className={labelClass}>Párrafo de cierre</label>
                 <textarea
                   value={form.closing_text}
                   onChange={(e) => setField('closing_text', e.target.value)}
-                  rows={2}
-                  className={`${inputClass()} resize-none`}
+                  rows={3}
+                  className={`${inputClass()} resize-y`}
                 />
               </div>
             </div>
@@ -757,7 +761,7 @@ export function QuoteForm({ initialData, onSuccess, onCancel }: QuoteFormProps) 
                             onChange={(e) => updateItemField(item.id, 'descripcion', e.target.value)}
                             placeholder="Descripción del ítem..."
                             rows={2}
-                            className="w-full px-2 py-1.5 border border-gray-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none transition-colors"
+                            className="w-full px-2 py-1.5 border border-gray-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 resize-y transition-colors"
                           />
                         </td>
                         <td className="px-3 py-3">
@@ -841,6 +845,22 @@ export function QuoteForm({ initialData, onSuccess, onCancel }: QuoteFormProps) 
               <h3 className="text-sm font-bold text-slate-700 uppercase tracking-wider">Totales</h3>
             </div>
 
+            <label className="flex items-start gap-2.5 cursor-pointer select-none p-3 bg-amber-50/60 border border-amber-100 rounded-lg">
+              <input
+                type="checkbox"
+                checked={form.hide_totals}
+                onChange={(e) => setField('hide_totals', e.target.checked)}
+                className="w-4 h-4 mt-0.5 rounded border-gray-300 text-amber-600 focus:ring-amber-500 cursor-pointer"
+              />
+              <span className="text-sm text-slate-700">
+                <span className="font-semibold">Ocultar subtotal y total en el documento del cliente</span>
+                <span className="block text-xs text-slate-500 mt-0.5">
+                  Úsalo cuando cotizas varias opciones alternativas para que el cliente escoja una — sumar no aplica.
+                  El PDF y el correo mostrarán solo los valores por ítem y la nota &quot;Precios unitarios antes de IVA&quot;.
+                </span>
+              </span>
+            </label>
+
             <div className="flex justify-end">
               <div className="w-full max-w-sm space-y-2">
                 <div className="flex items-center justify-between py-2 px-3 bg-slate-50 rounded-lg border border-slate-100">
@@ -873,6 +893,11 @@ export function QuoteForm({ initialData, onSuccess, onCancel }: QuoteFormProps) 
                   <span className="text-base font-bold text-white">TOTAL</span>
                   <span className="text-xl font-black text-white tracking-tight">{formatCurrency(total)}</span>
                 </div>
+                {form.hide_totals && (
+                  <p className="text-xs text-amber-600 text-right">
+                    Estos valores son de referencia interna — no se mostrarán al cliente.
+                  </p>
+                )}
               </div>
             </div>
           </section>
