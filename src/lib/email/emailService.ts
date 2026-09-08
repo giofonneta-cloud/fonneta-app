@@ -613,13 +613,16 @@ Cel: 318 254 4377`;
     documentUrl?: string,
     attachments?: EmailAttachment[],
     ccEmail?: string,
-    isOrdenProduccion?: boolean
+    isOrdenProduccion?: boolean,
+    hideTotals?: boolean,
+    ivaPorcentaje?: number
   ): Promise<void> {
     const formattedTotal = new Intl.NumberFormat('es-CO', {
       style: 'currency',
       currency: 'COP',
       maximumFractionDigits: 0,
     }).format(total);
+    const preTaxNote = `Precios unitarios antes de IVA${ivaPorcentaje ? ` (${ivaPorcentaje}%)` : ''}. Revise el detalle de cada opción en el PDF adjunto.`;
 
     const docLabel = isOrdenProduccion ? 'Orden de Producción' : 'Propuesta Comercial';
     const introSentence = isOrdenProduccion
@@ -639,9 +642,9 @@ Cel: 318 254 4377`;
           <p style="margin: 0 0 10px 0; font-size: 18px; font-weight: bold; color: #111827;">
             ${docLabel}: ${quoteNumber}
           </p>
-          <p style="margin: 0; font-size: 16px; color: #111827;">
-            Valor total: ${formattedTotal}
-          </p>
+          ${hideTotals
+            ? `<p style="margin: 0; font-size: 14px; color: #6b7280; font-style: italic;">${preTaxNote}</p>`
+            : `<p style="margin: 0; font-size: 16px; color: #111827;">Valor total: ${formattedTotal}</p>`}
         </div>
 
         <p style="margin-top: 16px; font-size: 14px; color: #374151;">
@@ -671,7 +674,7 @@ Cel: 318 254 4377`;
 
 ${introSentence}
 
-${docLabel}: ${quoteNumber}, por un valor total de ${formattedTotal}.
+${docLabel}: ${quoteNumber}${hideTotals ? ` — ${preTaxNote}` : `, por un valor total de ${formattedTotal}.`}
 
 Encontrará el detalle completo adjunto a este correo en formato PDF.
 ${documentUrl ? `También puede verla en Google Drive: ${documentUrl}\n` : ''}

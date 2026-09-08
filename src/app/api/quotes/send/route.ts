@@ -140,7 +140,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         documentUrl,
         allAttachments,
         ccEmail,
-        quote.document_type === 'orden_produccion'
+        quote.document_type === 'orden_produccion',
+        quote.hide_totals,
+        quote.iva_porcentaje
       );
     } catch (emailErr: unknown) {
       const errMsg = emailErr instanceof Error ? emailErr.message : 'desconocido';
