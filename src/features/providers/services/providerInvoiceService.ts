@@ -217,6 +217,21 @@ export const providerInvoiceService = {
           }
         }
 
+        // 2.5. Si se marca como pagado y tiene gasto vinculado, propagar el pago al Gasto
+        if (status === 'pagado' && updatedInvoice.expense_id) {
+            try {
+                const { expensesService } = await import('@/features/finance/services/expensesService');
+
+                await expensesService.updateGasto(updatedInvoice.expense_id, {
+                    estado_pago: 'pagado',
+                    fecha_pago_real: updateData.payment_date ?? undefined,
+                });
+            } catch (gastoError) {
+                console.error('Error propagando pago al gasto vinculado:', gastoError);
+                // No bloqueamos el update de la factura, pero logueamos el error
+            }
+        }
+
         // 2. Si se aprueba y NO tiene gasto vinculado, crear el Gasto
         if (status === 'aprobado' && !updatedInvoice.expense_id && updatedInvoice.project_id) {
             try {
