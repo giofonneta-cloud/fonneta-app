@@ -133,9 +133,11 @@ async function handle(request: NextRequest): Promise<NextResponse> {
       return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
     }
 
-    // Modo prueba (por defecto ACTIVO): envía todo a un solo correo de prueba.
+    // Modo prueba (por defecto ACTIVO): envía todo a un solo correo de prueba,
+    // con copia a administrativo@fonneta.com para verificación del equipo.
     const testMode = process.env.CXC_REMINDERS_TEST_MODE !== 'false';
     const testEmail = process.env.CXC_REMINDERS_TEST_EMAIL || 'giofonneta@gmail.com';
+    const testCc = 'administrativo@fonneta.com';
 
     const admin = createAdminClient();
     const hoy = hoyBogota();
@@ -223,6 +225,7 @@ async function handle(request: NextRequest): Promise<NextResponse> {
           fechaCobro: grupo.fechaCobro,
           tipo: evalRes.tipo,
           diasRelativos: evalRes.diasRelativos,
+          ccEmail: testMode ? testCc : undefined,
         });
 
         const tipoLabel = evalRes.tipo === 'previo_5d'
