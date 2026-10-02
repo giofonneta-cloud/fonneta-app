@@ -1,3 +1,5 @@
+import type { DescuentoTipo } from '@/shared/lib/discount';
+
 export type QuoteStatus = 'borrador' | 'enviada' | 'aceptada' | 'rechazada';
 export type QuoteDocumentType = 'cotizacion' | 'orden_produccion';
 
@@ -76,6 +78,8 @@ export interface QuoteItem {
   cantidad: number;
   precio_unitario: number;
   descuento_porcentaje: number;
+  descuento_tipo: DescuentoTipo;
+  descuento_valor: number;
   subtotal: number;
   order_index: number;
   created_at: string;
@@ -92,5 +96,7 @@ export interface CreateQuoteItemInput {
   cantidad: number;
   precio_unitario: number;
   descuento_porcentaje: number;
+  descuento_tipo: DescuentoTipo;
+  descuento_valor: number;
   order_index: number;
 }

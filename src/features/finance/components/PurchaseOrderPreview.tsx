@@ -314,6 +314,12 @@ export function PurchaseOrderPreview({ po, onClose, onEdit, onSent }: PurchaseOr
                 <span>Subtotal</span>
                 <span className="font-mono">{formatCurrency(po.subtotal)}</span>
               </div>
+              {po.descuento_monto > 0 && (
+                <div className="flex justify-between text-sm text-rose-600">
+                  <span>Descuento{po.descuento_tipo === 'porcentaje' ? ` (${po.descuento_porcentaje}%)` : ''}</span>
+                  <span className="font-mono">- {formatCurrency(po.descuento_monto)}</span>
+                </div>
+              )}
               {po.iva_porcentaje > 0 && (
                 <div className="flex justify-between text-sm text-gray-600">
                   <span>IVA ({po.iva_porcentaje}%)</span>
@@ -614,6 +620,11 @@ function buildPrintHTML(po: PurchaseOrder, items: PurchaseOrderItem[]): string {
             <span>Subtotal</span>
             <span style="font-family:monospace">${fmt(po.subtotal)}</span>
           </div>
+          ${po.descuento_monto > 0 ? `
+          <div class="totals-row">
+            <span>Descuento${po.descuento_tipo === 'porcentaje' ? ` (${po.descuento_porcentaje}%)` : ''}</span>
+            <span style="font-family:monospace">- ${fmt(po.descuento_monto)}</span>
+          </div>` : ''}
           ${po.iva_porcentaje > 0 ? `
           <div class="totals-row">
             <span>IVA (${po.iva_porcentaje}%)</span>

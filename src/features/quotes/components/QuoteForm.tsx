@@ -13,6 +13,7 @@ import { Separator } from '@/shared/components/ui/separator';
 import { useParametros } from '@/features/admin/hooks/useParametros';
 import { useAuthStore } from '@/features/auth/store/authStore';
 import { quoteAccessService } from '../services/quoteAccessService';
+import { calcDescuento, type DescuentoTipo } from '@/shared/lib/discount';
 
 const IVA_OPTIONS = [
   { label: '0%', value: 0 },
@@ -50,6 +51,8 @@ interface LocalItem {
   cantidad: number;
   precio_unitario: number;
   descuento_porcentaje: number;
+  descuento_tipo: DescuentoTipo;
+  descuento_valor: number;
 }
 
 interface FormState {
@@ -201,6 +204,8 @@ export function QuoteForm({ initialData, onSuccess, onCancel }: QuoteFormProps) 
           cantidad: item.cantidad,
           precio_unitario: item.precio_unitario,
           descuento_porcentaje: item.descuento_porcentaje,
+          descuento_tipo: item.descuento_tipo ?? 'porcentaje',
+          descuento_valor: item.descuento_valor ?? 0,
         }))
       );
     }
@@ -244,6 +249,8 @@ export function QuoteForm({ initialData, onSuccess, onCancel }: QuoteFormProps) 
       cantidad: 1,
       precio_unitario: 0,
       descuento_porcentaje: 0,
+      descuento_tipo: 'porcentaje',
+      descuento_valor: 0,
     };
     setItems((prev) => [...prev, newItem]);
   };
@@ -254,7 +261,7 @@ export function QuoteForm({ initialData, onSuccess, onCancel }: QuoteFormProps) 
 
   const updateItemField = (
     id: string,
-    field: 'descripcion' | 'cantidad' | 'precio_unitario' | 'descuento_porcentaje',
+    field: 'descripcion' | 'cantidad' | 'precio_unitario' | 'descuento_porcentaje' | 'descuento_tipo' | 'descuento_valor',
     value: string | number
   ) => {
     setItems((prev) => prev.map((item) => (item.id === id ? { ...item, [field]: value } : item)));
@@ -284,6 +291,8 @@ export function QuoteForm({ initialData, onSuccess, onCancel }: QuoteFormProps) 
       cantidad: sel.cantidad,
       precio_unitario: sel.precioUnitario,
       descuento_porcentaje: sel.descuento,
+      descuento_tipo: 'porcentaje',
+      descuento_valor: 0,
     }));
 
     setItems((prev) => [...prev, ...newItems]);
@@ -291,8 +300,8 @@ export function QuoteForm({ initialData, onSuccess, onCancel }: QuoteFormProps) 
   };
 
   const itemSubtotal = (item: LocalItem) => {
-    const factor = 1 - (Number(item.descuento_porcentaje) || 0) / 100;
-    return Math.round((Number(item.cantidad) || 0) * (Number(item.precio_unitario) || 0) * factor);
+    const base = (Number(item.cantidad) || 0) * (Number(item.precio_unitario) || 0);
+    return Math.round(calcDescuento(base, item.descuento_tipo, item.descuento_porcentaje, item.descuento_valor).neto);
   };
 
   const subtotal = items.reduce((sum, item) => sum + itemSubtotal(item), 0);
@@ -350,6 +359,8 @@ export function QuoteForm({ initialData, onSuccess, onCancel }: QuoteFormProps) 
         cantidad: Number(item.cantidad),
         precio_unitario: Number(item.precio_unitario),
         descuento_porcentaje: Number(item.descuento_porcentaje),
+        descuento_tipo: item.descuento_tipo,
+        descuento_valor: Number(item.descuento_valor) || 0,
         order_index: index,
       }));
 
@@ -736,7 +747,7 @@ export function QuoteForm({ initialData, onSuccess, onCancel }: QuoteFormProps) 
                     <th className="text-left px-3 py-3 text-xs font-bold text-slate-500 uppercase tracking-wide">Descripción</th>
                     <th className="text-right px-3 py-3 text-xs font-bold text-slate-500 uppercase tracking-wide w-20">Cant.</th>
                     <th className="text-right px-3 py-3 text-xs font-bold text-slate-500 uppercase tracking-wide w-32">Precio unit.</th>
-                    <th className="text-right px-3 py-3 text-xs font-bold text-slate-500 uppercase tracking-wide w-20">Dto. %</th>
+                    <th className="text-right px-3 py-3 text-xs font-bold text-slate-500 uppercase tracking-wide w-40">Descuento</th>
                     <th className="text-right px-3 py-3 text-xs font-bold text-slate-500 uppercase tracking-wide w-32">Subtotal</th>
                     <th className="px-3 py-3 w-24" aria-label="Acciones" />
                   </tr>
@@ -785,15 +796,37 @@ export function QuoteForm({ initialData, onSuccess, onCancel }: QuoteFormProps) 
                           />
                         </td>
                         <td className="px-3 py-3">
-                          <input
-                            type="number"
-                            value={item.descuento_porcentaje}
-                            min={0}
-                            max={100}
-                            step={1}
-                            onChange={(e) => updateItemField(item.id, 'descuento_porcentaje', Number(e.target.value))}
-                            className="w-full px-2 py-1.5 border border-gray-200 rounded-lg text-sm text-right bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors"
-                          />
+                          <div className="flex items-center gap-1">
+                            <select
+                              value={item.descuento_tipo}
+                              onChange={(e) => updateItemField(item.id, 'descuento_tipo', e.target.value)}
+                              aria-label="Tipo de descuento"
+                              className="px-1 py-1.5 border border-gray-200 rounded-lg text-xs bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            >
+                              <option value="porcentaje">%</option>
+                              <option value="valor">$</option>
+                            </select>
+                            {item.descuento_tipo === 'valor' ? (
+                              <input
+                                type="number"
+                                value={item.descuento_valor}
+                                min={0}
+                                step={1000}
+                                onChange={(e) => updateItemField(item.id, 'descuento_valor', Number(e.target.value))}
+                                className="w-full min-w-0 px-2 py-1.5 border border-gray-200 rounded-lg text-sm text-right bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors"
+                              />
+                            ) : (
+                              <input
+                                type="number"
+                                value={item.descuento_porcentaje}
+                                min={0}
+                                max={100}
+                                step={1}
+                                onChange={(e) => updateItemField(item.id, 'descuento_porcentaje', Number(e.target.value))}
+                                className="w-full min-w-0 px-2 py-1.5 border border-gray-200 rounded-lg text-sm text-right bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors"
+                              />
+                            )}
+                          </div>
                         </td>
                         <td className="px-3 py-3 text-right font-mono text-xs font-semibold text-slate-700 whitespace-nowrap">
                           {formatCurrency(itemSubtotal(item))}

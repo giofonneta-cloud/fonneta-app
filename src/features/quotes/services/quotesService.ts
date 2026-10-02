@@ -1,4 +1,5 @@
 import { supabase } from '@/shared/lib/supabase';
+import { calcDescuento, type DescuentoTipo } from '@/shared/lib/discount';
 import type { Quote, QuoteItem, CreateQuoteInput, CreateQuoteItemInput, QuoteStatus, QuoteDocumentType } from '../types/quote.types';
 
 export interface QuoteFilters {
@@ -7,9 +8,15 @@ export interface QuoteFilters {
   search?: string;
 }
 
-function calcItemSubtotal(item: { cantidad: number; precio_unitario: number; descuento_porcentaje: number }): number {
-  const factor = 1 - (item.descuento_porcentaje || 0) / 100;
-  return Math.round((item.cantidad || 0) * (item.precio_unitario || 0) * factor);
+function calcItemSubtotal(item: {
+  cantidad: number;
+  precio_unitario: number;
+  descuento_porcentaje: number;
+  descuento_tipo?: DescuentoTipo;
+  descuento_valor?: number;
+}): number {
+  const base = (item.cantidad || 0) * (item.precio_unitario || 0);
+  return Math.round(calcDescuento(base, item.descuento_tipo, item.descuento_porcentaje, item.descuento_valor).neto);
 }
 
 export const quotesService = {

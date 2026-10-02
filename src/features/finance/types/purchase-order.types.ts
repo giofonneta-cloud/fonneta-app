@@ -1,3 +1,5 @@
+import type { DescuentoTipo } from '@/shared/lib/discount';
+
 export type POStatus = 'borrador' | 'enviada' | 'aceptada' | 'completada' | 'cancelada';
 
 export const PO_STATUS_LABELS: Record<POStatus, string> = {
@@ -34,6 +36,10 @@ export interface PurchaseOrder {
   transport?: string;
   description?: string;
   subtotal: number;
+  descuento_tipo: DescuentoTipo;
+  descuento_porcentaje: number;
+  descuento_valor: number;
+  descuento_monto: number; // descuento resuelto en COP (se resta del subtotal antes del IVA)
   iva_porcentaje: number;
   iva_valor: number;
   otros_impuestos: number;

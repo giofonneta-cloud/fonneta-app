@@ -148,6 +148,7 @@ export interface ProviderPurchaseOrder {
   cost_center: string | null;
   description: string | null;
   subtotal: number;
+  descuento_monto?: number;
   iva_porcentaje: number;
   iva_valor: number;
   otros_impuestos: number;

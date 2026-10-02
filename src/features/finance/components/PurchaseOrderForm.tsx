@@ -10,6 +10,7 @@ import { Trash2, Plus, ArrowUp, ArrowDown, Package, Building2, FileText, Shoppin
 import { Card, CardContent, CardHeader, CardTitle } from '@/shared/components/ui/card';
 import { Separator } from '@/shared/components/ui/separator';
 import { useParametros } from '@/features/admin/hooks/useParametros';
+import { calcDescuento, type DescuentoTipo } from '@/shared/lib/discount';
 
 const IVA_OPTIONS = [
   { label: '0%', value: 0 },
@@ -73,6 +74,9 @@ interface FormState {
   transport: string;
   description: string;
   // Totales
+  descuento_tipo: DescuentoTipo;
+  descuento_porcentaje: number;
+  descuento_valor: number;
   iva_porcentaje: number;
   otros_impuestos: number;
 }
@@ -94,6 +98,9 @@ const EMPTY_FORM: FormState = {
   project_id: '',
   transport: '',
   description: DEFAULT_DESCRIPTION,
+  descuento_tipo: 'valor',
+  descuento_porcentaje: 0,
+  descuento_valor: 0,
   iva_porcentaje: 0,
   otros_impuestos: 0,
 };
@@ -177,6 +184,9 @@ export function PurchaseOrderForm({ initialData, onSuccess, onCancel }: Purchase
       project_id: initialData.project_id ?? '',
       transport: initialData.transport ?? '',
       description: initialData.description ?? '',
+      descuento_tipo: initialData.descuento_tipo ?? 'valor',
+      descuento_porcentaje: Number(initialData.descuento_porcentaje) || 0,
+      descuento_valor: Number(initialData.descuento_valor) || 0,
       iva_porcentaje: initialData.iva_porcentaje,
       otros_impuestos: initialData.otros_impuestos,
     });
@@ -304,8 +314,9 @@ export function PurchaseOrderForm({ initialData, onSuccess, onCancel }: Purchase
   // ---------------------------------------------------------------------------
 
   const subtotal = items.reduce((sum, item) => sum + Number(item.precio), 0);
-  const ivaValor = subtotal * (form.iva_porcentaje / 100);
-  const total = subtotal + ivaValor + Number(form.otros_impuestos);
+  const { descuento, neto: subtotalNeto } = calcDescuento(subtotal, form.descuento_tipo, form.descuento_porcentaje, form.descuento_valor);
+  const ivaValor = subtotalNeto * (form.iva_porcentaje / 100);
+  const total = subtotalNeto + ivaValor + Number(form.otros_impuestos);
 
   // ---------------------------------------------------------------------------
   // Validation
@@ -349,6 +360,10 @@ export function PurchaseOrderForm({ initialData, onSuccess, onCancel }: Purchase
         transport: form.transport.trim() || undefined,
         description: form.description.trim() || undefined,
         subtotal,
+        descuento_tipo: form.descuento_tipo,
+        descuento_porcentaje: Number(form.descuento_porcentaje) || 0,
+        descuento_valor: Number(form.descuento_valor) || 0,
+        descuento_monto: descuento,
         iva_porcentaje: form.iva_porcentaje,
         iva_valor: ivaValor,
         otros_impuestos: Number(form.otros_impuestos),
@@ -840,6 +855,50 @@ export function PurchaseOrderForm({ initialData, onSuccess, onCancel }: Purchase
                   <span className="text-sm text-slate-600 font-medium">Subtotal</span>
                   <span className="text-sm font-semibold text-slate-800">{formatCurrency(subtotal)}</span>
                 </div>
+
+                {/* Descuento (porcentaje o valor en pesos) */}
+                <div className="flex items-center justify-between gap-3 py-2 px-3 bg-slate-50 rounded-lg border border-slate-100">
+                  <span className="text-sm text-slate-600 font-medium whitespace-nowrap">Descuento</span>
+                  <div className="flex items-center gap-1">
+                    <select
+                      value={form.descuento_tipo}
+                      onChange={(e) => setField('descuento_tipo', e.target.value as DescuentoTipo)}
+                      aria-label="Tipo de descuento"
+                      className="px-1 py-1 border border-gray-300 rounded-md text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      <option value="valor">$</option>
+                      <option value="porcentaje">%</option>
+                    </select>
+                    {form.descuento_tipo === 'valor' ? (
+                      <input
+                        type="number"
+                        value={form.descuento_valor}
+                        min={0}
+                        step={1000}
+                        onChange={(e) => setField('descuento_valor', Number(e.target.value))}
+                        className="w-32 px-2 py-1 border border-gray-300 rounded-md text-sm text-right bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        placeholder="0"
+                      />
+                    ) : (
+                      <input
+                        type="number"
+                        value={form.descuento_porcentaje}
+                        min={0}
+                        max={100}
+                        step={1}
+                        onChange={(e) => setField('descuento_porcentaje', Number(e.target.value))}
+                        className="w-32 px-2 py-1 border border-gray-300 rounded-md text-sm text-right bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        placeholder="0"
+                      />
+                    )}
+                  </div>
+                </div>
+                {descuento > 0 && (
+                  <div className="flex items-center justify-between py-1 px-3 text-sm text-rose-600">
+                    <span>Descuento aplicado</span>
+                    <span className="font-semibold">- {formatCurrency(descuento)}</span>
+                  </div>
+                )}
 
                 {/* IVA */}
                 <div className="flex items-center justify-between gap-3 py-2 px-3 bg-slate-50 rounded-lg border border-slate-100">

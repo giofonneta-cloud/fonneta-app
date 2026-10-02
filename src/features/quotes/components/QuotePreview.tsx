@@ -4,8 +4,10 @@ import { useState, useRef, useCallback } from 'react';
 import type { Quote, QuoteItem } from '../types/quote.types';
 import { QUOTE_STATUS_LABELS, QUOTE_STATUS_COLORS, DOCUMENT_TYPE_SHORT_LABELS } from '../types/quote.types';
 import { X, FileDown, Send, Pencil, Loader2, Paperclip, Trash2 } from 'lucide-react';
+import { descuentoLabel } from '@/shared/lib/discount';
 import { generatePdfBlob } from '@/shared/lib/pdf/generatePdfBlob';
 import { FONNETA_LOGO_B64 } from '@/shared/lib/pdf/fonnetaLogoBase64';
+import { FUCSIA_SOHO_LOGO_B64 } from '@/shared/lib/pdf/fucsiaSohoLogoBase64';
 
 interface QuotePreviewProps {
   quote: Quote;
@@ -35,7 +37,7 @@ export function QuotePreview({ quote, onClose, onEdit, onSent }: QuotePreviewPro
   const sendingRef = useRef(false);
 
   const items = quote.items ?? [];
-  const hasDiscount = items.some((item) => item.descuento_porcentaje > 0);
+  const hasDiscount = items.some((item) => !!descuentoLabel(item.descuento_tipo, item.descuento_porcentaje, item.descuento_valor, formatCurrency));
   const isOrdenProduccion = quote.document_type === 'orden_produccion';
   const docLabel = DOCUMENT_TYPE_SHORT_LABELS[quote.document_type];
   const fileBaseName = isOrdenProduccion ? 'OrdenProduccion' : 'Cotizacion';
@@ -230,7 +232,7 @@ export function QuotePreview({ quote, onClose, onEdit, onSent }: QuotePreviewPro
                   <th className="text-left px-3 py-2.5 text-xs font-bold text-white uppercase tracking-wider">Descripción</th>
                   <th className="text-right px-3 py-2.5 text-xs font-bold text-white uppercase tracking-wider w-16">Cant.</th>
                   <th className="text-right px-3 py-2.5 text-xs font-bold text-white uppercase tracking-wider w-28">Precio Unit.</th>
-                  {hasDiscount && <th className="text-right px-3 py-2.5 text-xs font-bold text-white uppercase tracking-wider w-16">Dto%</th>}
+                  {hasDiscount && <th className="text-right px-3 py-2.5 text-xs font-bold text-white uppercase tracking-wider w-28">Dto.</th>}
                   <th className="text-right px-3 py-2.5 text-xs font-bold text-white uppercase tracking-wider w-28">Subtotal</th>
                 </tr>
               </thead>
@@ -241,7 +243,7 @@ export function QuotePreview({ quote, onClose, onEdit, onSent }: QuotePreviewPro
                     <td className="px-3 py-3 text-gray-900 whitespace-pre-wrap">{item.descripcion}</td>
                     <td className="px-3 py-3 text-right font-mono text-gray-700">{item.cantidad}</td>
                     <td className="px-3 py-3 text-right font-mono text-gray-700">{formatCurrency(item.precio_unitario)}</td>
-                    {hasDiscount && <td className="px-3 py-3 text-right font-mono text-gray-700">{item.descuento_porcentaje > 0 ? `${item.descuento_porcentaje}%` : '—'}</td>}
+                    {hasDiscount && <td className="px-3 py-3 text-right font-mono text-gray-700">{descuentoLabel(item.descuento_tipo, item.descuento_porcentaje, item.descuento_valor, formatCurrency) ?? '—'}</td>}
                     <td className="px-3 py-3 text-right font-mono font-medium text-gray-900">{formatCurrency(item.subtotal)}</td>
                   </tr>
                 ))}
@@ -411,10 +413,10 @@ function buildQuotePrintHTML(quote: Quote, items: QuoteItem[]): string {
   const date = formatDate(quote.created_at);
   const fmt = (n: number) =>
     new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(n);
-  const hasDiscount = items.some((item) => item.descuento_porcentaje > 0);
+  const hasDiscount = items.some((item) => !!descuentoLabel(item.descuento_tipo, item.descuento_porcentaje, item.descuento_valor, formatCurrency));
   const discountCell = (item: QuoteItem) =>
     hasDiscount
-      ? `<td style="padding:6px 8px; border-bottom:1px solid #e5e7eb; text-align:right; font-size:11px;">${item.descuento_porcentaje > 0 ? `${item.descuento_porcentaje}%` : '—'}</td>`
+      ? `<td style="padding:6px 8px; border-bottom:1px solid #e5e7eb; text-align:right; font-size:11px;">${descuentoLabel(item.descuento_tipo, item.descuento_porcentaje, item.descuento_valor, fmt) ?? '—'}</td>`
       : '';
 
   const rows = items.map((item, idx) => `
@@ -471,7 +473,6 @@ function buildQuotePrintHTML(quote: Quote, items: QuoteItem[]): string {
     .totals-row.total { border-top: 2px solid #111827; margin-top: 5px; padding-top: 8px; font-size: 15px; font-weight: 700; color: #111827; }
     .totals-row.total span:last-child { color: #111827; }
     .brand-row { margin-top: 18px; text-align: center; }
-    .brand-pill { display: inline-block; padding: 4px 14px; margin: 0 4px; border: 1.5px solid #111827; border-radius: 3px; font-weight: 900; font-size: 11px; letter-spacing: 0.05em; }
     .footer { margin-top: 22px; padding: 12px 20px; background: #111827; color: #d1d5db; text-align: center; font-size: 9.5px; }
     .footer strong { color: #fff; }
     @media print {
@@ -518,7 +519,7 @@ function buildQuotePrintHTML(quote: Quote, items: QuoteItem[]): string {
             <th>Detalle</th>
             <th>Cant.</th>
             <th>Precio Unit.</th>
-            ${hasDiscount ? '<th>Dto%</th>' : ''}
+            ${hasDiscount ? '<th>Dto.</th>' : ''}
             <th>Subtotal</th>
           </tr>
         </thead>
@@ -565,11 +566,9 @@ function buildQuotePrintHTML(quote: Quote, items: QuoteItem[]): string {
       <p style="font-weight:700;">Fonneta Comunicaciones S.A.S.</p>
     </div>
 
-    ${quote.cost_center ? `
     <div class="brand-row">
-      <span class="brand-pill">${quote.cost_center}</span>
+      <img src="${FUCSIA_SOHO_LOGO_B64}" alt="Fucsia | SoHo" style="height:26px; width:auto;" />
     </div>
-    ` : ''}
 
     <div class="footer">
       <strong>Documento confidencial</strong> &middot; Uso interno y de archivo comercial<br>

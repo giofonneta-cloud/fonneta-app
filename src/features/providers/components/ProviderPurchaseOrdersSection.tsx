@@ -266,6 +266,12 @@ function PODetailModal({ po, accepting, acceptError, onAccept, onClose }: ModalP
                 <span>Subtotal</span>
                 <span className="font-mono">{fmt(po.subtotal)}</span>
               </div>
+              {(po.descuento_monto ?? 0) > 0 && (
+                <div className="flex justify-between text-gray-500">
+                  <span>Descuento</span>
+                  <span className="font-mono">- {fmt(po.descuento_monto ?? 0)}</span>
+                </div>
+              )}
               {po.iva_porcentaje > 0 && (
                 <div className="flex justify-between text-gray-500">
                   <span>IVA ({po.iva_porcentaje}%)</span>

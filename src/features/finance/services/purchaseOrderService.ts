@@ -1,4 +1,5 @@
 import { supabase } from '@/shared/lib/supabase';
+import { calcDescuento } from '@/shared/lib/discount';
 import type { PurchaseOrder, PurchaseOrderItem, CreatePOInput, CreatePOItemInput, POStatus } from '../types/purchase-order.types';
 
 export interface POFilters {
@@ -85,14 +86,16 @@ export const purchaseOrderService = {
   ): Promise<PurchaseOrder> {
     // Calculate totals
     const subtotal = items.reduce((sum, item) => sum + item.precio, 0);
-    const ivaValor = subtotal * (header.iva_porcentaje / 100);
-    const total = subtotal + ivaValor + (header.otros_impuestos || 0);
+    const { descuento, neto } = calcDescuento(subtotal, header.descuento_tipo, header.descuento_porcentaje, header.descuento_valor);
+    const ivaValor = neto * (header.iva_porcentaje / 100);
+    const total = neto + ivaValor + (header.otros_impuestos || 0);
 
     const { data: po, error: poError } = await supabase
       .from('purchase_orders')
       .insert({
         ...header,
         subtotal,
+        descuento_monto: descuento,
         iva_valor: ivaValor,
         total,
       })
@@ -207,19 +210,20 @@ export const purchaseOrderService = {
 
     const { data: po, error: poError } = await supabase
       .from('purchase_orders')
-      .select('iva_porcentaje, otros_impuestos')
+      .select('iva_porcentaje, otros_impuestos, descuento_tipo, descuento_porcentaje, descuento_valor')
       .eq('id', poId)
       .single();
 
     if (poError) throw poError;
 
     const subtotal = (items ?? []).reduce((sum, i) => sum + Number(i.precio), 0);
-    const ivaValor = subtotal * (Number(po.iva_porcentaje) / 100);
-    const total = subtotal + ivaValor + Number(po.otros_impuestos || 0);
+    const { descuento, neto } = calcDescuento(subtotal, po.descuento_tipo, Number(po.descuento_porcentaje), Number(po.descuento_valor));
+    const ivaValor = neto * (Number(po.iva_porcentaje) / 100);
+    const total = neto + ivaValor + Number(po.otros_impuestos || 0);
 
     const { error } = await supabase
       .from('purchase_orders')
-      .update({ subtotal, iva_valor: ivaValor, total, updated_at: new Date().toISOString() })
+      .update({ subtotal, descuento_monto: descuento, iva_valor: ivaValor, total, updated_at: new Date().toISOString() })
       .eq('id', poId);
 
     if (error) throw error;
