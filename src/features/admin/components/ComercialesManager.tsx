@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import { comercialesService, Comercial, CreateComercialInput } from '@/features/finance/services/comercialesService';
+import { providerService } from '@/features/providers/services/providerService';
+import type { Provider } from '@/features/providers/types/provider.types';
 import { Plus, Pencil, Trash2, UserCheck, UserX, Users, Percent } from 'lucide-react';
 
 export function ComercialesManager() {
@@ -9,6 +11,8 @@ export function ComercialesManager() {
     const [isLoading, setIsLoading] = useState(true);
     const [showInactive, setShowInactive] = useState(false);
     const [isFormOpen, setIsFormOpen] = useState(false);
+    const [providers, setProviders] = useState<Provider[]>([]);
+    const [providerSearch, setProviderSearch] = useState('');
     const [editingComercial, setEditingComercial] = useState<Comercial | null>(null);
     const [formData, setFormData] = useState<CreateComercialInput>({
         nombre: '',
@@ -22,6 +26,29 @@ export function ComercialesManager() {
     useEffect(() => {
         loadComerciales();
     }, [showInactive]);
+
+    useEffect(() => {
+        providerService.getProviders().then(setProviders).catch((e) => console.error('Error al cargar proveedores:', e));
+    }, []);
+
+    const providerMatches = providerSearch.trim().length >= 2
+        ? providers.filter((p) => {
+            const q = providerSearch.toLowerCase();
+            return p.business_name?.toLowerCase().includes(q) ||
+                p.contact_name?.toLowerCase().includes(q) ||
+                p.document_number?.toLowerCase().includes(q);
+        }).slice(0, 8)
+        : [];
+
+    const applyProvider = (p: Provider) => {
+        setFormData((prev) => ({
+            ...prev,
+            nombre: p.contact_name || p.business_name,
+            email: p.billing_email || p.contact_email || '',
+            telefono: p.contact_phone || '',
+        }));
+        setProviderSearch('');
+    };
 
     const loadComerciales = async () => {
         try {
@@ -229,6 +256,39 @@ export function ComercialesManager() {
                             </h3>
                         </div>
                         <form onSubmit={handleSubmit} className="p-6 space-y-4">
+                            {!editingComercial && (
+                                <div className="relative">
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                                        Cargar desde proveedor registrado
+                                    </label>
+                                    <input
+                                        type="text"
+                                        value={providerSearch}
+                                        onChange={(e) => setProviderSearch(e.target.value)}
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                                        placeholder="Buscar por nombre, contacto o NIT..."
+                                    />
+                                    {providerMatches.length > 0 && (
+                                        <ul className="absolute z-10 left-0 right-0 mt-1 max-h-56 overflow-y-auto bg-white border border-gray-200 rounded-lg shadow-lg">
+                                            {providerMatches.map((p) => (
+                                                <li key={p.id}>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => applyProvider(p)}
+                                                        className="w-full text-left px-3 py-2 hover:bg-emerald-50"
+                                                    >
+                                                        <span className="block text-sm font-medium text-gray-900">{p.business_name}</span>
+                                                        <span className="block text-xs text-gray-500">
+                                                            {[p.contact_name, p.document_number, p.billing_email || p.contact_email].filter(Boolean).join(' · ')}
+                                                        </span>
+                                                    </button>
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    )}
+                                    <p className="text-xs text-gray-400 mt-1">Rellena nombre, email y teléfono; puedes editarlos después.</p>
+                                </div>
+                            )}
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-1">
                                     Nombre *

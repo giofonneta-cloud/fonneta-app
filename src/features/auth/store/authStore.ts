@@ -21,7 +21,14 @@ export const useAuthStore = create<AuthState & AuthActions>((set, get) => ({
     setProfile: (profile: Profile | null) => set({ profile, isLoading: false }),
 
     fetchProfile: async (userId: string) => {
-        set({ isLoading: true, error: null });
+        // Si ya hay un perfil cargado, es un refresco en segundo plano (p. ej. al volver a la pestaña):
+        // no activar isLoading, porque las páginas que hacen `if (isLoading) return null`
+        // desmontarían sus formularios y se perdería lo que el usuario estaba digitando.
+        if (get().profile) {
+            set({ error: null });
+        } else {
+            set({ isLoading: true, error: null });
+        }
         try {
             // Obtener perfil base
             const { data: profile, error: profileError } = await supabase
