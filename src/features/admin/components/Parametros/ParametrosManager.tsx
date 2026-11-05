@@ -13,6 +13,7 @@ const TABS = [
     { key: 'plazos_pago_ventas', label: 'Plazos Pago (Ventas)', showGrupo: false },
     { key: 'plazos_pago_gastos', label: 'Plazos Pago (Gastos)', showGrupo: false },
     { key: 'categorias_gasto', label: 'Categorías de Gasto', showGrupo: true },
+    { key: 'categorias_legalizacion', label: 'Categorías de Legalización', showGrupo: false },
     { key: 'tipos_tarifario', label: 'Tipos Tarifario', showGrupo: false },
     { key: 'unidades_medida', label: 'Unidades de Medida', showGrupo: false },
     { key: 'estados_onboarding', label: 'Estados Onboarding', showGrupo: false },

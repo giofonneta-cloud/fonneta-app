@@ -16,6 +16,7 @@ import {
     ShieldCheck,
     ClipboardList,
     FileSignature,
+    ReceiptText,
     ChevronLeft,
     ChevronRight
 } from 'lucide-react';
@@ -102,6 +103,16 @@ export function DashboardSidebar() {
                     >
                         <FileSignature className="w-5 h-5 flex-shrink-0" />
                         {!isCollapsed && 'Cotizaciones'}
+                    </Link>
+                )}
+                {hasPermission('legalizaciones.view') && (
+                    <Link
+                        href="/dashboard/legalizaciones"
+                        className={`flex items-center gap-3 px-4 py-3 text-gray-500 hover:bg-gray-100 hover:text-gray-900 rounded-xl transition-all font-bold text-sm ${isCollapsed ? 'justify-center' : ''}`}
+                        title={isCollapsed ? 'Legalizaciones' : ''}
+                    >
+                        <ReceiptText className="w-5 h-5 flex-shrink-0" />
+                        {!isCollapsed && 'Legalizaciones'}
                     </Link>
                 )}
                 {(isAdmin || isAdministrativo) && (

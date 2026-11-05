@@ -125,6 +125,13 @@ export class DriveStorageService {
   }
 
   /**
+   * Obtener o crear una carpeta directamente bajo la carpeta raíz de la app
+   */
+  async getOrCreateRootFolder(name: string): Promise<string> {
+    return this.getOrCreateNamedFolder(name, this.rootFolderId);
+  }
+
+  /**
    * Obtener o crear estructura de carpetas para un proveedor
    * Estructura: Fonneta/Proveedores/{NIT_NOMBRE}/Documentos e Invoices
    */

@@ -4,7 +4,8 @@ export type NotificationType =
   | "invoice_update"
   | "document_upload"
   | "system_alert"
-  | "invoice_received";
+  | "invoice_received"
+  | "legalizacion";
 
 export interface Notification {
   id: string;

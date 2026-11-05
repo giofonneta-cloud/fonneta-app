@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect } from 'react';
+import { usePathname } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { useAuthStore } from '../store/authStore';
 
@@ -43,6 +44,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             document.removeEventListener('visibilitychange', handleVisibilityChange);
         };
     }, [fetchProfile, setProfile, refreshProfile]);
+
+    // El login es una server action: guarda la sesión en cookies y redirige sin recargar,
+    // así que este provider (montado desde /login) no recibe ningún evento de auth.
+    // Al cambiar de ruta sin perfil cargado, se vuelve a leer la sesión.
+    const pathname = usePathname();
+    useEffect(() => {
+        if (useAuthStore.getState().profile) return;
+        supabase.auth.getSession().then(({ data: { session } }) => {
+            if (session && !useAuthStore.getState().profile) {
+                fetchProfile(session.user.id);
+            }
+        });
+    }, [pathname, fetchProfile]);
 
     return <>{children}</>;
 }

@@ -10,7 +10,8 @@ import {
     LogOut,
     Settings,
     ShoppingCart,
-    FileSignature
+    FileSignature,
+    ReceiptText
 } from 'lucide-react';
 
 const menuItems = [
@@ -69,6 +70,15 @@ export function ProviderSidebar() {
                     >
                         <FileSignature className="w-5 h-5" />
                         Cotizaciones
+                    </Link>
+                )}
+                {hasPermission('legalizaciones.view') && (
+                    <Link
+                        href="/dashboard/legalizaciones"
+                        className="flex items-center gap-3 px-4 py-3 text-gray-500 hover:bg-blue-50 hover:text-blue-600 rounded-xl transition-all font-bold text-sm"
+                    >
+                        <ReceiptText className="w-5 h-5" />
+                        Legalizaciones
                     </Link>
                 )}
             </nav>

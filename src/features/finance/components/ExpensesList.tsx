@@ -211,14 +211,18 @@ export function ExpensesList({ period, selectedProjects, selectedCostCenters, se
                                         {estadoBadge(e.estado_pago)}
                                     </td>
                                     <td className="px-4 py-3.5 text-center">
-                                        <Button
-                                            variant="ghost"
-                                            size="sm"
-                                            onClick={() => onEdit?.(e)}
-                                            className="h-7 w-7 p-0 text-slate-400 hover:text-blue-600 hover:bg-blue-50"
-                                        >
-                                            <Pencil className="w-3.5 h-3.5" />
-                                        </Button>
+                                        {e.legalizacion_id ? (
+                                            <span className="text-[10px] font-semibold text-slate-400">Legalización</span>
+                                        ) : (
+                                            <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                onClick={() => onEdit?.(e)}
+                                                className="h-7 w-7 p-0 text-slate-400 hover:text-blue-600 hover:bg-blue-50"
+                                            >
+                                                <Pencil className="w-3.5 h-3.5" />
+                                            </Button>
+                                        )}
                                     </td>
                                 </tr>
                             ))

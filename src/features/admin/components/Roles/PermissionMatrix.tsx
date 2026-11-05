@@ -95,6 +95,14 @@ const PERMISSION_GROUPS: Record<string, { label: string; permissions: { key: Per
             { key: 'quotes.create', label: 'Crear y enviar cotizaciones' },
         ],
     },
+    legalizaciones: {
+        label: 'Legalizaciones (viáticos, reintegros y anticipos)',
+        permissions: [
+            { key: 'legalizaciones.view', label: 'Registrar y ver las propias' },
+            { key: 'legalizaciones.view_all', label: 'Ver todas' },
+            { key: 'legalizaciones.approve', label: 'Aprobar y registrar pagos' },
+        ],
+    },
 };
 
 export function PermissionMatrix({ selectedPermissions, onChange, readonly = false }: Props) {

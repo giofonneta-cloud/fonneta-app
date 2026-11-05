@@ -49,4 +49,8 @@ export type Permission =
     // Cotizaciones
     | 'quotes.view'
     | 'quotes.view_all'
-    | 'quotes.create';
+    | 'quotes.create'
+    // Legalizaciones (viáticos, reintegros y anticipos)
+    | 'legalizaciones.view'
+    | 'legalizaciones.view_all'
+    | 'legalizaciones.approve';

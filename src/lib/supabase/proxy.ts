@@ -38,7 +38,7 @@ export async function updateSession(request: NextRequest) {
     // permiso granular (quotes.view), no por el rol simple — la propia página
     // valida el permiso y RLS protege los datos, así que un proveedor con ese
     // permiso no debe ser rebotado aquí antes de llegar a esa verificación.
-    const isQuotesRoute = pathname.startsWith('/dashboard/quotes')
+    const isPermissionGatedRoute = pathname.startsWith('/dashboard/quotes') || pathname.startsWith('/dashboard/legalizaciones')
     const isAuthRoute = pathname.startsWith('/login') || pathname.startsWith('/signup')
     const isPublicProviderRoute = pathname.startsWith('/register/provider')
 
@@ -85,7 +85,7 @@ export async function updateSession(request: NextRequest) {
 
         // Proveedor intentando acceder al dashboard admin (excepto Cotizaciones,
         // gateado por permiso granular en la propia página + RLS)
-        if (isDashboardRoute && userRole === 'proveedor' && !isQuotesRoute) {
+        if (isDashboardRoute && userRole === 'proveedor' && !isPermissionGatedRoute) {
             console.log('[Middleware] Redirecting proveedor to /portal')
             return NextResponse.redirect(new URL('/portal', request.url))
         }

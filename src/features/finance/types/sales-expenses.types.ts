@@ -68,6 +68,7 @@ export interface GastoExtendido {
     proyecto_nombre?: string;
     proveedor_id: string;
     proveedor_nombre?: string;
+    legalizacion_id?: string | null;
     valor_neto: number;
     iva_porcentaje: number;
     iva_valor: number;

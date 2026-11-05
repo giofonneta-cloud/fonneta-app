@@ -4,6 +4,7 @@ import { AuthState, Profile } from '../types/auth.types';
 import type { Permission } from '@/shared/types/permissions';
 
 const supabase = createClient();
+const inFlightFetches = new Map<string, Promise<void>>();
 
 interface AuthActions {
     setProfile: (profile: Profile | null) => void;
@@ -29,22 +30,23 @@ export const useAuthStore = create<AuthState & AuthActions>((set, get) => ({
         } else {
             set({ isLoading: true, error: null });
         }
+        // AuthProvider la dispara dos veces al abrir (getSession + onAuthStateChange):
+        // si ya hay una carga en curso para este usuario, se reutiliza.
+        const pending = inFlightFetches.get(userId);
+        if (pending) return pending;
+
+        const run = (async () => {
         try {
-            // Obtener perfil base
-            const { data: profile, error: profileError } = await supabase
-                .from('profiles')
-                .select('*')
-                .eq('id', userId)
-                .single();
+            // Perfil y roles en paralelo: no dependen entre sí
+            const [
+                { data: profile, error: profileError },
+                { data: userRoles, error: rolesError },
+            ] = await Promise.all([
+                supabase.from('profiles').select('*').eq('id', userId).single(),
+                supabase.from('user_app_roles').select('role:app_roles(*)').eq('user_id', userId),
+            ]);
 
             if (profileError) throw profileError;
-
-            // Obtener roles dinámicos
-            const { data: userRoles, error: rolesError } = await supabase
-                .from('user_app_roles')
-                .select('role:app_roles(*)')
-                .eq('user_id', userId);
-
             if (rolesError) throw rolesError;
 
             const roles = (userRoles?.map(ur => ur.role) || []) as any[];
@@ -61,6 +63,14 @@ export const useAuthStore = create<AuthState & AuthActions>((set, get) => ({
         } catch (error: any) {
             set({ error: error.message, isLoading: false });
         }
+        })();
+
+        inFlightFetches.set(userId, run);
+        try {
+            await run;
+        } finally {
+            inFlightFetches.delete(userId);
+        }
     },
 
     refreshProfile: async () => {
@@ -68,16 +78,10 @@ export const useAuthStore = create<AuthState & AuthActions>((set, get) => ({
         if (!session?.user) return;
         
         try {
-            const { data: profile } = await supabase
-                .from('profiles')
-                .select('*')
-                .eq('id', session.user.id)
-                .single();
-
-            const { data: userRoles } = await supabase
-                .from('user_app_roles')
-                .select('role:app_roles(*)')
-                .eq('user_id', session.user.id);
+            const [{ data: profile }, { data: userRoles }] = await Promise.all([
+                supabase.from('profiles').select('*').eq('id', session.user.id).single(),
+                supabase.from('user_app_roles').select('role:app_roles(*)').eq('user_id', session.user.id),
+            ]);
 
             if (profile) {
                 const roles = (userRoles?.map(ur => ur.role) || []) as any[];
