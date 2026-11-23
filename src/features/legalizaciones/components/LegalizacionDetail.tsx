@@ -48,6 +48,7 @@ export function LegalizacionDetail({ id, onEdit, onDeleted }: Props) {
   const [nota, setNota] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -93,6 +94,27 @@ export function LegalizacionDetail({ id, onEdit, onDeleted }: Props) {
       return next;
     });
     setAprobadas((prev) => ({ ...prev, [itemId]: !prev[itemId] }));
+  };
+
+  // Genera el PDF aquí (html2pdf corre en el navegador) y lo envía a contabilidad con la causación.
+  const sendToAccounting = async (target: Legalizacion, resend: boolean) => {
+    const pdf = await generatePdfBlob(buildLegalizacionHTML(target), { pageNumbers: true });
+    await legalizacionesService.notifyAccounting(target.id, pdf, `Legalizacion_${target.numero}.pdf`, resend);
+  };
+
+  const resendToAccounting = async () => {
+    if (!leg) return;
+    setBusy(true);
+    setError(null);
+    setNotice(null);
+    try {
+      await sendToAccounting(leg, !!leg.contabilidad_notificada_at);
+      await load();
+    } catch (err) {
+      setError(errorMessage(err, 'No se pudo notificar a contabilidad.'));
+    } finally {
+      setBusy(false);
+    }
   };
 
   const downloadPdf = async () => {
@@ -171,6 +193,7 @@ export function LegalizacionDetail({ id, onEdit, onDeleted }: Props) {
           <Dato label="Motivo" value={leg.motivo ?? ''} />
           {leg.aprobado_por_nombre && <Dato label="Aprobado por" value={`${leg.aprobado_por_nombre} · ${formatDate(leg.aprobado_at)}`} />}
           {leg.cierre_nota && <Dato label="Nota de cierre" value={leg.cierre_nota} />}
+          {leg.contabilidad_notificada_at && <Dato label="Contabilidad notificada" value={formatDate(leg.contabilidad_notificada_at)} />}
         </dl>
       </section>
 
@@ -195,6 +218,7 @@ export function LegalizacionDetail({ id, onEdit, onDeleted }: Props) {
       </section>
 
       {error && <p className="px-4 py-2.5 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">{error}</p>}
+      {notice && <p className="px-4 py-2.5 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-800">{notice}</p>}
 
       {panel === 'revisar' && (
         <section className="p-5 bg-white rounded-2xl border border-slate-200 space-y-3">
@@ -222,6 +246,17 @@ export function LegalizacionDetail({ id, onEdit, onDeleted }: Props) {
                 setObservaciones({});
                 setAprobadas({});
                 setMotivo('');
+
+                // Si con esta revisión quedó aprobada, contabilidad recibe el PDF y la causación.
+                // Un fallo del correo no revierte la aprobación: queda el botón de reenvío.
+                const approved = await legalizacionesService.getById(leg.id);
+                if (approved.status === 'aprobada' || approved.status === 'cerrada') {
+                  try {
+                    await sendToAccounting(approved, false);
+                  } catch (err) {
+                    setNotice(`La legalización quedó aprobada, pero no se pudo notificar a contabilidad (${errorMessage(err, 'error desconocido')}). Usa "Notificar a contabilidad" para reintentar.`);
+                  }
+                }
               })}
               disabled={confirmarDisabled}
               className={BTN_PRIMARY}
@@ -288,6 +323,11 @@ export function LegalizacionDetail({ id, onEdit, onDeleted }: Props) {
               className={BTN_PRIMARY}
             >
               Finalizar revisión
+            </button>
+          )}
+          {canApprove && (leg.status === 'aprobada' || leg.status === 'cerrada') && (
+            <button onClick={resendToAccounting} disabled={busy} className={BTN_SECONDARY}>
+              {leg.contabilidad_notificada_at ? 'Reenviar a contabilidad' : 'Notificar a contabilidad'}
             </button>
           )}
           {canClose && <button onClick={() => setPanel('cerrar')} disabled={busy} className={BTN_PRIMARY}>{cierreLabel}</button>}

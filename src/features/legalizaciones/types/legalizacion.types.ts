@@ -88,6 +88,7 @@ export interface Legalizacion {
   aprobado_at: string | null;
   cerrado_at: string | null;
   cierre_nota: string | null;
+  contabilidad_notificada_at: string | null;
   created_at: string;
   items?: LegalizacionItem[];
 }

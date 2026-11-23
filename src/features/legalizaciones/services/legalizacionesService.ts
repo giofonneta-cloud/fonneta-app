@@ -157,6 +157,17 @@ export const legalizacionesService = {
     if (error) throw error;
   },
 
+  // Envía a contabilidad el correo de aprobación y causación con el PDF adjunto.
+  async notifyAccounting(id: string, pdf: Blob, filename: string, resend = false): Promise<void> {
+    const formData = new FormData();
+    formData.append('legalizacionId', id);
+    formData.append('pdfFile', new File([pdf], filename, { type: 'application/pdf' }));
+    formData.append('resend', String(resend));
+    const res = await fetch('/api/legalizaciones/notify-accounting', { method: 'POST', body: formData });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || 'No se pudo notificar a contabilidad');
+  },
+
   async uploadSoporte(file: File): Promise<string> {
     const formData = new FormData();
     formData.append('file', file);
