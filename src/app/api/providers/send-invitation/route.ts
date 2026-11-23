@@ -1,8 +1,13 @@
 import { createAdminClient } from '@/lib/supabase/admin';
 import { generateProviderInvitationEmail } from '@/lib/email-templates/provider-invitation';
 import { getEmailService } from '@/lib/email/emailService';
+import { requireStaff, tooManyRequests, withinRateLimit } from '@/lib/auth/guard';
 
 export async function POST(req: Request) {
+  const auth = await requireStaff();
+  if (!auth.ok) return auth.response;
+  if (!(await withinRateLimit(`invite:${auth.ctx.user.id}`, 30, 3600))) return tooManyRequests();
+
   try {
     const { email, providerName } = await req.json();
 
@@ -44,7 +49,7 @@ export async function POST(req: Request) {
       text: `Invitación a Fonnettapp\n\nHas sido invitado a registrarte en Fonnettapp, nuestro portal de gestión para proveedores y clientes.\n\nPara completar tu registro, ingresa al siguiente enlace:\n${inviteLink}\n\nSaludos,\nEquipo Fonneta Comunicaciones`,
     });
 
-    console.log(`Invitación enviada a ${email}:`, result.messageId);
+    console.log('[send-invitation] enviada', result.messageId);
 
     // Guardar log en BD (opcional - crear tabla si no existe)
     const supabase = createAdminClient();

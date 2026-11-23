@@ -148,20 +148,6 @@ export const providerInvoiceService = {
 
         // 3. Enviar notificación de cambio de estado
         try {
-            // Email Notification (Server-side API)
-            await fetch('/api/providers/invoice-status-change', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    invoiceId: updatedInvoice.id,
-                    providerId: updatedInvoice.provider_id,
-                    invoiceNumber: updatedInvoice.invoice_number,
-                    radicadoNumber: updatedInvoice.radicado_number || 'PENDIENTE',
-                    newStatus: status,
-                    adminNotes: adminNotes
-                })
-            });
-
             // In-App Notification (Client-side directly to DB)
             // First we need the user_id of the provider to send the notification
             const { data: providerData } = await supabase

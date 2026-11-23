@@ -1,6 +1,7 @@
 'use client';
 
 import { Fragment } from 'react';
+import { secureDocUrl } from '@/lib/documents/documentUrl';
 import { Check, MessageSquareWarning, Paperclip } from 'lucide-react';
 import type { LegalizacionItem } from '../types/legalizacion.types';
 import { formatCOP, formatDate, INPUT_CLASS } from './legalizacionFormat';
@@ -72,7 +73,7 @@ export function LegalizacionItemsTable({
                   <td className="py-2 pr-3 text-right font-semibold text-slate-800 whitespace-nowrap">{formatCOP(item.valor)}</td>
                   <td className="py-2 pr-3">
                     {item.soporte_url?.startsWith('https://') ? (
-                      <a href={item.soporte_url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-blue-600 hover:underline">
+                      <a href={secureDocUrl(item.soporte_url)} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-blue-600 hover:underline">
                         <Paperclip className="w-3.5 h-3.5" />
                         Ver
                       </a>

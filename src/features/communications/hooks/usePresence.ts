@@ -34,10 +34,10 @@ export function usePresence(serverId: string | null) {
         setOnlineUsers(users);
       })
       .on('presence', { event: 'join' }, ({ newPresences }) => {
-        console.log('User joined:', newPresences);
+        
       })
       .on('presence', { event: 'leave' }, ({ leftPresences }) => {
-        console.log('User left:', leftPresences);
+        
       })
       .subscribe(async (status) => {
         if (status === 'SUBSCRIBED') {

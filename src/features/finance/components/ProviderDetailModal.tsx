@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { secureDocUrl } from '@/lib/documents/documentUrl';
 import { Provider, ProviderDocument } from '@/features/providers/types/provider.types';
 import { providerService } from '@/features/providers/services/providerService';
 import { Badge } from '@/shared/components/ui/badge';
@@ -204,7 +205,7 @@ export function ProviderDetailModal({ providerId, onClose }: Props) {
                                                 </div>
                                             </div>
                                             {doc.archivo_url && (
-                                                <a href={doc.archivo_url} target="_blank" rel="noopener noreferrer" className="p-2 hover:bg-blue-100 rounded transition-colors">
+                                                <a href={secureDocUrl(doc.archivo_url)} target="_blank" rel="noopener noreferrer" className="p-2 hover:bg-blue-100 rounded transition-colors">
                                                     <ExternalLink className="w-4 h-4 text-blue-600" />
                                                 </a>
                                             )}
@@ -220,25 +221,25 @@ export function ProviderDetailModal({ providerId, onClose }: Props) {
                                 <h3 className="text-sm font-bold text-slate-700 uppercase tracking-widest mb-3">Documentos de Registro</h3>
                                 <div className="grid grid-cols-2 gap-2">
                                     {provider.rut_url && (
-                                        <a href={provider.rut_url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 p-2 bg-slate-50 hover:bg-slate-100 rounded border border-slate-200 transition-colors">
+                                        <a href={secureDocUrl(provider.rut_url)} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 p-2 bg-slate-50 hover:bg-slate-100 rounded border border-slate-200 transition-colors">
                                             <Download className="w-4 h-4 text-slate-600" />
                                             <span className="text-xs font-medium text-slate-700">RUT</span>
                                         </a>
                                     )}
                                     {provider.cedula_url && (
-                                        <a href={provider.cedula_url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 p-2 bg-slate-50 hover:bg-slate-100 rounded border border-slate-200 transition-colors">
+                                        <a href={secureDocUrl(provider.cedula_url)} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 p-2 bg-slate-50 hover:bg-slate-100 rounded border border-slate-200 transition-colors">
                                             <Download className="w-4 h-4 text-slate-600" />
                                             <span className="text-xs font-medium text-slate-700">Cédula</span>
                                         </a>
                                     )}
                                     {provider.camara_comercio_url && (
-                                        <a href={provider.camara_comercio_url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 p-2 bg-slate-50 hover:bg-slate-100 rounded border border-slate-200 transition-colors">
+                                        <a href={secureDocUrl(provider.camara_comercio_url)} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 p-2 bg-slate-50 hover:bg-slate-100 rounded border border-slate-200 transition-colors">
                                             <Download className="w-4 h-4 text-slate-600" />
                                             <span className="text-xs font-medium text-slate-700">Cámara</span>
                                         </a>
                                     )}
                                     {provider.cert_bancaria_url && (
-                                        <a href={provider.cert_bancaria_url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 p-2 bg-slate-50 hover:bg-slate-100 rounded border border-slate-200 transition-colors">
+                                        <a href={secureDocUrl(provider.cert_bancaria_url)} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 p-2 bg-slate-50 hover:bg-slate-100 rounded border border-slate-200 transition-colors">
                                             <Download className="w-4 h-4 text-slate-600" />
                                             <span className="text-xs font-medium text-slate-700">Banco</span>
                                         </a>

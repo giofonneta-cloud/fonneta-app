@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
+import { secureDocUrl } from '@/lib/documents/documentUrl';
 import { FileSignature, Loader2, Plus, Trash2, Paperclip, Upload, ExternalLink } from 'lucide-react';
 import type { PurchaseOrder } from '../types/purchase-order.types';
 import {
@@ -241,7 +242,7 @@ export function ReleaseDocumentPanel({ po, onReleasePrepared }: Props) {
                                     {RELEASE_STATUS_LABELS[r.status]}
                                 </span>
                                 {r.document_url && (
-                                    <a href={r.document_url} target="_blank" rel="noopener noreferrer" className="text-purple-600 hover:text-purple-800" title="Ver PDF">
+                                    <a href={secureDocUrl(r.document_url)} target="_blank" rel="noopener noreferrer" className="text-purple-600 hover:text-purple-800" title="Ver PDF">
                                         <ExternalLink className="w-3.5 h-3.5" />
                                     </a>
                                 )}

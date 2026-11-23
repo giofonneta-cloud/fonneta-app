@@ -99,8 +99,8 @@ export class EmailService {
       });
       console.log('[emailService] sendMail OK', {
         messageId: info.messageId,
-        accepted: info.accepted,
-        rejected: info.rejected,
+        accepted: info.accepted?.length,
+        rejected: info.rejected?.length,
         ms: Date.now() - start,
       });
       return { messageId: info.messageId };

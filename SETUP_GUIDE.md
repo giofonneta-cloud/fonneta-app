@@ -58,8 +58,8 @@ El sistema necesita esta clave para crear perfiles de usuario con privilegios el
 2. Busca las siguientes líneas:
 
 ```bash
-SMTP_PASSWORD=mtlizfjrainhklpy
-SUPABASE_SERVICE_ROLE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRtZGh4Z3RoZWtic2x6ZWhjdGduIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2ODkzOTMxMywiZXhwIjoyMDg0NTE1MzEzfQ.QLdOdJbJODOqPJvYJvUvBBPMnrQMPJPKYOQKXPMQxrM
+SMTP_PASSWORD=tu-app-password-de-gmail
+SUPABASE_SERVICE_ROLE_KEY=tu-service-role-key
 ```
 
 ### 3.2 Reemplazar Valores

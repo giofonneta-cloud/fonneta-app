@@ -66,7 +66,7 @@ export const projectService = {
                 // Como budget_income funcionó, esos se quedan.
             };
 
-            console.log("🚀 Enviando Payload Definitivo:", payload);
+            
 
             const { data, error } = await supabase
                 .from('projects')

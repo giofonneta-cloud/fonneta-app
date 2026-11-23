@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { secureDocUrl } from '@/lib/documents/documentUrl';
 import { useProviderProfile } from '../hooks/useProviderProfile';
 import { providerService } from '../services/providerService';
 import { ProviderDocument, DocumentType } from '../types/provider.types';
@@ -266,7 +267,7 @@ export function ProviderDocumentsSection() {
 
                                 {status && (
                                     <button
-                                        onClick={() => setPreviewUrl(status.doc.archivo_url)}
+                                        onClick={() => setPreviewUrl(secureDocUrl(status.doc.archivo_url) ?? null)}
                                         className="p-2 hover:bg-gray-50 rounded-lg transition-all"
                                         title="Ver documento"
                                     >
@@ -343,7 +344,7 @@ export function ProviderDocumentsSection() {
                             </button>
                         </div>
                         <div className="flex-1 overflow-auto p-4">
-                            {previewUrl.endsWith('.pdf') ? (
+                            {previewUrl.startsWith('/api/documents/view') || previewUrl.endsWith('.pdf') ? (
                                 <iframe
                                     src={previewUrl}
                                     className="w-full h-full border-0 rounded-xl"

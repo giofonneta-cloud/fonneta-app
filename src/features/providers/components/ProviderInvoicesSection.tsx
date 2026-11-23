@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { secureDocUrl } from '@/lib/documents/documentUrl';
 import { useProviderProfile } from '../hooks/useProviderProfile';
 import { providerInvoiceService } from '../services/providerInvoiceService';
 import { ProviderInvoice, InvoiceStatus } from '../types/provider.types';
@@ -249,7 +250,7 @@ export function ProviderInvoicesSection() {
                                                     {/* Descargar documento */}
                                                     {invoice.document_url && (
                                                         <a
-                                                            href={invoice.document_url}
+                                                            href={secureDocUrl(invoice.document_url)}
                                                             target="_blank"
                                                             rel="noopener noreferrer"
                                                             className="p-2 hover:bg-gray-100 border border-transparent hover:border-gray-200 rounded-lg transition-all"
@@ -354,7 +355,7 @@ export function ProviderInvoicesSection() {
                                 <div className="space-y-2">
                                     {selectedInvoice.document_url && (
                                         <a
-                                            href={selectedInvoice.document_url}
+                                            href={secureDocUrl(selectedInvoice.document_url)}
                                             target="_blank"
                                             rel="noopener noreferrer"
                                             className="flex items-center gap-3 p-3 bg-gray-50 hover:bg-gray-100 rounded-xl transition-colors"
@@ -366,7 +367,7 @@ export function ProviderInvoicesSection() {
                                     )}
                                     {selectedInvoice.orden_compra_url && (
                                         <a
-                                            href={selectedInvoice.orden_compra_url}
+                                            href={secureDocUrl(selectedInvoice.orden_compra_url)}
                                             target="_blank"
                                             rel="noopener noreferrer"
                                             className="flex items-center gap-3 p-3 bg-gray-50 hover:bg-gray-100 rounded-xl transition-colors"
@@ -378,7 +379,7 @@ export function ProviderInvoicesSection() {
                                     )}
                                     {selectedInvoice.seguridad_social_url && (
                                         <a
-                                            href={selectedInvoice.seguridad_social_url}
+                                            href={secureDocUrl(selectedInvoice.seguridad_social_url)}
                                             target="_blank"
                                             rel="noopener noreferrer"
                                             className="flex items-center gap-3 p-3 bg-gray-50 hover:bg-gray-100 rounded-xl transition-colors"
@@ -390,7 +391,7 @@ export function ProviderInvoicesSection() {
                                     )}
                                     {selectedInvoice.release_url && (
                                         <a
-                                            href={selectedInvoice.release_url}
+                                            href={secureDocUrl(selectedInvoice.release_url)}
                                             target="_blank"
                                             rel="noopener noreferrer"
                                             className="flex items-center gap-3 p-3 bg-gray-50 hover:bg-gray-100 rounded-xl transition-colors"

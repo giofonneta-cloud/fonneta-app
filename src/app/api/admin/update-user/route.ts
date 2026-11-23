@@ -1,64 +1,54 @@
-import { createClient } from '@supabase/supabase-js';
-import { createClient as createServerClient } from '@/lib/supabase/server';
 import { NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod';
+import { createAdminClient } from '@/lib/supabase/admin';
+import { jsonError, requireAdmin } from '@/lib/auth/guard';
+
+// Lista blanca de columnas editables: nunca se aceptan campos arbitrarios del cliente.
+const updatesSchema = z
+  .object({
+    full_name: z.string().trim().max(150).nullable(),
+    role: z.enum(['admin', 'pm', 'administrativo', 'proveedor']),
+    phone: z.string().trim().max(30).nullable(),
+    position: z.string().trim().max(100).nullable(),
+    is_active: z.boolean(),
+    approval_limit_expenses: z.number().nonnegative().nullable(),
+    approval_limit_sales: z.number().nonnegative().nullable(),
+    notification_email: z.boolean(),
+    notification_platform: z.boolean(),
+    notification_frequency: z.enum(['daily', 'weekly', 'monthly', 'never']),
+    avatar_url: z.string().url().max(2048).nullable(),
+  })
+  .partial()
+  .strict();
+
+const bodySchema = z.object({
+  userId: z.string().uuid(),
+  updates: updatesSchema,
+});
 
 export async function PATCH(request: NextRequest): Promise<NextResponse> {
-  try {
-    // 1. Verificar sesión y rol admin del llamante
-    const supabase = await createServerClient();
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
+  const auth = await requireAdmin();
+  if (!auth.ok) return auth.response;
 
-    if (!user || authError) {
-      return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
-    }
+  const parsed = bodySchema.safeParse(await request.json().catch(() => null));
+  if (!parsed.success) return jsonError(400, 'Datos inválidos');
+  const { userId, updates } = parsed.data;
 
-    const { data: callerProfile } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', user.id)
-      .single();
-
-    if (callerProfile?.role !== 'admin') {
-      return NextResponse.json({ error: 'Se requiere rol de administrador' }, { status: 403 });
-    }
-
-    // 2. Parsear body
-    const { userId, updates } = await request.json() as {
-      userId: string;
-      updates: Record<string, unknown>;
-    };
-
-    if (!userId || !updates) {
-      return NextResponse.json({ error: 'userId y updates son requeridos' }, { status: 400 });
-    }
-
-    // 3. Actualizar con service role key (bypass RLS)
-    if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
-      return NextResponse.json({ error: 'Configuración del servidor incompleta' }, { status: 500 });
-    }
-
-    const supabaseAdmin = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL,
-      process.env.SUPABASE_SERVICE_ROLE_KEY,
-      { auth: { autoRefreshToken: false, persistSession: false } }
-    );
-
-    const { error: updateError } = await supabaseAdmin
-      .from('profiles')
-      .update({ ...updates, updated_at: new Date().toISOString() })
-      .eq('id', userId);
-
-    if (updateError) {
-      return NextResponse.json({ error: updateError.message }, { status: 500 });
-    }
-
-    return NextResponse.json({ success: true });
-  } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : 'Error interno';
-    console.error('Error updating user:', message);
-    return NextResponse.json({ error: message }, { status: 500 });
+  // Un admin no puede quitarse a sí mismo el acceso (evita quedarse sin administradores)
+  if (userId === auth.ctx.user.id && (updates.role && updates.role !== 'admin' || updates.is_active === false)) {
+    return jsonError(400, 'No puedes quitarte el rol de administrador ni desactivarte a ti mismo');
   }
+
+  const admin = createAdminClient();
+  const { error } = await admin
+    .from('profiles')
+    .update({ ...updates, updated_at: new Date().toISOString() })
+    .eq('id', userId);
+
+  if (error) {
+    console.error('[admin/update-user] error:', error.message);
+    return jsonError(500, 'No se pudo actualizar el usuario');
+  }
+
+  return NextResponse.json({ success: true });
 }

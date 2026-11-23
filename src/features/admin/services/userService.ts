@@ -149,43 +149,20 @@ export async function getUserById(userId: string): Promise<ExtendedProfile | nul
 export async function createUser(
     input: CreateUserInput
 ): Promise<{ success: boolean; data?: ExtendedProfile; error?: string }> {
-    // Crear usuario en Auth
-    const { data: authData, error: authError } = await supabase.auth.admin.createUser({
-        email: input.email,
-        password: input.password,
-        email_confirm: true, // Auto-confirmar email
+    // La creación corre en el servidor (service role + verificación de rol admin)
+    const response = await fetch('/api/admin/create-user', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(input),
     });
+    const result = (await response.json().catch(() => ({}))) as { error?: string; profile?: ExtendedProfile };
 
-    if (authError) {
-        return { success: false, error: authError.message };
+    if (!response.ok || !result.profile) {
+        return { success: false, error: result.error || 'No se pudo crear el usuario' };
     }
 
-    if (!authData.user) {
-        return { success: false, error: 'No se pudo crear el usuario' };
-    }
-
-    // Actualizar profile con datos adicionales
-    const { data: profile, error: profileError } = await supabase
-        .from('profiles')
-        .update({
-            full_name: input.full_name,
-            role: input.role,
-            phone: input.phone ?? null,
-            position: input.position ?? null,
-            approval_limit_expenses: input.approval_limit_expenses ?? null,
-            approval_limit_sales: input.approval_limit_sales ?? null,
-            notification_email: input.notification_email ?? true,
-            notification_platform: input.notification_platform ?? true,
-            notification_frequency: input.notification_frequency ?? 'weekly',
-            is_active: true,
-        })
-        .eq('id', authData.user.id)
-        .select()
-        .single();
-
-    if (profileError) {
-        return { success: false, error: profileError.message };
-    }
+    const profile = result.profile;
+    const authData = { user: { id: profile.id } };
 
     // Registrar en auditoría
     await logAuditAction({

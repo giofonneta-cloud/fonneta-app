@@ -3,7 +3,6 @@
 /.pnp
 .pnp.js
 yarn.lock
-package-lock.json
 pnpm-lock.yaml
 
 # Testing
@@ -79,3 +78,14 @@ scratch/
 scripts/setup-test-user.js
 scripts/setup-user.sh
 scripts/insert-finanzas-config.js
+
+# Secretos (nunca versionar)
+.env.production
+.env.*.check
+.env.production.local
+!.env.local.example
+
+# Playwright
+test-results/
+playwright-report/
+.tmp_e2e/

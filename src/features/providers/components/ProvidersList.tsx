@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from 'react';
+import { secureDocUrl } from '@/lib/documents/documentUrl';
 import { Provider, OnboardingStatus } from '../types/provider.types';
 import { providerService } from '../services/providerService';
 import { useResizableColumns } from '@/shared/hooks/useResizableColumns';
@@ -366,25 +367,25 @@ export function ProvidersTable({ onEdit, onDelete }: ProvidersTableProps) {
                     {(provider.rut_url || provider.cedula_url || provider.cert_bancaria_url || provider.camara_comercio_url) ? (
                       <div className="flex flex-wrap gap-1">
                         {provider.rut_url && (
-                          <a href={provider.rut_url} target="_blank" rel="noopener noreferrer"
+                          <a href={secureDocUrl(provider.rut_url)} target="_blank" rel="noopener noreferrer"
                             className="inline-flex items-center gap-0.5 px-1.5 py-0.5 bg-green-50 text-green-700 rounded text-[10px] font-bold hover:bg-green-100 transition-colors">
                             <FileCheck className="w-2.5 h-2.5" /> RUT <ExternalLink className="w-2 h-2" />
                           </a>
                         )}
                         {provider.cedula_url && (
-                          <a href={provider.cedula_url} target="_blank" rel="noopener noreferrer"
+                          <a href={secureDocUrl(provider.cedula_url)} target="_blank" rel="noopener noreferrer"
                             className="inline-flex items-center gap-0.5 px-1.5 py-0.5 bg-green-50 text-green-700 rounded text-[10px] font-bold hover:bg-green-100 transition-colors">
                             <FileCheck className="w-2.5 h-2.5" /> Cédula <ExternalLink className="w-2 h-2" />
                           </a>
                         )}
                         {provider.camara_comercio_url && (
-                          <a href={provider.camara_comercio_url} target="_blank" rel="noopener noreferrer"
+                          <a href={secureDocUrl(provider.camara_comercio_url)} target="_blank" rel="noopener noreferrer"
                             className="inline-flex items-center gap-0.5 px-1.5 py-0.5 bg-green-50 text-green-700 rounded text-[10px] font-bold hover:bg-green-100 transition-colors">
                             <FileCheck className="w-2.5 h-2.5" /> C.Com <ExternalLink className="w-2 h-2" />
                           </a>
                         )}
                         {provider.cert_bancaria_url && (
-                          <a href={provider.cert_bancaria_url} target="_blank" rel="noopener noreferrer"
+                          <a href={secureDocUrl(provider.cert_bancaria_url)} target="_blank" rel="noopener noreferrer"
                             className="inline-flex items-center gap-0.5 px-1.5 py-0.5 bg-green-50 text-green-700 rounded text-[10px] font-bold hover:bg-green-100 transition-colors">
                             <FileCheck className="w-2.5 h-2.5" /> Bancaria <ExternalLink className="w-2 h-2" />
                           </a>

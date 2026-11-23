@@ -4,6 +4,16 @@ import { NextResponse, type NextRequest } from 'next/server'
 // Roles que pueden acceder al dashboard administrativo
 const ADMIN_ROLES = ['admin', 'pm', 'administrativo']
 
+// Endpoints /api que no requieren sesión de usuario:
+// - register: alta pública de proveedores (con rate limit y validación propias)
+// - send-reminders: lo invoca el cron de Vercel con CRON_SECRET (validado en la ruta)
+// - health: monitor de uptime, sin datos sensibles
+const PUBLIC_API_PATHS = ['/api/providers/register', '/api/cxc/send-reminders', '/api/health']
+
+function isPublicApi(pathname: string): boolean {
+    return PUBLIC_API_PATHS.includes(pathname)
+}
+
 export async function updateSession(request: NextRequest) {
     let supabaseResponse = NextResponse.next({ request })
 
@@ -15,12 +25,12 @@ export async function updateSession(request: NextRequest) {
                 getAll() {
                     return request.cookies.getAll()
                 },
-                setAll(cookiesToSet: any[]) {
-                    cookiesToSet.forEach(({ name, value }: any) =>
+                setAll(cookiesToSet: { name: string; value: string; options?: Record<string, unknown> }[]) {
+                    cookiesToSet.forEach(({ name, value }) =>
                         request.cookies.set(name, value)
                     )
                     supabaseResponse = NextResponse.next({ request })
-                    cookiesToSet.forEach(({ name, value, options }: any) =>
+                    cookiesToSet.forEach(({ name, value, options }) =>
                         supabaseResponse.cookies.set(name, value, options)
                     )
                 },
@@ -32,6 +42,7 @@ export async function updateSession(request: NextRequest) {
 
     // Clasificación de rutas
     const pathname = request.nextUrl.pathname
+    const isApiRoute = pathname.startsWith('/api/')
     const isDashboardRoute = pathname.startsWith('/dashboard')
     const isPortalRoute = pathname.startsWith('/portal')
     // Cotizaciones vive bajo /dashboard pero su control de acceso real es por
@@ -41,6 +52,15 @@ export async function updateSession(request: NextRequest) {
     const isPermissionGatedRoute = pathname.startsWith('/dashboard/quotes') || pathname.startsWith('/dashboard/legalizaciones')
     const isAuthRoute = pathname.startsWith('/login') || pathname.startsWith('/signup')
     const isPublicProviderRoute = pathname.startsWith('/register/provider')
+
+    // API: sin sesión → 401 salvo endpoints públicos explícitos. Cada ruta además
+    // valida rol y propiedad por su cuenta (defensa en profundidad).
+    if (isApiRoute) {
+        if (!user && !isPublicApi(pathname)) {
+            return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
+        }
+        return supabaseResponse
+    }
 
     // Rutas públicas - permitir sin autenticación
     if (isPublicProviderRoute) {
@@ -54,9 +74,13 @@ export async function updateSession(request: NextRequest) {
             .from('profiles')
             .select('role')
             .eq('id', user.id)
-            .single()
+            .maybeSingle()
 
-        if (profile?.role === 'proveedor') {
+        // Sin perfil no hay acceso a ninguna zona: se queda en el login (evita bucles de redirección)
+        if (!profile?.role) {
+            return supabaseResponse
+        }
+        if (profile.role === 'proveedor') {
             return NextResponse.redirect(new URL('/portal', request.url))
         }
         return NextResponse.redirect(new URL('/dashboard', request.url))
@@ -73,20 +97,22 @@ export async function updateSession(request: NextRequest) {
             .from('profiles')
             .select('role')
             .eq('id', user.id)
-            .single()
+            .maybeSingle()
+
+        if (profileError) {
+            console.error('[Middleware] Profile error:', profileError.message)
+        }
 
         const userRole = profile?.role || ''
 
-        // Debug logging
-        console.log('[Middleware] User:', user.email, 'Role:', userRole, 'Path:', pathname)
-        if (profileError) {
-            console.error('[Middleware] Profile error:', profileError.message)
+        // Un usuario autenticado sin perfil/rol no accede a ninguna zona protegida
+        if (!userRole) {
+            return NextResponse.redirect(new URL('/login', request.url))
         }
 
         // Proveedor intentando acceder al dashboard admin (excepto Cotizaciones,
         // gateado por permiso granular en la propia página + RLS)
         if (isDashboardRoute && userRole === 'proveedor' && !isPermissionGatedRoute) {
-            console.log('[Middleware] Redirecting proveedor to /portal')
             return NextResponse.redirect(new URL('/portal', request.url))
         }
 

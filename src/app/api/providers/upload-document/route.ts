@@ -1,76 +1,82 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { createAdminClient } from '@/lib/supabase/admin';
+import { getDriveService } from '@/lib/google-drive/driveService';
+import { jsonError, requireUser } from '@/lib/auth/guard';
+import {
+  EXTENSION_BY_MIME,
+  MAX_DOCUMENT_BYTES,
+  detectMime,
+} from '@/lib/providers/registrationSchema';
 
-export async function POST(request: NextRequest) {
-    try {
-        // Verificar variables de entorno ANTES de procesar
-        if (!process.env.GOOGLE_SERVICE_ACCOUNT_KEY) {
-            console.error('Missing GOOGLE_SERVICE_ACCOUNT_KEY env variable');
-            return NextResponse.json(
-                { error: 'Configuración del servidor incompleta: GOOGLE_SERVICE_ACCOUNT_KEY faltante. Contacte al administrador.' },
-                { status: 500 }
-            );
-        }
-        if (!process.env.GOOGLE_DRIVE_ROOT_FOLDER_ID) {
-            console.error('Missing GOOGLE_DRIVE_ROOT_FOLDER_ID env variable');
-            return NextResponse.json(
-                { error: 'Configuración del servidor incompleta: GOOGLE_DRIVE_ROOT_FOLDER_ID faltante. Contacte al administrador.' },
-                { status: 500 }
-            );
-        }
+export const maxDuration = 60;
 
-        // Importar dinámicamente para evitar crash si faltan env vars
-        const { getDriveService } = await import('@/lib/google-drive/driveService');
+const DOCUMENT_TYPES = ['RUT', 'Cedula_Rep_Legal', 'Camara_Comercio', 'Cert_Bancaria', 'Habeas_Data'];
 
-        const formData = await request.formData();
-        
-        const providerId = formData.get('providerId') as string;
-        const providerName = formData.get('providerName') as string;
-        const providerNIT = formData.get('providerNIT') as string;
-        const documentType = formData.get('documentType') as string;
-        const file = formData.get('file') as File;
+/**
+ * Sube un documento de proveedor a Drive. Solo personal interno o el dueño del proveedor.
+ * El nombre, NIT y razón social se leen de la BD, nunca del formulario.
+ */
+export async function POST(request: NextRequest): Promise<NextResponse> {
+  const auth = await requireUser();
+  if (!auth.ok) return auth.response;
 
-        if (!providerId || !providerName || !documentType || !file) {
-            return NextResponse.json(
-                { error: 'Missing required fields' },
-                { status: 400 }
-            );
-        }
+  const form = await request.formData().catch(() => null);
+  if (!form) return jsonError(400, 'Solicitud inválida');
 
-        // Obtener servicio de Drive
-        const driveService = getDriveService();
+  const providerId = form.get('providerId');
+  const documentType = form.get('documentType');
+  const file = form.get('file');
 
-        // Crear estructura de carpetas
-        const folders = await driveService.getOrCreateProviderFolders(
-            providerId,
-            providerName,
-            providerNIT
-        );
+  if (
+    typeof providerId !== 'string' ||
+    typeof documentType !== 'string' ||
+    !DOCUMENT_TYPES.includes(documentType) ||
+    !(file instanceof File) ||
+    file.size === 0
+  ) {
+    return jsonError(400, 'Faltan parámetros requeridos');
+  }
+  if (file.size > MAX_DOCUMENT_BYTES) return jsonError(400, 'El archivo excede el tamaño máximo de 10MB');
 
-        // Convertir archivo a buffer
-        const fileBuffer = Buffer.from(await file.arrayBuffer());
-        const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-        const fileExt = file.name.split('.').pop();
-        const fileName = `${documentType}_${timestamp}.${fileExt}`;
+  const buffer = Buffer.from(await file.arrayBuffer());
+  const mime = detectMime(buffer);
+  if (!mime) return jsonError(400, 'Solo se permiten archivos PDF, PNG o JPG');
 
-        // Subir archivo a Google Drive
-        const result = await driveService.uploadFile(
-            fileBuffer,
-            fileName,
-            file.type,
-            folders.documentsFolder
-        );
+  const admin = createAdminClient();
+  const { data: provider } = await admin
+    .from('providers')
+    .select('business_name, document_number, user_id')
+    .eq('id', providerId)
+    .maybeSingle();
 
-        return NextResponse.json({
-            success: true,
-            fileId: result.fileId,
-            webViewLink: result.webViewLink,
-            webContentLink: result.webContentLink,
-        });
-    } catch (error: any) {
-        console.error('Error uploading document to Drive:', error);
-        return NextResponse.json(
-            { error: error.message || 'Failed to upload document' },
-            { status: 500 }
-        );
-    }
+  if (!provider) return jsonError(404, 'Proveedor no encontrado');
+  if (!auth.ctx.isStaff && provider.user_id !== auth.ctx.user.id) {
+    return jsonError(403, 'No tienes permisos para este proveedor');
+  }
+
+  try {
+    const drive = getDriveService();
+    const folders = await drive.getOrCreateProviderFolders(
+      providerId,
+      provider.business_name ?? 'proveedor',
+      provider.document_number ?? undefined
+    );
+    const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+    const result = await drive.uploadFile(
+      buffer,
+      `${documentType}_${stamp}.${EXTENSION_BY_MIME[mime]}`,
+      mime,
+      folders.documentsFolder
+    );
+
+    return NextResponse.json({
+      success: true,
+      fileId: result.fileId,
+      webViewLink: result.webViewLink,
+      webContentLink: result.webContentLink,
+    });
+  } catch (err) {
+    console.error('[providers/upload-document] error:', err instanceof Error ? err.message : 'unknown');
+    return jsonError(500, 'No se pudo subir el documento');
+  }
 }

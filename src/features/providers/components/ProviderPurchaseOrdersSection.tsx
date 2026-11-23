@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { secureDocUrl } from '@/lib/documents/documentUrl';
 import { ShoppingCart, ExternalLink, CheckCircle, Clock, XCircle, Eye, Download, Loader2 } from 'lucide-react';
 import { providerService } from '../services/providerService';
 import { useProviderProfile } from '../hooks/useProviderProfile';
@@ -307,7 +308,7 @@ function PODetailModal({ po, accepting, acceptError, onAccept, onClose }: ModalP
             <div className="flex gap-2">
               {po.document_url && (
                 <a
-                  href={po.document_url}
+                  href={secureDocUrl(po.document_url)}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="flex items-center gap-1.5 px-4 py-2 text-sm font-semibold text-gray-700 border border-gray-200 rounded-xl hover:bg-white transition-colors"

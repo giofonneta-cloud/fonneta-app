@@ -80,7 +80,7 @@ export const taskService = {
       throw new Error('Debes iniciar sesión para crear tareas');
     }
 
-    console.log('📝 Creando tarea con payload:', { ...task, created_by: user.id });
+    
 
     const { data, error } = await supabase
       .from('project_tasks')

@@ -1,8 +1,8 @@
 export const maxDuration = 60;
 
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { hasValidCronSecret, requireStaff } from '@/lib/auth/guard';
 import { getEmailService } from '@/lib/email/emailService';
 
 type ReminderTipo = 'previo_5d' | 'vencimiento' | 'vencida_8d';
@@ -79,16 +79,11 @@ function evaluarRecordatorio(dias: number): { tipo: ReminderTipo; diasRelativos:
 }
 
 async function isAuthorized(request: NextRequest): Promise<boolean> {
-  // 1. Cron de Vercel (envía Authorization: Bearer <CRON_SECRET> si está configurado)
-  const cronSecret = process.env.CRON_SECRET;
-  if (cronSecret) {
-    const auth = request.headers.get('authorization');
-    if (auth === `Bearer ${cronSecret}`) return true;
-  }
-  // 2. Usuario autenticado (disparo manual desde la app)
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  return !!user;
+  // 1. Cron de Vercel: Authorization: Bearer <CRON_SECRET> (comparación en tiempo constante)
+  if (hasValidCronSecret(request)) return true;
+  // 2. Disparo manual desde la app: solo personal interno (nunca un proveedor)
+  const auth = await requireStaff();
+  return auth.ok;
 }
 
 export async function POST(request: NextRequest): Promise<NextResponse> {

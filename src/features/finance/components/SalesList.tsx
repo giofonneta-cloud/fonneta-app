@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { secureDocUrl } from '@/lib/documents/documentUrl';
 import { Venta } from '../types/sales-expenses.types';
 import { salesService } from '../services/salesService';
 import { Input } from '@/shared/components/ui/input';
@@ -202,7 +203,7 @@ export function SalesList({ period, selectedProjects, selectedCostCenters, selec
                                             <span className="truncate">{sale.numero_factura || '—'}</span>
                                             {sale.factura_url && (
                                                 <a
-                                                    href={sale.factura_url}
+                                                    href={secureDocUrl(sale.factura_url)}
                                                     target="_blank"
                                                     rel="noopener noreferrer"
                                                     title="Ver soporte de factura"

@@ -326,6 +326,11 @@ test('should calculate total with tax', () => {
 - **Fix**: Ejecutar `npm run build` localmente y confirmar que el endpoint aparece en el output antes de hacer push
 - **Aplicar en**: Cualquier cambio en API routes o archivos con template literals complejos
 
+### 2026-11-23: Auditoría de seguridad pre-lanzamiento (PRP-001)
+- **Error**: APIs con service role sin verificar sesión (`create-profile` aceptaba `role` del cliente, `delete-auth-user` borraba cualquier usuario), RLS con `USING (true)` para `anon`/`authenticated` en `profiles`, `provider_documents`, `ventas`, `gastos`; vista `SECURITY DEFINER`; carpetas de Drive públicas; `.env.production` y un token de GitHub en el repo.
+- **Fix**: guard común `src/lib/auth/guard.ts`; proxy devuelve 401 a todo `/api/*` sin sesión salvo lista blanca; registro de proveedor 100 % servidor (`/api/providers/register`); helpers `is_admin()`/`is_staff()`; trigger que protege `profiles.role`; documentos servidos por `/api/documents/view`. Ver `docs/SECURITY.md`.
+- **Aplicar en**: TODA ruta `/api` nueva (guard + Zod + sin `error.message` crudo), TODA política RLS nueva (nunca `true` para anon/public; negocio = `is_staff()`), toda vista (`security_invoker = true`), toda función `SECURITY DEFINER` (`SET search_path` + `REVOKE … FROM anon, public`). Nunca aceptar `role`, `userId` ni destinatarios del cliente. Nunca versionar `.env*` ni poner tokens en la URL del remoto. Antes de desplegar: `npm run typecheck && npm test && npm run build` y `npm run test:e2e`.
+
 ---
 
 *Este archivo es el cerebro de la fábrica. Cada error documentado la hace más fuerte.*

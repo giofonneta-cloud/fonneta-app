@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import { secureDocUrl } from '@/lib/documents/documentUrl';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -517,7 +518,7 @@ export function ProviderForm({ onSuccess, onCancel, initialData }: ProviderFormP
                                                 variant="ghost"
                                                 size="sm"
                                                 className="text-blue-600 hover:text-blue-700"
-                                                onClick={() => window.open(docUrls.rut!, '_blank')}
+                                                onClick={() => window.open(secureDocUrl(docUrls.rut!), '_blank')}
                                             >
                                                 <ExternalLink className="w-4 h-4 mr-1" /> Abrir
                                             </Button>
@@ -559,7 +560,7 @@ export function ProviderForm({ onSuccess, onCancel, initialData }: ProviderFormP
                                                     variant="ghost"
                                                     size="sm"
                                                     className="text-blue-600 hover:text-blue-700"
-                                                    onClick={() => window.open(docUrls.camara!, '_blank')}
+                                                    onClick={() => window.open(secureDocUrl(docUrls.camara!), '_blank')}
                                                 >
                                                     <ExternalLink className="w-4 h-4 mr-1" /> Abrir
                                                 </Button>
@@ -601,7 +602,7 @@ export function ProviderForm({ onSuccess, onCancel, initialData }: ProviderFormP
                                                 variant="ghost"
                                                 size="sm"
                                                 className="text-blue-600 hover:text-blue-700"
-                                                onClick={() => window.open(docUrls.cedula_rep!, '_blank')}
+                                                onClick={() => window.open(secureDocUrl(docUrls.cedula_rep!), '_blank')}
                                             >
                                                 <ExternalLink className="w-4 h-4 mr-1" /> Abrir
                                             </Button>
@@ -642,7 +643,7 @@ export function ProviderForm({ onSuccess, onCancel, initialData }: ProviderFormP
                                                 variant="ghost"
                                                 size="sm"
                                                 className="text-blue-600 hover:text-blue-700"
-                                                onClick={() => window.open(docUrls.bancaria!, '_blank')}
+                                                onClick={() => window.open(secureDocUrl(docUrls.bancaria!), '_blank')}
                                             >
                                                 <ExternalLink className="w-4 h-4 mr-1" /> Abrir
                                             </Button>

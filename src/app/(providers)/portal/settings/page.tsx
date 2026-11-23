@@ -1,6 +1,7 @@
 'use client';
 
-import { Settings, Bell, Lock, User } from 'lucide-react';
+import { Bell, Lock } from 'lucide-react';
+import { DeleteAccountSection } from '@/features/providers/components/DeleteAccountSection';
 
 export default function ProviderSettingsPage() {
     return (
@@ -54,21 +55,8 @@ export default function ProviderSettingsPage() {
                     </button>
                 </div>
 
-                {/* Cuenta */}
-                <div className="bg-white rounded-2xl border border-gray-100 p-6">
-                    <div className="flex items-center gap-3 mb-4">
-                        <div className="p-2 bg-red-50 rounded-xl">
-                            <User className="w-5 h-5 text-red-600" />
-                        </div>
-                        <div>
-                            <h2 className="font-semibold text-gray-900">Cuenta</h2>
-                            <p className="text-sm text-gray-500">Opciones de tu cuenta</p>
-                        </div>
-                    </div>
-                    <p className="text-sm text-gray-500 p-3 bg-gray-50 rounded-xl">
-                        Para solicitar la eliminación de tu cuenta, contacta al administrador.
-                    </p>
-                </div>
+                {/* Cuenta: derecho de supresión */}
+                <DeleteAccountSection />
             </div>
         </div>
     );

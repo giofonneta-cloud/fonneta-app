@@ -1,6 +1,11 @@
 import { google } from 'googleapis';
 import { Readable } from 'stream';
 
+/** Escapa un valor para usarlo dentro de una consulta `q` de Drive (entre comillas simples). */
+function escapeDriveQueryValue(value: string): string {
+  return value.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+}
+
 export interface DriveUploadResult {
   fileId: string;
   webViewLink: string;
@@ -42,7 +47,7 @@ export class DriveStorageService {
   private async findFolder(name: string, parentId: string): Promise<string | null> {
     try {
       const response = await this.drive.files.list({
-        q: `name='${name}' and '${parentId}' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false`,
+        q: `name='${escapeDriveQueryValue(name)}' and '${escapeDriveQueryValue(parentId)}' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false`,
         fields: 'files(id, name)',
         spaces: 'drive',
         supportsAllDrives: true,
@@ -74,21 +79,8 @@ export class DriveStorageService {
         supportsAllDrives: true,
       });
 
-      // Intentar hacer la carpeta pública (puede fallar en Shared Drives restringidos)
-      try {
-        await this.drive.permissions.create({
-          fileId: response.data.id!,
-          requestBody: {
-            role: 'reader',
-            type: 'anyone',
-          },
-          supportsAllDrives: true,
-        });
-      } catch (permError) {
-        console.warn(`Warning: Could not make folder ${name} public. Checks Shared Drive settings.`, permError);
-        // No lanzamos error para no detener el proceso
-      }
-
+      // Las carpetas son privadas: el acceso a los documentos se sirve desde la app
+      // (/api/documents/view) tras validar sesión y propiedad.
       return response.data.id!;
     } catch (error) {
       console.error('Error creating folder:', error);
@@ -203,20 +195,6 @@ export class DriveStorageService {
         supportsAllDrives: true,
       });
 
-      // Intentar hacer el archivo público (puede fallar en Shared Drives restringidos)
-      try {
-        await this.drive.permissions.create({
-          fileId: response.data.id!,
-          requestBody: {
-            role: 'reader',
-            type: 'anyone',
-          },
-          supportsAllDrives: true,
-        });
-      } catch (permError) {
-        console.warn(`Warning: Could not make file ${fileName} public. Check Shared Drive settings.`, permError);
-      }
-
       return {
         fileId: response.data.id!,
         webViewLink: response.data.webViewLink!,
@@ -226,6 +204,55 @@ export class DriveStorageService {
       console.error('Error uploading file to Drive:', error);
       throw new Error('Failed to upload file to Google Drive');
     }
+  }
+
+
+  /**
+   * Metadatos mínimos de un archivo (nombre y tipo) para servirlo desde la app.
+   */
+  async getFileMeta(fileId: string): Promise<{ name: string; mimeType: string; size: number }> {
+    const response = await this.drive.files.get({
+      fileId,
+      fields: 'name, mimeType, size',
+      supportsAllDrives: true,
+    });
+    return {
+      name: response.data.name ?? 'documento',
+      mimeType: response.data.mimeType ?? 'application/octet-stream',
+      size: Number(response.data.size ?? 0),
+    };
+  }
+
+  /**
+   * Descarga el contenido de un archivo binario (PDF/imagen) a memoria.
+   */
+  async downloadFile(fileId: string): Promise<Buffer> {
+    const response = await this.drive.files.get(
+      { fileId, alt: 'media', supportsAllDrives: true },
+      { responseType: 'arraybuffer' }
+    );
+    return Buffer.from(response.data as ArrayBuffer);
+  }
+
+  /**
+   * Envía a la papelera la carpeta de un proveedor (documentos y facturas).
+   * Devuelve true si la encontró y la movió a la papelera.
+   */
+  async trashProviderFolder(providerName: string, providerNIT?: string): Promise<boolean> {
+    const proveedoresFolder = await this.findFolder('Proveedores', this.rootFolderId);
+    if (!proveedoresFolder) return false;
+
+    const safeName = providerName.replace(/[^a-zA-Z0-9 áéíóúÁÉÍÓÚñÑ._-]/g, '').trim();
+    const folderName = `${providerNIT || 'SIN-NIT'}_${safeName}`;
+    const providerFolder = await this.findFolder(folderName, proveedoresFolder);
+    if (!providerFolder) return false;
+
+    await this.drive.files.update({
+      fileId: providerFolder,
+      requestBody: { trashed: true },
+      supportsAllDrives: true,
+    });
+    return true;
   }
 
   /**

@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
+import { secureDocUrl } from '@/lib/documents/documentUrl';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -568,7 +569,7 @@ export function SalesForm({ onSuccess, onCancel, initialProjectId, initialClient
                                     {facturaUrl && (
                                         <>
                                             <a
-                                                href={facturaUrl}
+                                                href={secureDocUrl(facturaUrl)}
                                                 target="_blank"
                                                 rel="noopener noreferrer"
                                                 onClick={(e) => e.stopPropagation()}

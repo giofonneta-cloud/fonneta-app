@@ -84,8 +84,8 @@ export function ProviderOnboarding() {
                 setError('Por favor completa todos los campos de información de contacto y facturación.');
                 return;
             }
-            if (!formData.password || formData.password.length < 6) {
-                setError('La contraseña debe tener al menos 6 caracteres.');
+            if (!formData.password || formData.password.length < 10) {
+                setError('La contraseña debe tener al menos 10 caracteres.');
                 return;
             }
             if (formData.password !== formData.confirm_password) {
@@ -101,10 +101,7 @@ export function ProviderOnboarding() {
     const handleSubmit = async () => {
         setIsSubmitting(true);
         setError(null);
-        let createdUserId: string | null = null;
-        let providerId: string | null = null;
         try {
-            // Validar documentos obligatorios
             if (!uploadedFiles.RUT) {
                 throw new Error('El RUT es obligatorio');
             }
@@ -114,211 +111,37 @@ export function ProviderOnboarding() {
             if (formData.person_type === 'juridica' && !uploadedFiles.Camara_Comercio) {
                 throw new Error('La Cámara de Comercio es obligatoria para personas jurídicas');
             }
-
-            // Validar checkbox de autorización
             if (!dataAuthorizationAccepted) {
-                throw new Error('Debes aceptar la Política de Tratamiento de Datos Personales para continuar');
+                throw new Error('Debes aceptar los Términos de uso y la Política de Tratamiento de Datos Personales para continuar');
             }
 
-            // 1. Crear usuario en Supabase Auth vía API con admin SDK
-            // Esto evita rate limits del cliente y pre-confirma el email sintético
-            const createUserRes = await fetch('/api/providers/create-auth-user', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    documentNumber: formData.document_number,
-                    password: formData.password,
-                    contactName: formData.contact_name,
-                    contactEmail: formData.contact_email,
-                }),
+            // Un solo envío al servidor: crea usuario, perfil, proveedor y documentos
+            // con rollback completo si algo falla. El rol lo fija el servidor.
+            const body = new FormData();
+            const { confirm_password: _confirm, ...fields } = formData;
+            Object.entries(fields).forEach(([key, value]) => body.append(key, String(value)));
+            body.append('terms_accepted', 'true');
+            (Object.entries(uploadedFiles) as [string, File | null][]).forEach(([type, file]) => {
+                if (file) body.append(type, file);
             });
-            const createUserData = await createUserRes.json();
-            if (!createUserRes.ok) {
-                throw new Error(`Error al crear usuario: ${createUserData.error}`);
-            }
-            const userId = createUserData.userId as string;
-            const authEmail = createUserData.authEmail as string;
-            createdUserId = userId; // para rollback si algo falla
 
-            // 2. Crear perfil usando API route con service role
-            // Esto evita TODOS los problemas de RLS y triggers
-            let profileResponse;
+            let response: Response;
             try {
-                profileResponse = await fetch('/api/create-profile', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        userId: userId,
-                        email: formData.contact_email,
-                        fullName: formData.contact_name,
-                        role: 'proveedor'
-                    })
-                });
-            } catch (networkError) {
-                console.error('Network error creating profile:', networkError);
-                throw new Error('Error de red al crear perfil. Verifica tu conexión a internet.');
+                response = await fetch('/api/providers/register', { method: 'POST', body });
+            } catch {
+                throw new Error('Error de red al enviar el registro. Verifica tu conexión a internet.');
             }
 
-            if (!profileResponse.ok) {
-                let errorMessage = 'Error creando perfil';
-                try {
-                    const errorData = await profileResponse.json();
-                    errorMessage = `Error creando perfil: ${errorData.error || 'Unknown error'}`;
-                } catch {
-                    errorMessage = `Error del servidor (${profileResponse.status}) creando perfil`;
-                }
-                throw new Error(errorMessage);
-            }
-
-            const profileData = await profileResponse.json();
-            console.log('Profile created via API:', profileData);
-
-            // 3. Crear registro de proveedor vía API con service role
-            // (el usuario no está autenticado aún → RLS bloquearía el cliente directo)
-            const createProviderRes = await fetch('/api/providers/create', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    business_name: formData.business_name,
-                    person_type: formData.person_type,
-                    document_type: formData.document_type,
-                    document_number: formData.document_number,
-                    contact_name: formData.contact_name,
-                    contact_email: formData.contact_email,
-                    contact_phone: formData.contact_phone,
-                    billing_email: formData.billing_email,
-                    address: formData.address,
-                    city: formData.city,
-                    department: formData.department,
-                    country: formData.country,
-                    is_provider: true,
-                    is_client: false,
-                    onboarding_status: 'EN REVISION',
-                    user_id: userId,
-                }),
-            });
-            const createProviderData = await createProviderRes.json();
-            if (!createProviderRes.ok) {
-                throw new Error(`Error al crear proveedor: ${createProviderData.error}`);
-            }
-            const providerData = createProviderData;
-
-            // 4. Subir documentos a Google Drive vía API y guardar enlaces
-            providerId = providerData.id;
-            const providerNIT = formData.document_number;
-            const providerBusinessName = formData.business_name;
-
-            const uploadedDocuments: { [key: string]: string } = {};
-
-            // Función helper para subir un documento
-            const uploadDocument = async (file: File, documentType: string): Promise<string> => {
-                const formData = new FormData();
-                formData.append('file', file);
-                formData.append('providerId', providerId as string);
-                formData.append('providerName', providerBusinessName);
-                formData.append('providerNIT', providerNIT);
-                formData.append('documentType', documentType);
-
-                let response;
-                try {
-                    response = await fetch('/api/providers/upload-document', {
-                        method: 'POST',
-                        body: formData,
-                    });
-                } catch (networkError) {
-                    console.error('Network error uploading document:', networkError);
-                    throw new Error(`Error de red al subir ${documentType}. Verifica tu conexión a internet.`);
-                }
-
-                if (!response.ok) {
-                    let errorMessage = `Error al subir ${documentType}`;
-                    try {
-                        const error = await response.json();
-                        errorMessage = error.error || errorMessage;
-                    } catch {
-                        errorMessage = `Error del servidor (${response.status}) al subir ${documentType}`;
-                    }
-                    throw new Error(errorMessage);
-                }
-
-                const result = await response.json();
-                return result.webViewLink;
-            };
-
-            // Subir RUT
-            if (uploadedFiles.RUT) {
-                uploadedDocuments.rut_url = await uploadDocument(uploadedFiles.RUT, 'RUT');
-            }
-
-            // Subir Cédula
-            if (uploadedFiles.Cedula_Rep_Legal) {
-                uploadedDocuments.cedula_url = await uploadDocument(uploadedFiles.Cedula_Rep_Legal, 'Cedula_Rep_Legal');
-            }
-
-            // Subir Cámara de Comercio (si aplica)
-            if (uploadedFiles.Camara_Comercio) {
-                uploadedDocuments.camara_comercio_url = await uploadDocument(uploadedFiles.Camara_Comercio, 'Camara_Comercio');
-            }
-
-            // Subir Certificación Bancaria (si existe)
-            if (uploadedFiles.Cert_Bancaria) {
-                uploadedDocuments.cert_bancaria_url = await uploadDocument(uploadedFiles.Cert_Bancaria, 'Cert_Bancaria');
-            }
-
-            // 5. Actualizar registro del proveedor con URLs de documentos vía admin API
-            // (usuario no autenticado aún → RLS bloquearía el cliente directo)
-            const updateDocsRes = await fetch('/api/providers/create', {
-                method: 'PATCH',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    providerId,
-                    rut_url: uploadedDocuments.rut_url ?? null,
-                    cedula_url: uploadedDocuments.cedula_url ?? null,
-                    camara_comercio_url: uploadedDocuments.camara_comercio_url ?? null,
-                    cert_bancaria_url: uploadedDocuments.cert_bancaria_url ?? null,
-                }),
-            });
-            if (!updateDocsRes.ok) {
-                const { error } = await updateDocsRes.json();
-                throw new Error(`Error guardando documentos: ${error}`);
+            if (!response.ok) {
+                const data = (await response.json().catch(() => ({}))) as { error?: string };
+                throw new Error(data.error || `Error del servidor (${response.status}) al procesar el registro.`);
             }
 
             setStep('finish');
             window.scrollTo({ top: 0, behavior: 'smooth' });
         } catch (err: unknown) {
-            console.error('Error al registrar proveedor:', err);
-
-            // Rollback: eliminar el auth user y el proveedor si fue creado pero el registro no se completó
-            if (createdUserId) {
-                try {
-                    await fetch('/api/providers/delete-auth-user', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ 
-                            userId: createdUserId,
-                            providerId: providerId
-                        }),
-                    });
-                } catch (rollbackErr) {
-                    console.error('Rollback fallido:', rollbackErr);
-                }
-            }
-
-            const errObj = err as { message?: string; error_description?: string };
-            let errorMessage = errObj.message || errObj.error_description || JSON.stringify(err);
-            
-            // Handle specific Supabase duplicate key errors
-            if (errorMessage.includes('providers_business_name_key') ||
-                errorMessage.includes('business_name')) {
-                errorMessage = 'Ya existe una empresa registrada con esta Razón Social. Por favor verifica o contacta a soporte.';
-            } else if (errorMessage.includes('providers_document_number_key') ||
-                       errorMessage.includes('document_number')) {
-                errorMessage = 'Ya existe una empresa registrada con este Número de Documento / NIT.';
-            } else if (errorMessage.includes('User already registered') || errorMessage.includes('already been registered')) {
-                errorMessage = `El correo electrónico ingresado (${formData.contact_email}) ya está registrado en el sistema. Si intentaste registrarte antes y no completaste el proceso, contacta a administrativo@fonneta.com para que eliminen el registro incompleto.`;
-            }
-
-            setError(errorMessage || 'Error al procesar el registro. Inténtalo de nuevo.');
+            const message = err instanceof Error ? err.message : '';
+            setError(message || 'Error al procesar el registro. Inténtalo de nuevo.');
             window.scrollTo({ top: 0, behavior: 'smooth' });
         } finally {
             setIsSubmitting(false);
@@ -552,7 +375,7 @@ export function ProviderOnboarding() {
                                                 <input
                                                     type="password"
                                                     className="w-full px-4 py-2 bg-white border border-blue-100 rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all text-sm font-medium"
-                                                    placeholder="Mínimo 6 caracteres"
+                                                    placeholder="Mínimo 10 caracteres"
                                                     value={formData.password}
                                                     onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                                                 />
@@ -652,11 +475,15 @@ export function ProviderOnboarding() {
                                         className="mt-1 w-5 h-5 rounded border-gray-300 text-blue-600 focus:ring-2 focus:ring-blue-500/20 cursor-pointer"
                                     />
                                     <span className="text-sm text-gray-700 font-medium group-hover:text-gray-900 transition-colors">
-                                        Acepto la{' '}
-                                        <a href="/politica-privacidad" target="_blank" className="text-blue-600 underline hover:text-blue-700">
-                                            Política de Tratamiento de Datos Personales
+                                        Acepto los{' '}
+                                        <a href="/terminos" target="_blank" rel="noopener noreferrer" className="text-blue-600 underline hover:text-blue-700">
+                                            Términos de uso
                                         </a>{' '}
-                                        y autorizo el uso de mi información según lo establecido. <span className="text-red-500">*</span>
+                                        y la{' '}
+                                        <a href="/politica-privacidad" target="_blank" rel="noopener noreferrer" className="text-blue-600 underline hover:text-blue-700">
+                                            Política de Tratamiento de Datos Personales
+                                        </a>
+                                        , y autorizo el uso de mi información según lo establecido. <span className="text-red-500">*</span>
                                     </span>
                                 </label>
                             </div>

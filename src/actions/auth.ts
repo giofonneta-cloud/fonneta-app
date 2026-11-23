@@ -34,20 +34,10 @@ export async function login(formData: FormData) {
     }
 }
 
-export async function signup(formData: FormData) {
-    const supabase = await createClient()
-
-    const { error } = await supabase.auth.signUp({
-        email: formData.get('email') as string,
-        password: formData.get('password') as string,
-    })
-
-    if (error) {
-        return { error: error.message }
-    }
-
-    revalidatePath('/', 'layout')
-    redirect('/check-email')
+// El autorregistro público está deshabilitado: los usuarios internos los crea un
+// administrador (/api/admin/create-user) y los proveedores usan /register/provider.
+export async function signup(_formData: FormData) {
+    return { error: 'El registro público está deshabilitado. Solicita tu acceso a un administrador.' }
 }
 
 export async function signout() {
@@ -135,6 +125,10 @@ export async function resetPassword(formData: FormData) {
 export async function updatePassword(formData: FormData) {
     const supabase = await createClient()
     const password = formData.get('password') as string
+
+    if (!password || password.length < 10) {
+        return { error: 'La contraseña debe tener al menos 10 caracteres.' }
+    }
 
     const { error } = await supabase.auth.updateUser({ password })
 

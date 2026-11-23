@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { secureDocUrl } from '@/lib/documents/documentUrl';
 import { providerInvoiceService } from '../services/providerInvoiceService';
 import { ProviderInvoice, InvoiceStatus } from '../types/provider.types';
 import { projectService } from '@/features/projects/services/projectService';
@@ -272,7 +273,7 @@ export function AdminInvoicesView() {
                                                     </button>
                                                     {invoice.document_url && (
                                                         <a
-                                                            href={invoice.document_url}
+                                                            href={secureDocUrl(invoice.document_url)}
                                                             target="_blank"
                                                             rel="noopener noreferrer"
                                                             className="p-1.5 hover:bg-slate-100 rounded-lg transition-colors text-slate-600"
@@ -345,7 +346,7 @@ export function AdminInvoicesView() {
                                 <div className="grid grid-cols-2 gap-3">
                                     {/* Factura / Cuenta de Cobro */}
                                     <a
-                                        href={selectedInvoice.document_url || '#'}
+                                        href={secureDocUrl(selectedInvoice.document_url) || '#'}
                                         target="_blank"
                                         rel="noopener noreferrer"
                                         className={`p-4 rounded-2xl border flex items-center gap-3 transition-all ${
@@ -369,7 +370,7 @@ export function AdminInvoicesView() {
 
                                     {/* Orden de Compra */}
                                     <a
-                                        href={selectedInvoice.orden_compra_url || '#'}
+                                        href={secureDocUrl(selectedInvoice.orden_compra_url) || '#'}
                                         target="_blank"
                                         rel="noopener noreferrer"
                                         className={`p-4 rounded-2xl border flex items-center gap-3 transition-all ${
@@ -393,7 +394,7 @@ export function AdminInvoicesView() {
 
                                     {/* Seguridad Social */}
                                     <a
-                                        href={selectedInvoice.seguridad_social_url || '#'}
+                                        href={secureDocUrl(selectedInvoice.seguridad_social_url) || '#'}
                                         target="_blank"
                                         rel="noopener noreferrer"
                                         className={`p-4 rounded-2xl border flex items-center gap-3 transition-all ${
@@ -417,7 +418,7 @@ export function AdminInvoicesView() {
 
                                     {/* Release Document */}
                                     <a
-                                        href={selectedInvoice.release_url || '#'}
+                                        href={secureDocUrl(selectedInvoice.release_url) || '#'}
                                         target="_blank"
                                         rel="noopener noreferrer"
                                         className={`p-4 rounded-2xl border flex items-center gap-3 transition-all ${

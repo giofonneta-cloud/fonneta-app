@@ -213,8 +213,6 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       );
       console.log('[send-po] Email sent OK', {
         purchaseOrderId,
-        recipient: po.recipient_email,
-        ccEmail,
         ms: Date.now() - emailStart,
       });
     } catch (emailErr: unknown) {

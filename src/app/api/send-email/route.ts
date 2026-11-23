@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getEmailService } from '@/lib/email/emailService';
+import { requireStaff } from '@/lib/auth/guard';
 
 export const dynamic = 'force-dynamic';
 
@@ -14,6 +15,9 @@ export async function GET() {
 }
 
 export async function POST(request: NextRequest) {
+  const auth = await requireStaff();
+  if (!auth.ok) return auth.response;
+
   try {
     const body = await request.json();
     const { type, invoiceId, providerId, invoiceNumber } = body;
@@ -41,7 +45,7 @@ export async function POST(request: NextRequest) {
         .eq('id', invoiceId)
         .single();
 
-      if (!invoice) {
+      if (!invoice || invoice.provider_id !== providerId) {
         return NextResponse.json({ error: 'Invoice not found' }, { status: 404 });
       }
 
