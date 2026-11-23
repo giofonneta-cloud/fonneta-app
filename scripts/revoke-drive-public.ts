@@ -64,6 +64,14 @@ async function revokePublic(drive: drive_v3.Drive, file: drive_v3.Schema$File): 
   return true;
 }
 
+const CONCURRENCY = 8;
+
+async function inChunks<T>(items: T[], size: number, task: (item: T) => Promise<void>): Promise<void> {
+  for (let i = 0; i < items.length; i += size) {
+    await Promise.all(items.slice(i, i + size).map(task));
+  }
+}
+
 async function main(): Promise<void> {
   const rootId = process.env.GOOGLE_DRIVE_ROOT_FOLDER_ID;
   if (!rootId) throw new Error('GOOGLE_DRIVE_ROOT_FOLDER_ID no está definido');
@@ -75,10 +83,16 @@ async function main(): Promise<void> {
 
   while (queue.length > 0) {
     const folderId = queue.shift()!;
-    for (const file of await listChildren(drive, folderId)) {
+    const children = await listChildren(drive, folderId);
+
+    await inChunks(children, CONCURRENCY, async (file) => {
       scanned++;
       if (await revokePublic(drive, file)) publicFound++;
       if (file.mimeType === 'application/vnd.google-apps.folder') queue.push(file.id!);
+    });
+
+    if (scanned % 100 < children.length) {
+      console.log(`... revisados ${scanned}, con enlace público ${publicFound}, carpetas pendientes ${queue.length}`);
     }
   }
 

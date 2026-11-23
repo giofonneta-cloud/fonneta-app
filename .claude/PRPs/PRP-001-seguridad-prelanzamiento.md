@@ -213,3 +213,22 @@ F0 (humano) ─► F1 ─► F2.1 ─► F2.2 ─► F2.3 ─► F2.4 ─► F6 
 ## Qué NO haré sin tu confirmación explícita
 
 Aplicar migraciones en producción, force-push/purga de historial, borrar rutas de producción, crear cuentas en servicios externos, o enviar correos de prueba reales.
+
+---
+
+## ESTADO DE EJECUCIÓN (actualizado 2026-11-23)
+
+| Fase | Estado | Evidencia |
+|------|--------|-----------|
+| 0. Contención | **Parcial** | Remoto git sin token, `.env.production` fuera del repo, `SETUP_GUIDE.md` saneado. **Pendiente del usuario: rotar claves y revocar el token** |
+| 1. BD segura | **Hecho** (prod) | Migraciones `20261123_01`, advisors sin ERROR ni WARN de `anon`; prueba con rol anon = 0 filas |
+| 2. APIs + RLS finanzas | **Hecho** (prod) | Guard, proxy 401, `/api/providers/register`, rutas inseguras eliminadas, `20261123_02`; revisión de IDOR corregida (`1090839`) |
+| 3. Plataforma | **Hecho** (salvo CSP enforce) | `npm audit fix`, nodemailer 10, cabeceras, mcpServer solo dev, sin PII en logs. `xlsx` = riesgo aceptado |
+| 4. Legal y PI | **Hecho** (borrador legal) | `/terminos`, `/creditos`, checkbox + evidencia, borrado de cuenta, LICENSE, THIRD_PARTY_LICENSES, `docs/DATA_INVENTORY.md`. **Revisión legal pendiente** |
+| 5. Backups y monitoreo | **Preparado** | `docs/RUNBOOK_BACKUP.md`, `backup.yml`, Sentry condicionado a DSN, `/api/health`. **Faltan cuentas/secretos del usuario** |
+| 6. Pruebas | **Hecho** | 19 unitarias (vitest), 39 E2E de seguridad (playwright: chromium, webkit, iPhone), prueba real de registro/login/borrado |
+| 7. Cierre | **En curso** | Ver informe final |
+
+Pendientes que no puede hacer el agente: ver `docs/SECURITY.md` → "Acciones manuales".
+Bucket `providers` privado: `20261123_04_private_provider_bucket.sql` (aplicar tras verificar el visor en producción).
+Revocar enlaces públicos de Drive: `npx tsx scripts/revoke-drive-public.ts --apply` (tras verificar el visor).
