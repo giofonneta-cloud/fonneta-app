@@ -5,6 +5,7 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { createClient as createAdminClient } from '@supabase/supabase-js'
 import { getEmailService } from '@/lib/email/emailService'
+import { provisionProviderAccess } from '@/lib/providers/provisionProviderAccess'
 
 export async function login(formData: FormData) {
     const supabase = await createClient()
@@ -57,7 +58,11 @@ export async function signout() {
 }
 
 export async function resetPassword(formData: FormData) {
-    const email = (formData.get('email') as string)?.trim()
+    const email = (formData.get('email') as string)?.trim().toLowerCase()
+
+    if (!email) {
+        return { success: true }
+    }
 
     if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
         return { error: 'Configuración del servidor incompleta' }
@@ -69,14 +74,32 @@ export async function resetPassword(formData: FormData) {
         { auth: { autoRefreshToken: false, persistSession: false } }
     )
 
+    // En producción nunca se usa una URL de localhost: el botón del correo llevaría a una página inexistente.
+    const configuredSite = (process.env.NEXT_PUBLIC_SITE_URL || '').replace(/\/login\/?$/, '')
+    const siteUrl =
+        process.env.NODE_ENV === 'production' && (!configuredSite || /localhost|127\.0\.0\.1/.test(configuredSite))
+            ? 'https://fonneta-app.vercel.app'
+            : configuredSite
+
     // Generar link de recovery con admin API — sin rate limit de Supabase
-    const { data: linkData, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
-        type: 'recovery',
-        email,
-        options: {
-            redirectTo: `${(process.env.NEXT_PUBLIC_SITE_URL || '').replace(/\/login\/?$/, '')}/login/update-password`,
-        },
-    })
+    const generateRecoveryLink = () =>
+        supabaseAdmin.auth.admin.generateLink({
+            type: 'recovery',
+            email,
+            options: { redirectTo: `${siteUrl}/login/update-password` },
+        })
+
+    let { data: linkData, error: linkError } = await generateRecoveryLink()
+    let activation: { name: string } | null = null
+
+    if (linkError || !linkData?.properties?.action_link) {
+        // Proveedor registrado que nunca tuvo cuenta de acceso: se le crea y se le envía el enlace de activación.
+        const provisioned = await provisionProviderAccess(supabaseAdmin, email)
+        if (provisioned) {
+            activation = { name: provisioned.name }
+            ;({ data: linkData, error: linkError } = await generateRecoveryLink())
+        }
+    }
 
     if (linkError || !linkData?.properties?.action_link) {
         // No revelar si el correo existe o no (seguridad)
@@ -87,19 +110,20 @@ export async function resetPassword(formData: FormData) {
     const { data: profile } = await supabaseAdmin
         .from('profiles')
         .select('full_name')
-        .eq('email', email)
-        .single()
+        .ilike('email', email)
+        .limit(1)
+        .maybeSingle()
 
-    const displayName = profile?.full_name || email
+    const displayName = activation?.name || profile?.full_name || email
 
     // Enviar via SMTP propio (nodemailer) — sin límite de Supabase
     try {
         const emailService = getEmailService()
-        await emailService.sendPasswordResetProvider(
-            email,
-            displayName,
-            linkData.properties.action_link
-        )
+        if (activation) {
+            await emailService.sendAccessActivationProvider(email, displayName, linkData.properties.action_link)
+        } else {
+            await emailService.sendPasswordResetProvider(email, displayName, linkData.properties.action_link)
+        }
     } catch (emailError) {
         console.error('Error sending reset email:', emailError)
         return { error: 'No se pudo enviar el correo. Por favor contacta al administrador.' }

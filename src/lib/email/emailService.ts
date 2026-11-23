@@ -522,6 +522,45 @@ export class EmailService {
   }
 
   /**
+   * Enviar enlace de activación a un proveedor ya registrado que aún no tenía acceso al portal
+   */
+  async sendAccessActivationProvider(
+    providerEmail: string,
+    providerName: string,
+    activationLink: string
+  ): Promise<void> {
+    const html = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2 style="color: #2563eb;">Activa tu acceso al portal Fonneta</h2>
+        <p>Hola <strong>${providerName}</strong>,</p>
+        <p>Ya estás registrado como proveedor de Fonneta Comunicaciones, pero todavía no tenías una contraseña para ingresar al portal.</p>
+        <p>Haz clic en el siguiente botón para crear tu contraseña y activar tu acceso:</p>
+        <p style="margin: 30px 0;">
+          <a href="${activationLink}"
+             style="display: inline-block; background-color: #2563eb; color: white; padding: 14px 28px; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 16px;">
+            Crear mi contraseña
+          </a>
+        </p>
+        <p style="color: #6b7280; font-size: 14px;">
+          El enlace expira en 1 hora. Si vence, vuelve a solicitar la recuperación de contraseña desde la página de ingreso con este mismo correo.
+        </p>
+        <hr style="border: 1px solid #e5e7eb; margin: 20px 0;">
+        <p style="color: #9ca3af; font-size: 12px;">
+          Este es un mensaje automático de Fonneta. Si tienes dudas escribe a administrativo@fonneta.com.
+        </p>
+      </div>
+    `;
+
+    await this.sendEmail({
+      to: providerEmail,
+      replyTo: 'administrativo@fonneta.com',
+      subject: 'Activa tu acceso al portal Fonneta',
+      html,
+      text: `Hola ${providerName}, ya estás registrado como proveedor de Fonneta Comunicaciones pero aún no tenías contraseña para el portal. Crea tu contraseña con este enlace: ${activationLink}. El enlace expira en 1 hora. Si vence, solicita la recuperación de contraseña con este mismo correo. Dudas: administrativo@fonneta.com`,
+    });
+  }
+
+  /**
    * Enviar orden de compra al proveedor
    */
   async sendPurchaseOrder(
