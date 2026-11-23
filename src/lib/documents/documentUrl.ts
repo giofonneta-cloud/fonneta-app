@@ -26,7 +26,7 @@ export function parseDocumentUrl(rawUrl: string, supabaseUrl?: string): Document
   }
 
   if (supabaseUrl && url.hostname === new URL(supabaseUrl).hostname) {
-    const match = url.pathname.match(/^\/storage\/v1\/object\/(?:public|sign)\/([^/]+)\/(.+)$/);
+    const match = url.pathname.match(/^\/storage\/v1\/object\/public\/([^/]+)\/(.+)$/);
     if (match) return { kind: 'storage', bucket: match[1], path: decodeURIComponent(match[2]) };
   }
 

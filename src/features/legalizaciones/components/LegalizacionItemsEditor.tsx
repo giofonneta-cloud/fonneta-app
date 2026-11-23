@@ -149,7 +149,7 @@ function ItemRow({ item, index, categorias, canRemove, onChange, onRemove, onUpl
           onChange={(value) => onChange(item.key, { establecimiento: value })}
         />
       </td>
-      <td className="px-1 py-2 w-[130px]">
+      <td className="px-1 py-2 min-w-[170px]">
         <input
           type="text"
           aria-label={`NIT del proveedor ${rowLabel}`}
@@ -272,7 +272,7 @@ export function LegalizacionItemsEditor({ items, categorias, onItemsChange, onUp
       </div>
 
       <div className="overflow-x-auto border border-slate-200 rounded-xl">
-        <table className="w-full min-w-[1400px] text-sm">
+        <table className="w-full min-w-[1500px] text-sm">
           <thead className="bg-slate-50 border-b border-slate-200">
             <tr className="text-left text-xs font-bold text-slate-500">
               {HEADERS.map((header, i) => (

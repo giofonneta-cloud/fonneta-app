@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { jsonError, requireUser } from '@/lib/auth/guard';
+import { getDriveService } from '@/lib/google-drive/driveService';
+import { parseDocumentUrl } from '@/lib/documents/documentUrl';
+import { userOwnsDriveFile } from '@/lib/documents/ownership';
 import { syncProviderDocuments } from '@/lib/providers/syncProviderDocuments';
 
 const urlField = z.string().trim().url().max(2048).nullable().optional();
@@ -32,11 +35,28 @@ export async function PATCH(request: NextRequest): Promise<NextResponse> {
   if (!auth.ctx.isStaff) {
     const { data: owned } = await admin
       .from('providers')
-      .select('id')
+      .select('id, document_number')
       .eq('id', providerId)
       .eq('user_id', auth.ctx.user.id)
       .maybeSingle();
     if (!owned) return jsonError(403, 'No tienes permisos para modificar este proveedor');
+
+    // Un proveedor solo puede enlazar archivos que YA están en su propia carpeta de Drive
+    // (subidos por el servidor). Impide apuntar la fila a documentos de otros proveedores.
+    const submitted = Object.values(urls).filter((value): value is string => Boolean(value));
+    if (submitted.length > 0) {
+      const drive = getDriveService();
+      for (const url of submitted) {
+        const target = parseDocumentUrl(url);
+        if (!target || target.kind !== 'drive') return jsonError(400, 'Documento inválido');
+        const ancestry = await drive.getAncestry(target.fileId);
+        const mine = ancestry.insideRoot && userOwnsDriveFile(ancestry.names, {
+          userId: auth.ctx.user.id,
+          providerDocumentNumbers: [String(owned.document_number ?? '')].filter(Boolean),
+        });
+        if (!mine) return jsonError(403, 'El documento no pertenece a tu carpeta');
+      }
+    }
   }
 
   const { error } = await admin

@@ -2,8 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getDriveService } from '@/lib/google-drive/driveService';
-import { jsonError, requireUser } from '@/lib/auth/guard';
-import { parseDocumentUrl } from '@/lib/documents/documentUrl';
+import { jsonError, requireUser, type AuthContext } from '@/lib/auth/guard';
+import { parseDocumentUrl, type DocumentTarget } from '@/lib/documents/documentUrl';
+import { userOwnsDriveFile, userOwnsStoragePath } from '@/lib/documents/ownership';
 
 const MAX_SERVED_BYTES = 25 * 1024 * 1024;
 const INLINE_MIMES = ['application/pdf', 'image/png', 'image/jpeg'];
@@ -24,11 +25,8 @@ const DOCUMENT_COLUMNS: ReadonlyArray<readonly [string, string]> = [
   ['legalizacion_items', 'soporte_url'],
 ];
 
-/**
- * Un usuario que no es personal interno solo puede abrir documentos que su propia
- * sesión puede leer en la BD (RLS garantiza que sean los suyos).
- */
-async function userOwnsDocument(url: string): Promise<boolean> {
+/** Filtro previo y barato: la URL aparece en una fila que la sesión del usuario puede leer (RLS). */
+async function urlAppearsInOwnRows(url: string): Promise<boolean> {
   const supabase = await createClient();
   const checks = await Promise.all(
     DOCUMENT_COLUMNS.map(async ([table, column]) => {
@@ -37,6 +35,40 @@ async function userOwnsDocument(url: string): Promise<boolean> {
     })
   );
   return checks.some(Boolean);
+}
+
+/**
+ * Autorización por UBICACIÓN REAL del archivo, no por lo que diga una URL guardada
+ * (una URL en una fila que el usuario puede escribir no prueba que el archivo sea suyo):
+ *  - Drive: debe colgar de la raíz de la app; un no-staff además debe estar en SU carpeta.
+ *  - Storage: un no-staff solo accede a rutas `documents/<su-id | id-de-su-proveedor>/...`.
+ */
+async function canServe(ctx: AuthContext, target: DocumentTarget, rawUrl: string): Promise<boolean> {
+  if (target.kind === 'drive') {
+    const ancestry = await getDriveService().getAncestry(target.fileId);
+    if (!ancestry.insideRoot) return false;
+    if (ctx.isStaff) return true;
+
+    if (!(await urlAppearsInOwnRows(rawUrl))) return false;
+    const supabase = await createClient();
+    const { data: providers } = await supabase
+      .from('providers')
+      .select('document_number')
+      .eq('user_id', ctx.user.id);
+
+    return userOwnsDriveFile(ancestry.names, {
+      userId: ctx.user.id,
+      providerDocumentNumbers: (providers ?? []).map((p) => String(p.document_number ?? '')).filter(Boolean),
+    });
+  }
+
+  if (target.bucket !== 'providers') return false;
+  if (ctx.isStaff) return true;
+
+  if (!(await urlAppearsInOwnRows(rawUrl))) return false;
+  const supabase = await createClient();
+  const { data: providers } = await supabase.from('providers').select('id').eq('user_id', ctx.user.id);
+  return userOwnsStoragePath(target.path, [ctx.user.id, ...(providers ?? []).map((p) => String(p.id))]);
 }
 
 function safeFileName(name: string): string {
@@ -53,11 +85,11 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   const target = parseDocumentUrl(rawUrl, process.env.NEXT_PUBLIC_SUPABASE_URL);
   if (!target) return jsonError(400, 'Documento inválido');
 
-  if (!auth.ctx.isStaff && !(await userOwnsDocument(rawUrl))) {
-    return jsonError(403, 'No tienes acceso a este documento');
-  }
-
   try {
+    if (!(await canServe(auth.ctx, target, rawUrl))) {
+      return jsonError(403, 'No tienes acceso a este documento');
+    }
+
     if (target.kind === 'storage') {
       const admin = createAdminClient();
       const { data, error } = await admin.storage.from(target.bucket).createSignedUrl(target.path, 60);

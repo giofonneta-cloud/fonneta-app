@@ -207,6 +207,37 @@ export class DriveStorageService {
   }
 
 
+
+  /** ID de la carpeta raíz de la app (o de la unidad compartida). */
+  getRootFolderId(): string {
+    return this.rootFolderId;
+  }
+
+  /**
+   * Cadena de nombres desde el archivo hacia arriba, sin incluir la raíz de la app.
+   * `insideRoot` es true solo si el archivo cuelga realmente de GOOGLE_DRIVE_ROOT_FOLDER_ID.
+   * Ej.: ['RUT_x.pdf', 'Documentos', '900123_Empresa', 'Proveedores'].
+   */
+  async getAncestry(fileId: string): Promise<{ insideRoot: boolean; names: string[] }> {
+    const names: string[] = [];
+    let currentId = fileId;
+
+    for (let depth = 0; depth < 8; depth++) {
+      const res = await this.drive.files.get({
+        fileId: currentId,
+        fields: 'name, parents',
+        supportsAllDrives: true,
+      });
+      names.push(res.data.name ?? '');
+
+      const parent = res.data.parents?.[0];
+      if (!parent) return { insideRoot: false, names };
+      if (parent === this.rootFolderId) return { insideRoot: true, names };
+      currentId = parent;
+    }
+    return { insideRoot: false, names };
+  }
+
   /**
    * Metadatos mínimos de un archivo (nombre y tipo) para servirlo desde la app.
    */
