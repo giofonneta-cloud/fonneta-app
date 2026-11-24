@@ -88,7 +88,7 @@ export interface ProviderInvoice {
     iva_porcentaje: number;
     iva_valor: number;
     total_con_iva: number;
-    plazo_pago: number; // Por defecto 60
+    plazo_pago: number; // Por defecto 30, contados desde la radicación
     concept: string;
     document_url: string | null;
     orden_compra_url?: string | null;

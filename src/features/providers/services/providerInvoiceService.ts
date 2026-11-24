@@ -5,6 +5,7 @@ import {
     UpdateInvoiceInput,
     InvoiceStatus
 } from '../types/provider.types';
+import { DEFAULT_PAYMENT_TERM_DAYS, paymentDueDateISO, toBogotaDateISO } from '@/shared/lib/paymentTerm';
 
 export const providerInvoiceService = {
     /**
@@ -24,7 +25,7 @@ export const providerInvoiceService = {
                 iva_porcentaje: input.iva_porcentaje,
                 iva_valor: input.iva_valor,
                 total_con_iva: input.total_con_iva,
-                plazo_pago: input.plazo_pago || 60,
+                plazo_pago: input.plazo_pago || DEFAULT_PAYMENT_TERM_DAYS,
                 concept: input.concept,
                 document_url: input.document_url || null,
                 orden_compra_url: input.orden_compra_url || null,
@@ -126,7 +127,7 @@ export const providerInvoiceService = {
             project_id: projectId || null,
             categoria: categoria || null,
             cost_center: costCenter || null,
-            plazo_pago: plazoPago ?? 60,
+            ...(plazoPago !== undefined && { plazo_pago: plazoPago }),
             updated_at: new Date().toISOString()
         };
 
@@ -233,9 +234,9 @@ export const providerInvoiceService = {
                     categoria: updatedInvoice.categoria || 'pendiente',
                     numero_factura_proveedor: updatedInvoice.invoice_number,
                     factura_url: updatedInvoice.document_url || undefined,
-                    fecha_radicado: new Date().toISOString().split('T')[0],
-                    // Calcular fecha límite de pago basado en plazo_pago
-                    fecha_limite_pago: new Date(Date.now() + (updatedInvoice.plazo_pago || 60) * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+                    fecha_radicado: toBogotaDateISO(updatedInvoice.created_at),
+                    // Fonneta paga a 30 días contados desde la radicación en el sistema
+                    fecha_limite_pago: paymentDueDateISO(updatedInvoice.created_at, updatedInvoice.plazo_pago || DEFAULT_PAYMENT_TERM_DAYS),
                     estado_pago: 'pendiente',
                     cost_center: updatedInvoice.cost_center || null,
                     observaciones: `[AUTO] Generado desde Radicado ${updatedInvoice.radicado_number}. ${updatedInvoice.admin_notes || ''}`

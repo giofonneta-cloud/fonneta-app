@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getEmailService } from '@/lib/email/emailService';
 import { requireStaff } from '@/lib/auth/guard';
+import { formatLongDateES, paymentDueDateISO } from '@/shared/lib/paymentTerm';
 
 export const dynamic = 'force-dynamic';
 
@@ -62,8 +63,9 @@ export async function POST(request: NextRequest) {
       const fmt = (n: number) => `$${Number(n).toLocaleString('es-CO')}`;
       const fmtDate = (d: string | null) => d ? new Date(d + 'T00:00:00').toLocaleDateString('es-CO', { day: '2-digit', month: 'long', year: 'numeric' }) : 'N/A';
 
+      // 30 días (o el plazo de la factura) a partir de la radicación, no desde el momento de la aprobación
       const fechaPagoEstimada = invoice.plazo_pago
-        ? new Date(Date.now() + invoice.plazo_pago * 24 * 60 * 60 * 1000).toLocaleDateString('es-CO', { day: '2-digit', month: 'long', year: 'numeric' })
+        ? formatLongDateES(paymentDueDateISO(invoice.created_at, invoice.plazo_pago))
         : 'N/A';
 
       const docLink = (label: string, url: string | null | undefined) =>

@@ -6,6 +6,7 @@ import { useProviderProfile } from '../hooks/useProviderProfile';
 import { providerInvoiceService } from '../services/providerInvoiceService';
 import { InvoiceType } from '../types/provider.types';
 import { Loader2, Save, Upload, FileText, DollarSign } from 'lucide-react';
+import { DEFAULT_PAYMENT_TERM_DAYS, formatLongDateES, paymentDueDateISO } from '@/shared/lib/paymentTerm';
 
 export function ProviderInvoiceForm() {
     const router = useRouter();
@@ -31,7 +32,7 @@ export function ProviderInvoiceForm() {
         tiene_iva: false,
         amount: '', // Este se usará para total_con_iva
         concept: '',
-        plazo_pago: 60
+        plazo_pago: DEFAULT_PAYMENT_TERM_DAYS
     });
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -356,17 +357,13 @@ export function ProviderInvoiceForm() {
                                 <span className="text-[10px] bg-blue-100 px-2 py-1 rounded-lg uppercase tracking-widest text-blue-600">ESTÁNDAR FONNETA</span>
                             </div>
                             <div className="mt-3 p-3 bg-white border border-blue-50 rounded-xl">
-                                <div className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Fecha de Pago Estimada</div>
+                                <div className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Fecha de Pago Estimada (desde hoy)</div>
                                 <div className="text-sm font-bold text-blue-600 mt-1">
-                                    {formData.issue_date ? (
-                                        new Date(new Date(formData.issue_date).getTime() + (formData.plazo_pago * 24 * 60 * 60 * 1000)).toLocaleDateString('es-CO', { 
-                                            day: '2-digit', month: 'long', year: 'numeric' 
-                                        })
-                                    ) : '--'}
+                                    {formatLongDateES(paymentDueDateISO(new Date(), formData.plazo_pago))}
                                 </div>
                             </div>
                             <p className="text-[10px] text-gray-400 mt-2 font-bold uppercase tracking-tighter">
-                                Los pagos se procesan a 60 días del radicado.
+                                Los pagos se procesan a 30 días a partir de la radicación en el sistema.
                             </p>
                         </div>
                         {/* Fecha de Vencimiento eliminada */}

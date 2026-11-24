@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { AdminCreateInvoiceModal } from './AdminCreateInvoiceModal';
 import { useResizableColumns } from '@/shared/hooks/useResizableColumns';
+import { DEFAULT_PAYMENT_TERM_DAYS, formatLongDateES, paymentDueDateISO } from '@/shared/lib/paymentTerm';
 
 const STATUS_CONFIG = {
     'pendiente': { icon: Clock, color: 'text-yellow-600', bg: 'bg-yellow-50', border: 'border-yellow-200', label: 'Pendiente' },
@@ -52,7 +53,7 @@ export function AdminInvoicesView() {
         project_id: '',
         categoria: '',
         cost_center: '',
-        plazo_pago: 60
+        plazo_pago: DEFAULT_PAYMENT_TERM_DAYS
     });
 
     useEffect(() => {
@@ -68,7 +69,7 @@ export function AdminInvoicesView() {
                 project_id: selectedInvoice.project_id || '',
                 categoria: selectedInvoice.categoria || '',
                 cost_center: selectedInvoice.cost_center || '',
-                plazo_pago: selectedInvoice.plazo_pago || 60
+                plazo_pago: selectedInvoice.plazo_pago || DEFAULT_PAYMENT_TERM_DAYS
             });
         }
     }, [selectedInvoice]);
@@ -507,7 +508,7 @@ export function AdminInvoicesView() {
                                     </div>
                                     <div>
                                         <div className="text-[10px] font-black text-blue-600 uppercase tracking-widest">Plazo de Pago</div>
-                                        <div className="text-xs text-blue-700 font-bold max-w-[180px]">Días acordados para el desembolso después del radicado.</div>
+                                        <div className="text-xs text-blue-700 font-bold max-w-[180px]">Días para el desembolso, contados desde la radicación en el sistema.</div>
                                     </div>
                                 </div>
                                 <div className="flex flex-col items-end gap-2">
@@ -523,11 +524,7 @@ export function AdminInvoicesView() {
                                     <div className="text-right">
                                         <div className="text-[10px] font-black text-blue-400 uppercase tracking-widest">Fecha Estimada</div>
                                         <div className="text-sm font-black text-blue-600">
-                                            {selectedInvoice.issue_date ? (
-                                                new Date(new Date(selectedInvoice.issue_date).getTime() + (updateData.plazo_pago * 24 * 60 * 60 * 1000)).toLocaleDateString('es-CO', {
-                                                    day: '2-digit', month: 'long', year: 'numeric'
-                                                })
-                                            ) : '--'}
+                                            {formatLongDateES(paymentDueDateISO(selectedInvoice.created_at, updateData.plazo_pago))}
                                         </div>
                                     </div>
                                 </div>

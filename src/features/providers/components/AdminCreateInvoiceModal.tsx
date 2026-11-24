@@ -5,6 +5,7 @@ import { X, Loader2, Search, Upload, FileText, ChevronDown } from 'lucide-react'
 import { providerInvoiceService } from '../services/providerInvoiceService';
 import { providerService } from '../services/providerService';
 import { Provider, InvoiceType } from '../types/provider.types';
+import { DEFAULT_PAYMENT_TERM_DAYS } from '@/shared/lib/paymentTerm';
 
 interface Props {
     onClose: () => void;
@@ -36,7 +37,7 @@ export function AdminCreateInvoiceModal({ onClose, onCreated }: Props) {
         valor_neto: '',
         iva_porcentaje: '0',
         tiene_iva: false,
-        plazo_pago: 60,
+        plazo_pago: DEFAULT_PAYMENT_TERM_DAYS,
     });
 
     const [docPrincipal, setDocPrincipal] = useState<FileSlot>(emptySlot());
@@ -308,7 +309,7 @@ export function AdminCreateInvoiceModal({ onClose, onCreated }: Props) {
                                         type="number"
                                         className="w-full px-3 py-2 bg-white rounded-xl outline-none focus:ring-2 focus:ring-blue-500/20 text-sm font-medium border border-gray-200"
                                         value={form.plazo_pago}
-                                        onChange={(e) => setForm(f => ({ ...f, plazo_pago: parseInt(e.target.value) || 60 }))}
+                                        onChange={(e) => setForm(f => ({ ...f, plazo_pago: parseInt(e.target.value) || DEFAULT_PAYMENT_TERM_DAYS }))}
                                     />
                                 </div>
                             </div>
